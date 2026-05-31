@@ -8,6 +8,107 @@ import { requestStore } from './request-store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
+const logDir = path.resolve(__dirname, '..', 'logs');
+
+// ---- Session helpers ----
+function readLogFile(filepath: string): string {
+  const raw = fs.readFileSync(filepath);
+  if (raw.length >= 2 && raw[0] === 0xFF && raw[1] === 0xFE) {
+    return raw.toString('utf16le');
+  }
+  return raw.toString('utf-8');
+}
+
+interface SessionSummary {
+  file: string;
+  date: string;
+  startTime: string;
+  endTime: string | null;
+  duration: string | null;
+  requestCount: number;
+  models: string[];
+}
+
+function parseSessionFile(filepath: string): SessionSummary | null {
+  try {
+    const basename = path.basename(filepath);
+    const m = basename.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log/);
+    if (!m) return null;
+    const date = `${m[1]}-${m[2]}-${m[3]}`;
+    const startTime = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
+
+    const content = readLogFile(filepath);
+    const lines = content.split('\n').filter(l => l.trim());
+
+    let lastTs = startTime;
+    const models = new Set<string>();
+    let requestCount = 0;
+
+    for (const line of lines) {
+      const tsMatch = line.match(/^\[([^\]]+)\]/);
+      if (tsMatch) lastTs = tsMatch[1];
+
+      if (line.includes('INTERCEPTED:')) {
+        requestCount++;
+      }
+
+      const modelMatch = line.match(/model=([^\s&]+)/);
+      if (modelMatch && !modelMatch[1].includes('gemini')) {
+        models.add(modelMatch[1]);
+      }
+    }
+
+    const endTime = lastTs;
+    const startMs = new Date(startTime).getTime();
+    const endMs = new Date(endTime).getTime();
+    const durMs = endMs - startMs;
+    const duration = durMs > 0
+      ? (durMs >= 3600000 ? `${(durMs / 3600000).toFixed(1)}h` : durMs >= 60000 ? `${Math.floor(durMs / 60000)}m ${Math.floor((durMs % 60000) / 1000)}s` : `${Math.floor(durMs / 1000)}s`)
+      : null;
+
+    return { file: basename, date, startTime, endTime, duration, requestCount, models: Array.from(models) };
+  } catch { return null; }
+}
+
+function getSessionsForDate(date: string): SessionSummary[] {
+  try {
+    const datePrefix = 'proxy_' + date.replace(/-/g, '');
+    const files = fs.readdirSync(logDir).filter(f => f.startsWith(datePrefix) && f.endsWith('.log'));
+    return files.map(f => parseSessionFile(path.join(logDir, f))).filter((s): s is SessionSummary => s !== null);
+  } catch { return []; }
+}
+
+function getSessionContent(filename: string): string | null {
+  try {
+    const filepath = path.join(logDir, path.basename(filename));
+    if (!filepath.startsWith(logDir)) return null;
+    return readLogFile(filepath);
+  } catch { return null; }
+}
+
+function deleteSessionFile(filename: string): boolean {
+  try {
+    const filepath = path.join(logDir, path.basename(filename));
+    if (!filepath.startsWith(logDir)) return false;
+    fs.unlinkSync(filepath);
+    return true;
+  } catch { return false; }
+}
+
+function getAllSessionDates(): { date: string; count: number }[] {
+  try {
+    const map = new Map<string, number>();
+    const files = fs.readdirSync(logDir).filter(f => f.startsWith('proxy_') && f.endsWith('.log'));
+    for (const f of files) {
+      const m = f.match(/proxy_(\d{4})(\d{2})(\d{2})_/);
+      if (m) {
+        const d = `${m[1]}-${m[2]}-${m[3]}`;
+        map.set(d, (map.get(d) || 0) + 1);
+      }
+    }
+    return Array.from(map.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => b.date.localeCompare(a.date));
+  } catch { return []; }
+}
 
 function jsonResp(res: http.ServerResponse, data: any, status = 200) {
   res.writeHead(status, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
@@ -143,15 +244,31 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
-    // History by date
-    if (url.pathname === '/api/history/dates' && method === 'GET') {
-      jsonResp(res, requestStore.getDates());
+    // Session history
+    if (url.pathname === '/api/sessions' && method === 'GET') {
+      const date = (url.searchParams.get('date') || '').trim();
+      if (date) {
+        jsonResp(res, getSessionsForDate(date));
+      } else {
+        jsonResp(res, getAllSessionDates());
+      }
       return;
     }
 
-    if (url.pathname === '/api/history' && method === 'GET') {
-      const date = (url.searchParams.get('date') || '').trim();
-      jsonResp(res, date ? requestStore.getByDate(date) : []);
+    if (url.pathname === '/api/sessions/content' && method === 'GET') {
+      const file = (url.searchParams.get('file') || '').trim();
+      if (!file) { jsonResp(res, { error: 'file param required' }, 400); return; }
+      const content = getSessionContent(file);
+      if (content === null) { jsonResp(res, { error: 'not found' }, 404); return; }
+      jsonResp(res, { file, content });
+      return;
+    }
+
+    if (url.pathname === '/api/sessions' && method === 'DELETE') {
+      const file = (url.searchParams.get('file') || '').trim();
+      if (!file) { jsonResp(res, { error: 'file param required' }, 400); return; }
+      if (deleteSessionFile(file)) jsonResp(res, { ok: true });
+      else jsonResp(res, { error: 'not found' }, 404);
       return;
     }
 

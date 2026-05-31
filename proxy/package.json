@@ -12,6 +12,7 @@
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",
+    "ai": "^6.0.193",
     "dotenv": "^17.4.2",
     "node-forge": "^1.4.0"
   },

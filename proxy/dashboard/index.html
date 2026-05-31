@@ -288,7 +288,7 @@ tbody tr:hover{background:var(--surface2);}
   padding:16px;margin-top:4px;display:none;
 }
 .req-detail.open{display:table-row;}
-.req-detail-inner{display:block;padding:16px;}
+.req-detail-inner{display:block;padding:16px;max-height:500px;overflow-y:auto;}
 .req-detail h4{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;}
 .req-detail pre{
   background:var(--surface);padding:12px;border-radius:6px;font-size:12px;
@@ -646,7 +646,7 @@ tbody tr:hover{background:var(--surface2);}
       <div class="filter-bar">
         <div class="search-wrap" style="max-width:200px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="date" id="historyDate" onchange="loadHistory()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+          <input type="date" id="historyDate" onchange="loadSessions()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
         <span class="count" id="historyCount">Select a date</span>
         <span style="flex:1"></span>
@@ -655,11 +655,10 @@ tbody tr:hover{background:var(--surface2);}
       <div id="historyContent">
         <div class="empty-state">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <p>Select a date to see history</p>
-          <p class="sub">Pick a date from the calendar or click a date chip above.</p>
+          <p>Select a date to see session history</p>
+          <p class="sub">Each session is one proxy launch. Expand to see all requests within it.</p>
         </div>
       </div>
-      <div class="pagination" id="historyPagination" style="display:none"></div>
     </section>
 
   </main>
@@ -693,7 +692,7 @@ function refreshTab(tab) {
   if (tab === 'requests') renderRequests();
   else if (tab === 'models') loadModels();
   else if (tab === 'dashboard') reloadAll();
-  else if (tab === 'history') { loadDates(); loadHistory(); }
+  else if (tab === 'history') { loadSessionDates(); loadSessions(); }
 }
 
 // Refresh button
@@ -830,47 +829,203 @@ function goReqPage(p) { _reqPage = p; renderRequests(); }
 
 async function clearRequests() { await api('DELETE','/api/requests'); openDetails.clear(); _reqPage = 1; renderRequests(); reloadAll(); toast('Requests cleared'); }
 
-// ---- History tab ----
-let _histDate = '', _histPage = 1, _histList = [];
+// ---- History tab (session-based) ----
+let _histDate = '';
+let _openSessions = new Set();
 
-async function loadDates() {
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+async function loadSessionDates() {
   try {
-    const dates = await api('GET', '/api/history/dates');
+    const dates = await api('GET', '/api/sessions');
     const container = document.getElementById('historyDateList');
-    const currentDate = document.getElementById('historyDate').value;
+    const currentDate = document.getElementById('historyDate').value || todayStr();
     container.innerHTML = dates.map(d =>
-      `<span class="date-chip${d.date===currentDate?' active':''}" onclick="pickDate('${d.date}')">${d.date} <span class="dc-count">${d.count}</span></span>`
+      `<span class="date-chip${d.date===currentDate?' active':''}" onclick="pickSessionDate('${d.date}')">${d.date} <span class="dc-count">${d.count}</span></span>`
     ).join('');
-    if (!currentDate && dates.length > 0) pickDate(dates[0].date);
+    if (!document.getElementById('historyDate').value) {
+      document.getElementById('historyDate').value = currentDate;
+    }
+    loadSessions();
   } catch (e) {}
 }
 
-function pickDate(date) {
+function pickSessionDate(date) {
   document.getElementById('historyDate').value = date;
   document.querySelectorAll('.date-chip').forEach(c => c.classList.toggle('active', c.textContent.trim().startsWith(date)));
-  _histPage = 1;
-  loadHistory();
+  _openSessions.clear();
+  loadSessions();
 }
 
-async function loadHistory() {
+async function loadSessions() {
   try {
     const date = document.getElementById('historyDate').value;
     if (!date) return;
     _histDate = date;
-    _histList = await api('GET', '/api/history?date='+encodeURIComponent(date));
-    if (_histPage > Math.ceil(_histList.length/PER_PAGE)) _histPage = 1;
-    document.getElementById('historyCount').textContent = _histList.length + ' request' + (_histList.length!==1?'s':'') + ' on ' + date;
+    const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(date));
+    document.getElementById('historyCount').textContent = sessions.length + ' session' + (sessions.length!==1?'s':'') + ' on ' + date;
     const c = document.getElementById('historyContent');
-    if (_histList.length === 0) {
-      c.innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No requests on this date</p></div>';
-      document.getElementById('historyPagination').style.display = 'none';
+    if (sessions.length === 0) {
+      c.innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No sessions on this date</p><p class="sub">Start the proxy to create a new session.</p></div>';
       return;
     }
-    c.innerHTML = '<div class="table-wrap"><table><thead><tr><th style="width:70px">Time</th><th style="width:70px">Type</th><th>Model</th><th style="width:70px">Tokens</th><th>Content</th><th style="width:44px"></th></tr></thead><tbody>' + buildReqRows(_histList, _histPage) + '</tbody></table></div>';
-    renderPagination(document.getElementById('historyPagination'), _histPage, _histList.length, PER_PAGE, 'goHistPage');
+    let html = '';
+    for (const s of sessions) {
+      const sid = esc(s.file);
+      const isOpen = _openSessions.has(s.file);
+      html += `<div class="env-section" style="cursor:pointer" onclick="toggleSession('${sid}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex-shrink:0;color:var(--accent2)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:500">${esc(s.file)}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.startTime)}${s.duration ? ' · '+esc(s.duration) : ''}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+            <span style="font-size:12px;color:var(--text2)">${s.requestCount} req</span>
+            ${s.models.map(m => `<span class="tag tag-text">${esc(m)}</span>`).join('')}
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSession('${sid}')" data-tooltip="Delete session">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              Delete
+            </button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--text3);transition:transform 200ms;transform:rotate(${isOpen?180:0}deg)"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <div id="ss-${sid}" style="display:${isOpen?'block':'none'};margin-top:0;padding:0 20px 20px">
+        <div class="session-reqs" id="sreq-${sid}"><div style="text-align:center;padding:20px;color:var(--text3)">Loading requests...</div></div>
+      </div>`;
+    }
+    c.innerHTML = html;
   } catch (e) {}
 }
-function goHistPage(p) { _histPage = p; loadHistory(); }
+
+async function toggleSession(file) {
+  const sid = esc(file);
+  const el = document.getElementById('ss-'+sid);
+  if (!el) return;
+  const isOpening = !_openSessions.has(file);
+  if (isOpening) {
+    _openSessions.add(file);
+    el.style.display = 'block';
+    const arrow = el.previousElementSibling.querySelector('svg:last-child');
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    // Load session content
+    try {
+      const data = await api('GET', '/api/sessions/content?file='+encodeURIComponent(file));
+      const reqs = parseLogToRequests(data.content);
+      const container = document.getElementById('sreq-'+sid);
+      if (reqs.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">No requests in this session</div>';
+        return;
+      }
+      let html = '<div class="table-wrap"><table><thead><tr><th style="width:70px">Time</th><th style="width:70px">Type</th><th>Model</th><th style="width:70px">Tokens</th><th>Content</th><th style="width:44px"></th></tr></thead><tbody>';
+      for (const r of reqs) {
+        const tc = (r.promptTokens||0)+(r.outputTokens||0);
+        const typeTag = `<span class="tag tag-${r.type}"><span>${r.type}</span></span>`;
+        const toolStr = r.toolCalls ? r.toolCalls.length+' tool(s)' : '';
+        const rid = esc(r.id);
+        html += `<tr style="cursor:pointer" onclick="toggleSessDetail('${rid}')">
+          <td style="font-size:11px;color:var(--text3);white-space:nowrap">${esc(r.time)}</td>
+          <td>${typeTag}</td>
+          <td style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px" title="${esc(r.model)}">${esc(r.model||'—')}</td>
+          <td style="font-size:12px;color:var(--text2)">${tc||'—'}</td>
+          <td><span class="td-wrap">${r.content ? esc(r.content.slice(0,90)) : (toolStr||'—')}</span></td>
+          <td><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;color:var(--text3)"><circle cx="12" cy="12" r="10"/><polyline points="12 16 12 12 12 8"/></svg></td>
+        </tr>
+        <tr id="sd-${rid}" style="display:none"><td colspan="6"><div class="req-detail-inner">
+          <h4>Full Content</h4><pre>${esc(r.content||'—')}</pre>
+          ${r.toolCalls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>'+esc(JSON.stringify(r.toolCalls,null,2))+'</pre>' : ''}
+          ${r.error ? '<h4 style="margin-top:14px;color:var(--red)">Error</h4><pre style="color:var(--red)">'+esc(r.error)+'</pre>' : ''}
+          <p style="font-size:11px;color:var(--text3);margin-top:8px">Model: ${esc(r.model)}</p>
+        </div></td></tr>`;
+      }
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    } catch (e) {
+      document.getElementById('sreq-'+sid).innerHTML = '<div style="text-align:center;padding:16px;color:var(--red);font-size:13px">Failed to load session: '+esc(e.message)+'</div>';
+    }
+  } else {
+    _openSessions.delete(file);
+    el.style.display = 'none';
+    const arrow = el.previousElementSibling.querySelector('svg:last-child');
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
+  }
+}
+
+function toggleSessDetail(id) {
+  const el = document.getElementById('sd-'+id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+}
+
+function parseLogToRequests(content) {
+  const lines = content.split('\n').filter(l => l.trim());
+  const reqs = [];
+  let current = null;
+  for (const line of lines) {
+    const tsMatch = line.match(/^\[([^\]]+)\]/);
+    const ts = tsMatch ? tsMatch[1] : '';
+    const time = ts.slice(11,19);
+
+    if (line.includes('INTERCEPTED:')) {
+      if (current) reqs.push(current);
+      const modelMatch = line.match(/model=([^\s&]+)/);
+      const model = modelMatch ? decodeURIComponent(modelMatch[1]) : '—';
+      current = { id: 'r'+reqs.length+'_'+Date.now(), time, ts, type: 'incoming', model, content: '', toolCalls: null, error: null, promptTokens: 0, outputTokens: 0 };
+      // Extract body snippet
+      const bm = line.match(/bodySnippet":"([^"]+)/);
+      if (bm) current.content = bm[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').slice(0,500);
+    } else if (line.includes('Completed:')) {
+      if (!current) {
+        current = { id: 'r'+reqs.length+'_'+Date.now(), time, ts, type: 'incoming', model: '—', content: '', toolCalls: null, error: null, promptTokens: 0, outputTokens: 0 };
+      }
+      current.type = 'text';
+      // Extract chars
+      const cm = line.match(/\((\d+) chars/);
+      if (cm) current.outputTokens = parseInt(cm[1]);
+      // Extract tool calls
+      const tcm = line.match(/(\d+) tool calls?/);
+      if (tcm) {
+        const tcCount = parseInt(tcm[1]);
+        // Try to extract tool call details from JSON at end
+        const jsonMatch = line.match(/\{.*"toolCalls":/);
+        if (jsonMatch) {
+          try {
+            const jsonStart = line.indexOf('{');
+            const jsonStr = line.slice(jsonStart);
+            const parsed = JSON.parse(jsonStr);
+            current.toolCalls = parsed.toolCalls || [];
+          } catch {}
+        }
+        if (!current.toolCalls) current.toolCalls = [{name: '(see detail)', args: {}}];
+      }
+      // Extract model
+      const modelMatch = line.match(/model:\s*([^)\s]+)/);
+      if (modelMatch) current.model = modelMatch[1];
+      reqs.push(current);
+      current = null;
+    } else if (line.includes('ERROR') || line.includes('error')) {
+      if (current) {
+        current.error = line;
+      }
+    }
+  }
+  if (current) reqs.push(current);
+  return reqs;
+}
+
+async function deleteSession(file) {
+  if (!confirm('Delete session '+file+'?')) return;
+  try {
+    await api('DELETE', '/api/sessions?file='+encodeURIComponent(file));
+    _openSessions.delete(file);
+    toast('Session deleted');
+    loadSessions();
+    loadSessionDates();
+  } catch (e) { toast('Delete failed: '+e.message, true); }
+}
 
 // ---- Config ----
 async function saveConfig() {
@@ -931,7 +1086,7 @@ function connectSSE() {
     reloadAll();
     const tab = document.querySelector('.nav-item.active')?.dataset.tab;
     if (tab === 'requests') renderRequests();
-    if (tab === 'history') { loadDates(); loadHistory(); }
+    if (tab === 'history') { loadSessionDates(); loadSessions(); }
   });
   eventSource.addEventListener('log', e => {
     try { const d = JSON.parse(e.data); logBuf.push(d); if (logBuf.length>1000) logBuf.shift(); appendLog(d); } catch {}
@@ -943,8 +1098,9 @@ function connectSSE() {
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ---- Init ----
-[document.getElementById('reqPagination'), document.getElementById('historyPagination')].forEach(el => { if (el) el.style.display='none'; });
-reloadAll(); renderRequests(); loadModels(); connectSSE();
+[document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
+document.getElementById('historyDate').value = todayStr();
+reloadAll(); renderRequests(); loadModels(); connectSSE(); loadSessionDates();
 api('GET','/api/logs').then(logs => { logs.forEach(e => { logBuf.push(e); appendLog(e, true); }); }).catch(()=>{});
 </script>
 </body>
