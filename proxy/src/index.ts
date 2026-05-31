@@ -110,31 +110,47 @@ function stripSystemContext(text: string): string {
   return text;
 }
 
-function buildGoogleEvent(
-  fullText: string,
-  opts: {
-    modelVersion: string;
-    projectPath: string;
-    responseId: string;
-    traceId: string;
-    promptTokens: number;
-    finishReason?: string;
-    thoughtText?: string;
-    functionCall?: { name: string; args: any };
-  },
-): string {
+const SAFETY_RATINGS = [
+  { category: 'HARM_CATEGORY_HARASSMENT', probability: 'NEGLIGIBLE' },
+  { category: 'HARM_CATEGORY_HATE_SPEECH', probability: 'NEGLIGIBLE' },
+  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', probability: 'NEGLIGIBLE' },
+  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', probability: 'NEGLIGIBLE' },
+];
+
+const GROUNDING_METADATA = { groundingChunks: [], groundingSupports: [] };
+
+interface BuildEventOpts {
+  modelVersion: string;
+  projectPath: string;
+  responseId: string;
+  traceId: string;
+  promptTokens: number;
+  finishReason?: string;
+  thoughtText?: string;
+  functionCalls?: { name: string; args: any }[];
+  text?: string;
+}
+
+function buildGoogleEvent(opts: BuildEventOpts): string {
   const parts: any[] = [];
   if (opts.thoughtText) parts.push({ thought: true, text: opts.thoughtText });
-  if (opts.functionCall) {
-    parts.push({ functionCall: { name: opts.functionCall.name, args: opts.functionCall.args } });
-  } else {
-    parts.push({ text: fullText });
+  if (opts.functionCalls) {
+    for (const fc of opts.functionCalls) {
+      parts.push({ functionCall: { name: fc.name, args: fc.args } });
+    }
+  } else if (opts.text != null) {
+    parts.push({ text: opts.text });
   }
 
-  const candidate: any = { content: { role: 'model', parts } };
+  const candidate: any = {
+    index: 0,
+    content: { role: 'model', parts },
+    safetyRatings: SAFETY_RATINGS,
+    groundingMetadata: GROUNDING_METADATA,
+  };
   if (opts.finishReason) candidate.finishReason = opts.finishReason;
 
-  const outTokens = estTokens(fullText);
+  const outTokens = estTokens(opts.text || '');
   return `data: ${JSON.stringify({
     response: {
       candidates: [candidate],
@@ -226,27 +242,23 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     if (toolCalls.length > 0) {
       // Send text (if any) as intermediate event
       if (fullText) {
-        const textEv = buildGoogleEvent(fullText, {
+        res.write(buildGoogleEvent({
           modelVersion: resolvedModel, projectPath, responseId, traceId, promptTokens,
-        });
-        res.write(textEv, 'utf-8');
+          text: fullText,
+        }), 'utf-8');
       }
-      // Send function call events (one per tool call) — last one gets finishReason STOP
-      for (let i = 0; i < toolCalls.length; i++) {
-        const isLast = i === toolCalls.length - 1;
-        const fcEv = buildGoogleEvent('', {
-          modelVersion: resolvedModel, projectPath, responseId, traceId, promptTokens,
-          finishReason: isLast ? 'STOP' : undefined,
-          functionCall: { name: toolCalls[i].name, args: toolCalls[i].args },
-        });
-        res.write(fcEv, 'utf-8');
-      }
-    } else {
-      const finalEv = buildGoogleEvent(fullText, {
+      // Send ALL tool calls as a SINGLE event with flat parts array + STOP
+      res.write(buildGoogleEvent({
         modelVersion: resolvedModel, projectPath, responseId, traceId, promptTokens,
+        functionCalls: toolCalls,
         finishReason: 'STOP',
-      });
-      res.write(finalEv, 'utf-8');
+      }), 'utf-8');
+    } else {
+      res.write(buildGoogleEvent({
+        modelVersion: resolvedModel, projectPath, responseId, traceId, promptTokens,
+        text: fullText,
+        finishReason: 'STOP',
+      }), 'utf-8');
     }
     res.end();
 
