@@ -2,18 +2,15 @@ import type { Content, Part, Tool, GenerationConfig } from './types.js';
 import { DEFAULT_MODEL_MAP, type ModelMap } from './types.js';
 import { logger } from './logger.js';
 
-export interface CoreMessage {
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string | CoreContentPart[];
-}
-
-export interface CoreContentPart {
-  type: 'text' | 'tool-call' | 'tool-result';
-  text?: string;
-  toolCallId?: string;
-  toolName?: string;
-  args?: Record<string, unknown>;
-  output?: { type: 'text'; value: string } | { type: 'json'; value: unknown };
+export interface OpenAIMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: { name: string; arguments: string };
+  }>;
+  tool_call_id?: string;
 }
 
 export interface CoreTool {
@@ -23,7 +20,7 @@ export interface CoreTool {
 
 export interface MappedRequest {
   system?: string;
-  messages: CoreMessage[];
+  messages: OpenAIMessage[];
   tools?: Record<string, CoreTool>;
   maxTokens?: number;
   temperature?: number;
@@ -33,97 +30,84 @@ export interface MappedRequest {
   providerOptions?: { openai?: { reasoningEffort?: string } };
 }
 
-export interface MappedResponse {
-  text: string;
-  finishReason: string | null;
-  toolCalls?: { name: string; args: Record<string, unknown> }[];
+export interface MappedConfig {
+  maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  stopSequences?: string[];
+  providerOptions?: { openai?: { reasoningEffort?: string } };
 }
 
 export function mapModelName(model: string, modelMap: ModelMap = DEFAULT_MODEL_MAP): string {
-  // Direct match
   if (modelMap[model]) return modelMap[model];
-  // Strip prefix like "models/"
   const short = model.replace(/^models\//, '');
   if (modelMap[short]) return modelMap[short];
-  // Try prefix matching: "claude-sonnet-4-6-thinking" → check for "claude-sonnet-4-6"
   for (const key of Object.keys(modelMap)) {
     if (short.startsWith(key) || key.startsWith(short)) return modelMap[key];
   }
-  // Fallback
   return modelMap['default'] || model;
 }
 
+function callId(name: string, idx: number): string {
+  return `call_${name}_${idx}`;
+}
+
 export function mapContentsToMessages(contents: Content[], systemInstruction?: string): MappedRequest {
-  const messages: CoreMessage[] = [];
+  const messages: OpenAIMessage[] = [];
+  let callIndex = 0;
+  const recentCallIds: Map<string, string> = new Map();
 
   for (const content of contents) {
-    const role = content.role === 'model' ? 'assistant' : content.role as CoreMessage['role'];
-
-    // Support both Google format (content.parts[]) and Vercel SDK format (content.content[])
+    const role = content.role === 'model' ? 'assistant' : content.role as OpenAIMessage['role'];
     const parts = content.parts || (Array.isArray(content.content) ? content.content : []);
+
     if (parts.length === 0 && content.content && typeof content.content === 'string') {
-      // Already a plain string
       messages.push({ role, content: content.content });
       continue;
     }
 
-    // Extract text parts (both Google format: {text: "..."} and Vercel SDK format: {type: "text", text: "..."})
     const textParts = parts
       .filter((p: any) => p.text || (p.type === 'text' && p.text))
       .map((p: any) => p.text || '')
       .join('');
 
-    // Google format function calls: {functionCall: {name, args}}
     const googleToolCalls = parts.filter((p: any) => p.functionCall);
-    // Google format tool results: {functionResponse: {name, response}}
     const googleToolResults = parts.filter((p: any) => p.functionResponse);
-    // Vercel SDK format tool calls: {type: "tool-call", toolName, args}
     const sdkToolCalls = googleToolCalls.length === 0 ? parts.filter((p: any) => p.type === 'tool-call') : [];
-    // Vercel SDK format tool results: {type: "tool-result", toolName, result}
     const sdkToolResults = googleToolResults.length === 0 ? parts.filter((p: any) => p.type === 'tool-result') : [];
 
-    // Convert ALL tool calls to text (SDK v6 doesn't accept tool-call parts in input)
-    const allToolCalls = googleToolCalls.length > 0 ? googleToolCalls : sdkToolCalls;
-    if (allToolCalls.length > 0) {
-      const toolCallsText = allToolCalls.map((p: any) => {
+    if (googleToolCalls.length > 0 || sdkToolCalls.length > 0) {
+      const toolParts = googleToolCalls.length > 0 ? googleToolCalls : sdkToolCalls;
+      const toolCalls = toolParts.map((p: any) => {
         const fc = p.functionCall || {};
         const name = fc.name || p.toolName || 'unknown';
         const args = parseJSONArgs(fc.args || p.args);
-        return `[Calling tool "${name}" with args ${JSON.stringify(args)}]`;
-      }).join('\n');
-      const combined = textParts ? textParts + '\n' + toolCallsText : toolCallsText;
-      messages.push({ role, content: combined });
+        const id = callId(name, callIndex++);
+        recentCallIds.set(name, id);
+        return { id, type: 'function' as const, function: { name, arguments: JSON.stringify(args) } };
+      });
+      messages.push({ role: 'assistant', content: textParts || null, tool_calls: toolCalls });
     } else if (googleToolResults.length > 0 || sdkToolResults.length > 0) {
-      // Use structured tool-result parts (SDK v6 uses 'output' with discriminated type)
       const results = googleToolResults.length > 0 ? googleToolResults : sdkToolResults;
-      const content = results.map((p: any) => {
+      for (const p of results) {
         const fr = p.functionResponse || {};
         const name = fr.name || p.toolName || 'unknown';
         const resultObj = fr.response || p.result || {};
-        const parsed = typeof resultObj === 'string' ? resultObj : parseJSONArgs(resultObj);
-        return {
-          type: 'tool-result' as const,
-          toolCallId: name,
-          toolName: name,
-          output: typeof resultObj === 'string'
-            ? { type: 'text' as const, value: resultObj }
-            : { type: 'json' as const, value: parsed },
-        };
-      });
-      messages.push({ role: 'tool', content });
+        const content = typeof resultObj === 'string' ? resultObj : JSON.stringify(parseJSONArgs(resultObj));
+        const id = recentCallIds.get(name) || callId(name, callIndex++);
+        messages.push({ role: 'tool', tool_call_id: id, content });
+      }
     } else {
       messages.push({ role, content: textParts });
     }
   }
 
-  return {
-    system: systemInstruction,
-    messages,
-  };
+  return { system: systemInstruction, messages };
 }
 
 export function mapExternalMessagesToCore(messages: any[]): MappedRequest {
-  const coreMessages: CoreMessage[] = [];
+  const coreMessages: OpenAIMessage[] = [];
 
   for (const msg of messages) {
     const role = msg.role === 'assistant' ? 'assistant'
@@ -182,15 +166,6 @@ function mapSchema(schema: any): Record<string, unknown> {
   return result;
 }
 
-export interface MappedConfig {
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
-  topK?: number;
-  stopSequences?: string[];
-  providerOptions?: { openai?: { reasoningEffort?: string } };
-}
-
 export function mapGenerationConfig(config: GenerationConfig | null | undefined): MappedConfig {
   if (!config) return {};
   const result: MappedConfig = {
@@ -212,21 +187,18 @@ export function extractToolCalls(text: string): { name: string; args: Record<str
   const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
   if (!text) return toolCalls;
 
-  // Find ANY <invoke name="X">... pattern, closed by </invoke>, </function_calls>, or end of text
   const invokeRegex = /<invoke\s+name="([^"]+)"?>([\s\S]*?)(?:<\/invoke>|<\/function_calls>|$)/gi;
   let match;
   while ((match = invokeRegex.exec(text)) !== null) {
     const name = match[1].trim();
     let body = match[2].trim();
 
-    // Try JSON format: {"key":"value"}
     try {
       const args = JSON.parse(body);
       toolCalls.push({ name, args });
       continue;
     } catch { /* not JSON */ }
 
-    // Try <parameter name="KEY">VALUE</parameter> format
     const paramRegex = /<parameter\s+name="([^"]+)"?>([\s\S]*?)<\/parameter>/gi;
     const args: Record<string, unknown> = {};
     let pm;
@@ -238,7 +210,6 @@ export function extractToolCalls(text: string): { name: string; args: Record<str
     }
   }
 
-  // Also try <tool_call><function=NAME>...</function></tool_call> format
   const funcRegex = /<function=(\w+)>([\s\S]*?)<\/function>/gi;
   while ((match = funcRegex.exec(text)) !== null) {
     const name = match[1];

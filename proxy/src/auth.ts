@@ -8,6 +8,11 @@ export function getAuthHeaders(): Record<string, string> {
   };
 }
 
+export function captureCredentials(metadata: Record<string, string>): void {
+  // Credential interception from incoming gRPC requests.
+  // Currently unused - proxy authenticates with its own API key from .env.
+}
+
 export function validateApiKey(): boolean {
   if (!config.isConfigured) {
     const varName = config.provider === 'nvidia' ? 'NVIDIA_API_KEY' : 'OPENROUTER_API_KEY';
