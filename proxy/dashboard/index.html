@@ -862,6 +862,7 @@ async function loadSessions() {
     const date = document.getElementById('historyDate').value;
     if (!date) return;
     _histDate = date;
+    _openSessions.clear();
     const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(date));
     document.getElementById('historyCount').textContent = sessions.length + ' session' + (sessions.length!==1?'s':'') + ' on ' + date;
     const c = document.getElementById('historyContent');
@@ -872,7 +873,6 @@ async function loadSessions() {
     let html = '';
     for (const s of sessions) {
       const sid = esc(s.file);
-      const isOpen = _openSessions.has(s.file);
       html += `<div class="env-section" style="cursor:pointer" onclick="toggleSession('${sid}')">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
           <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
@@ -889,11 +889,11 @@ async function loadSessions() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               Delete
             </button>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--text3);transition:transform 200ms;transform:rotate(${isOpen?180:0}deg)"><polyline points="6 9 12 15 18 9"/></svg>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--text3);transition:transform 200ms"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
       </div>
-      <div id="ss-${sid}" style="display:${isOpen?'block':'none'};margin-top:0;padding:0 20px 20px">
+      <div id="ss-${sid}" style="display:none;margin-top:0;padding:0 20px 20px">
         <div class="session-reqs" id="sreq-${sid}"><div style="text-align:center;padding:20px;color:var(--text3)">Loading requests...</div></div>
       </div>`;
     }
@@ -909,7 +909,7 @@ async function toggleSession(file) {
   if (isOpening) {
     _openSessions.add(file);
     el.style.display = 'block';
-    const arrow = el.previousElementSibling.querySelector('svg:last-child');
+    const arrow = el.previousElementSibling.querySelector('.chevron');
     if (arrow) arrow.style.transform = 'rotate(180deg)';
     // Load session content
     try {
@@ -949,7 +949,7 @@ async function toggleSession(file) {
   } else {
     _openSessions.delete(file);
     el.style.display = 'none';
-    const arrow = el.previousElementSibling.querySelector('svg:last-child');
+    const arrow = el.previousElementSibling.querySelector('.chevron');
     if (arrow) arrow.style.transform = 'rotate(0deg)';
   }
 }
