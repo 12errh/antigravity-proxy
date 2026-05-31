@@ -9,6 +9,8 @@ import { logger } from './logger.js';
 import { validateApiKey } from './auth.js';
 import { streamResponse } from './engine.js';
 import { mapContentsToMessages, mapTools, mapGenerationConfig, mapModelName, extractToolCalls } from './mapper.js';
+import { requestStore } from './request-store.js';
+import { createDashboardServer } from './dashboard.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,13 +31,18 @@ async function resolveBackend(hostname: string): Promise<string> {
   return ip;
 }
 
-// Forward HTTP/1.1 REST to Google (for port 4000 init calls)
-function forwardRestToGoogle(req: http.IncomingMessage, res: http.ServerResponse): void {
+// Dashboard server (attached to port 4000)
+const _dashboardServer = createDashboardServer();
+
+// Shared handler for port 4000: dashboard paths or Google forward
+function port4000Handler(req: http.IncomingMessage, res: http.ServerResponse): void {
   const pathname = req.url || '/';
+  if (pathname === '/' || pathname.startsWith('/api/')) {
+    _dashboardServer.emit('request', req, res);
+    return;
+  }
   const hostname = 'cloudcode-pa.googleapis.com';
-
   logger.debug('REST forward', { method: req.method, path: pathname });
-
   const proxyReq = https.request(
     { hostname: backendIp, port: 443, path: pathname, method: req.method, servername: hostname, rejectUnauthorized: true, headers: { ...req.headers, host: hostname } },
     (proxyRes) => { res.writeHead(proxyRes.statusCode || 200, proxyRes.headers); proxyRes.pipe(res); },
@@ -218,6 +225,12 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   const responseId = genGoogleId();
   const traceId = genTraceId();
 
+  requestStore.push({
+    id: responseId, timestamp: new Date().toISOString(), model, resolvedModel,
+    direction: 'incoming', type: 'text', content: `Prompt: ${promptText.substring(0, 500)}${promptText.length > 500 ? '...' : ''}`,
+    promptTokens,
+  });
+
   res.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
@@ -264,11 +277,27 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
 
     if (toolCalls.length > 0) {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, ${toolCalls.length} tool calls)`, { toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })) });
+      requestStore.push({
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel,
+        direction: 'outgoing', type: 'tool-call', content: fullText,
+        toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })),
+        promptTokens, outputTokens: estTokens(fullText),
+      });
     } else {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, ${toolCalls.length} tool calls, model: ${resolvedModel})`);
+      requestStore.push({
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel,
+        direction: 'outgoing', type: 'text', content: fullText,
+        promptTokens, outputTokens: estTokens(fullText),
+      });
     }
   } catch (err: any) {
     logger.error(`<<< Error: ${req.url}`, { error: err.message });
+    requestStore.push({
+      id: responseId, timestamp: new Date().toISOString(), model, resolvedModel,
+      direction: 'outgoing', type: 'error', content: '',
+      error: err.message,
+    });
     const errResp = JSON.stringify({
       response: {
         candidates: [{
@@ -377,11 +406,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // REST server on port 4000 (language_server init calls)
-  const restServer = http.createServer(forwardRestToGoogle);
-  restServer.on('error', (err) => logger.error('REST server error', { error: err.message }));
+  // HTTP server on port 4000 (dashboard + language_server init calls)
+  const restServer = http.createServer(port4000Handler);
+  restServer.on('error', (err) => logger.error('Port 4000 server error', { error: err.message }));
   restServer.listen(config.apiPort, '0.0.0.0', () => {
-    logger.info(`Port ${config.apiPort} (HTTP) → Google (init calls)`);
+    logger.info(`Port ${config.apiPort} (HTTP) → Dashboard + init calls`);
+    logger.info(`Dashboard: http://localhost:${config.apiPort}`);
   });
 
   // TLS server on port 443 (model inference + all other traffic)
