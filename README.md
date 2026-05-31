@@ -11,9 +11,25 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 # Pick provider, enter API key, done
 ```
 
-Everything works — chat, code generation, tool calling, file operations, browser automation, image generation, vision, streaming, model switching, provider switching, thinking/reasoning. The proxy transparently translates between Antigravity's protocol and OpenAI-compatible APIs on NVIDIA or OpenRouter.
+The proxy transparently translates between Antigravity's protocol and OpenAI-compatible APIs on NVIDIA or OpenRouter.
 
-> Only audio and the Language Server's background init calls (project sync) pass through to Google — those need a Gemini key if you use them.
+## Feature Support
+
+| Feature | Status |
+|---------|--------|
+| Chat & code generation | ✅ |
+| Tool calling / function calling | ✅ |
+| File operations (view, edit, create, search) | ✅ |
+| Browser automation | ✅ |
+| Image generation | ✅ |
+| Vision / image understanding | ✅ |
+| Streaming responses | ✅ |
+| Thinking / reasoning | ✅ |
+| Model switching | ✅ |
+| Provider switching (NVIDIA ↔ OpenRouter) | ✅ |
+| Real-time dashboard | ✅ |
+| Request history & live logs | ✅ |
+| Config & model management UI | ✅ |
 
 ## How It Works
 
@@ -22,14 +38,17 @@ Everything works — chat, code generation, tool calling, file operations, brows
 │  Antigravity    │ ────────────────▶ │    Proxy     │ ─────────────▶ │  NVIDIA / OpenRouter │
 │  2.0 Desktop    │                   │  (TypeScript) │                │  (any model)      │
 │                 │ ◀──────────────── │              │ ◀───────────── │                   │
-└─────────────────┘                   └──────────────┘                └──────────────────┘
-                                             │
-                                        REST (4000)
-                                             │
-                                    ┌────────┴────────┐
-                                    │  Google Gemini   │
-                                    │  (init calls)    │
-                                    └─────────────────┘
+└─────────────────┘                   └──────┬───────┘                └──────────────────┘
+                                              │
+                                         HTTP (4000)
+                                              │
+                                     ┌────────┘
+                                     │  Dashboard (SPA)
+                                     │  - Live logs
+                                     │  - Request history
+                                     │  - Config editor
+                                     │  - Model mapping
+                                     └────────
 ```
 
 The proxy:
@@ -37,9 +56,9 @@ The proxy:
 2. Strips massive inline context (skills, plugins, rules) and injects a reference to `agent-context.md`
 3. Translates Google-format requests to OpenAI-format and sends to your chosen provider
 4. Translates responses back to Google format with proper metadata for Antigravity Desktop
-5. Forwards non-chat requests (init, file ops, browser) to the real Google API — needs a valid Gemini API key for those
+5. Serves a real-time dashboard on port 4000 with live logs, request history, config editor, and model mapping
 
-Open **http://localhost:4000** in your browser for the dashboard — real-time logs, request history, config editor, model mapping, and stats.
+Open **http://localhost:4000** in your browser to access the dashboard. in your browser for the dashboard — real-time logs, request history, config editor, model mapping, and stats.
 
 ## Requirements
 
@@ -47,7 +66,6 @@ Open **http://localhost:4000** in your browser for the dashboard — real-time l
 - **Node.js 18+**
 - **Administrator privileges** (for port 443 binding)
 - API key from [NVIDIA build.nvidia.com](https://build.nvidia.com) or [OpenRouter](https://openrouter.ai/keys)
-- (Optional) **Google Gemini API key** — only needed for file/browser/vision operations that pass through to Google
 
 ## Architecture
 
@@ -99,7 +117,8 @@ Any OpenAI-compatible model on OpenRouter should work. Test your preferred model
 Once the proxy is running, open **http://localhost:4000** in your browser:
 
 - **Dashboard** — live stats (requests, tokens, tool calls, errors), provider info, environment overview
-- **Requests** — searchable request history with expandable detail view (model, tokens, content, tool calls, timing)
+- **Requests** — searchable request history with expandable detail view and pagination (model, tokens, content, tool calls, timing)
+- **History** — browse requests by date with date picker and date chips showing per-day counts
 - **Config** — edit provider, API keys, ports, and log level via UI (saves to `.env`)
 - **Models** — add/remove/edit model mappings in real time (saves to `models.json`)
 - **Live Log** — real-time log stream with level filter and auto-scroll
