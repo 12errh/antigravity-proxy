@@ -232,8 +232,9 @@ export function constructToolCallText(name: string, args: Record<string, unknown
   return `<function_calls><invoke name="${name}">${JSON.stringify(args)}</invoke></function_calls>`;
 }
 
-function parseJSONArgs(args: Buffer | string | undefined): Record<string, unknown> {
+function parseJSONArgs(args: Buffer | string | Record<string, unknown> | undefined): Record<string, unknown> {
   if (!args) return {};
+  if (typeof args === 'object' && !Buffer.isBuffer(args)) return args as Record<string, unknown>;
   try {
     const str = Buffer.isBuffer(args) ? args.toString('utf-8') : args;
     return JSON.parse(str);
