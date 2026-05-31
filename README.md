@@ -27,9 +27,11 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 | Parallel tool calls | ✅ Works | Multiple tool calls grouped into single `parts` array |
 | Extra args protection | ✅ Works | Antigravity internal fields (`toolAction`, `toolSummary`) stripped from tool call arguments |
 | Language Server crashes | ⚠️ Fragile | Antigravity Language Server (Go binary) crashes on any API error — not fixable in proxy |
-| File read/write | ❌ Not intercepted | Falls through to Google — needs Gemini API key for these operations |
-| Browser automation | ❌ Not intercepted | Uses Google-specific APIs not mapped |
-| Image / vision | ❌ Not intercepted | Google-specific format |
+| File read/write (tool calls) | ✅ Works | `view_file`, `write_to_file`, `list_dir` etc. go through intercepted chat paths |
+| Browser automation | ✅ Works | MCP Chrome DevTools plugin — local tools, no Google API needed |
+| Image generation | ✅ Works | Built-in Antigravity tool, handled locally |
+| Vision / screenshot | ✅ Works | Browser screenshots and file preview via local tools |
+| Background file sync | ❌ Not intercepted | Language Server init calls to Google — needs Gemini key for sidebar/project sync |
 | Audio | ❌ Not intercepted | Not mapped |
 
 ## How It Works
