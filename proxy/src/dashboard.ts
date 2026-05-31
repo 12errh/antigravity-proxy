@@ -65,18 +65,18 @@ export function createDashboardServer(): http.Server {
   return http.createServer((req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const method = req.method || 'GET';
+    const staticDir = path.resolve(__dirname, '..', 'dashboard');
 
-    // Serve dashboard SPA
-    if (url.pathname === '/' && method === 'GET') {
-      if (fs.existsSync(dashboardHtml)) {
-        const html = fs.readFileSync(dashboardHtml, 'utf-8');
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(html);
-      } else {
-        res.writeHead(200, { 'content-type': 'text/html' });
-        res.end('<h1>Dashboard</h1><p>Build dashboard/index.html</p>');
+    // Serve static files from dashboard/ directory
+    if (method === 'GET') {
+      const filePath = url.pathname === '/' ? path.join(staticDir, 'index.html') : path.join(staticDir, url.pathname);
+      if (filePath.startsWith(staticDir) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        const ext = path.extname(filePath).toLowerCase();
+        const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.css': 'text/css', '.js': 'application/javascript', '.ico': 'image/x-icon', '.json': 'application/json' };
+        res.writeHead(200, { 'content-type': mime[ext] || 'application/octet-stream' });
+        res.end(fs.readFileSync(filePath));
+        return;
       }
-      return;
     }
 
     // API routes

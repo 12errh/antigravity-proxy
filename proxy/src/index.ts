@@ -37,7 +37,8 @@ const _dashboardServer = createDashboardServer();
 // Shared handler for port 4000: dashboard paths or Google forward
 function port4000Handler(req: http.IncomingMessage, res: http.ServerResponse): void {
   const pathname = req.url || '/';
-  if (pathname === '/' || pathname.startsWith('/api/')) {
+  const isStatic = /\.(png|svg|css|js|ico|json|html)$/i.test(pathname);
+  if (pathname === '/' || pathname.startsWith('/api/') || isStatic) {
     _dashboardServer.emit('request', req, res);
     return;
   }

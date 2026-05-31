@@ -8,37 +8,37 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 
 :root {
-  --bg: #0a0a0f;
-  --surface: #12121a;
-  --surface2: #1a1a26;
-  --surface3: #22223a;
-  --border: rgba(124, 58, 237, 0.08);
-  --border2: rgba(255,255,255,0.06);
+  --bg: #0d0d15;
+  --surface: #13131e;
+  --surface2: #1a1a2e;
+  --surface3: #232341;
+  --border: rgba(66,133,244,0.08);
+  --border2: rgba(255,255,255,0.05);
   --text: #f1f5f9;
-  --text2: #94a3b8;
+  --text2: #a8b2d1;
   --text3: #64748b;
-  --accent: #7c3aed;
-  --accent2: #a855f7;
-  --accentDim: rgba(124,58,237,0.12);
-  --green: #22c55e;
-  --greenDim: rgba(34,197,94,0.12);
-  --yellow: #eab308;
-  --yellowDim: rgba(234,179,8,0.12);
-  --red: #ef4444;
-  --redDim: rgba(239,68,68,0.12);
-  --blue: #3b82f6;
+  --blue: #4285F4;
+  --blue2: #5b9cf6;
+  --blueDim: rgba(66,133,244,0.12);
+  --red: #EA4335;
+  --redDim: rgba(234,67,53,0.12);
+  --yellow: #FBBC05;
+  --yellowDim: rgba(251,188,5,0.12);
+  --green: #34A853;
+  --greenDim: rgba(52,168,83,0.12);
+  --gradient: linear-gradient(135deg, #4285F4, #EA4335, #FBBC05, #34A853);
+  --gradientH: linear-gradient(90deg, #4285F4, #EA4335, #FBBC05, #34A853);
   --radius: 12px;
   --radiusSm: 8px;
   --font: -apple-system,'SF Pro','Inter','Segoe UI',sans-serif;
   --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace;
   --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-  --shadowLg: 0 4px 20px rgba(0,0,0,0.4);
+  --shadowLg: 0 4px 24px rgba(0,0,0,0.5);
   --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;height:100vh;overflow:hidden;}
 
-/* Scrollbar */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--text3);border-radius:2px}
@@ -51,18 +51,17 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 }
 .sidebar::after{
   content:'';position:absolute;top:0;right:-1px;width:1px;
-  background:linear-gradient(to bottom, transparent, var(--accentDim), transparent);
+  background:linear-gradient(to bottom, transparent, rgba(66,133,244,0.2), transparent);
 }
 .sidebar-header{
   padding:20px 20px 16px;display:flex;align-items:center;gap:12px;
   border-bottom:1px solid var(--border2);
 }
 .sidebar-header .logo{
-  width:32px;height:32px;border-radius:10px;
-  background:linear-gradient(135deg, var(--accent), var(--accent2));
-  display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:14px;color:#fff;flex-shrink:0;
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;overflow:hidden;
+  background:var(--bg);display:flex;align-items:center;justify-content:center;
 }
+.sidebar-header .logo img{width:28px;height:28px;display:block;}
 .sidebar-header .brand h1{font-size:14px;font-weight:600;letter-spacing:-0.01em}
 .sidebar-header .brand span{font-size:11px;color:var(--text3);display:block;margin-top:1px}
 
@@ -74,16 +73,16 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
   font-size:13px;font-weight:450;
 }
 .nav-item:hover{background:var(--surface2);color:var(--text);}
-.nav-item.active{background:var(--accentDim);color:var(--accent2);}
+.nav-item.active{background:var(--blueDim);color:var(--blue2);}
 .nav-item.active::before{
   content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
   width:3px;height:18px;border-radius:0 2px 2px 0;
-  background:var(--accent);transition:all var(--transition);
+  background:var(--blue);transition:all var(--transition);
 }
-.nav-item .icon{width:18px;height:18px;flex-shrink:0;opacity:0.7;}
+.nav-item .icon{width:18px;height:18px;flex-shrink:0;opacity:0.6;}
 .nav-item.active .icon{opacity:1;}
 .nav-item .badge{
-  margin-left:auto;background:var(--accentDim);color:var(--accent2);
+  margin-left:auto;background:var(--blueDim);color:var(--blue2);
   font-size:11px;padding:1px 7px;border-radius:10px;font-weight:500;
 }
 
@@ -94,10 +93,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .proxy-status-indicator{
   width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;
 }
-.proxy-status-indicator.online{background:var(--green);box-shadow:0 0 8px rgba(34,197,94,0.4);}
+.proxy-status-indicator.online{background:var(--green);box-shadow:0 0 8px rgba(52,168,83,0.5);}
 .proxy-status-indicator.online::after{
   content:'';position:absolute;inset:-2px;border-radius:50%;
-  border:1px solid rgba(34,197,94,0.3);animation:pulse 2s infinite;
+  border:1px solid rgba(52,168,83,0.3);animation:pulse 2s infinite;
 }
 .proxy-status-indicator.offline{background:var(--text3);}
 @keyframes pulse{0%{transform:scale(1);opacity:1}100%{transform:scale(1.8);opacity:0}}
@@ -129,8 +128,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .btn:hover{background:var(--surface3);color:var(--text);border-color:rgba(255,255,255,0.1);}
 .btn:active{transform:scale(0.97)}
 .btn svg{width:14px;height:14px;opacity:0.7}
-.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);}
-.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);color:#fff;}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+.btn-primary:hover{background:var(--blue2);border-color:var(--blue2);color:#fff;}
 .btn-ghost{border-color:transparent;background:transparent;}
 .btn-ghost:hover{background:var(--surface2);border-color:transparent;}
 .btn-danger{background:var(--redDim);color:var(--red);border-color:transparent;}
@@ -139,44 +138,50 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 .btn-icon{padding:6px;border-radius:var(--radiusSm);}
 .btn-icon svg{width:16px;height:16px;}
 
-/* Content area */
+/* Content */
 .content{flex:1;overflow-y:auto;padding:28px 32px;}
 .section{display:none;animation:fadeSlide 300ms ease;}
 .section.active{display:block;}
 @keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-/* Stat Cards - Bento grid */
+/* Stat Cards */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
 .stat-card{
   background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);
   padding:20px;position:relative;overflow:hidden;transition:all var(--transition);
 }
-.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadowLg);border-color:rgba(255,255,255,0.08);}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadowLg);border-color:rgba(66,133,244,0.15);}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+}
+.stat-card:nth-child(1)::before{background:linear-gradient(90deg,#4285F4,#5b9cf6);}
+.stat-card:nth-child(2)::before{background:linear-gradient(90deg,#34A853,#4cbb6b);}
+.stat-card:nth-child(3)::before{background:linear-gradient(90deg,#FBBC05,#fcd34d);}
+.stat-card:nth-child(4)::before{background:linear-gradient(90deg,#EA4335,#ef6b5e);}
 .stat-card .icon-wrap{
   width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   margin-bottom:14px;font-size:18px;
 }
-.stat-card .icon-wrap.purple{background:var(--accentDim);color:var(--accent2);}
-.stat-card .icon-wrap.green{background:var(--greenDim);color:var(--green);}
-.stat-card .icon-wrap.yellow{background:var(--yellowDim);color:var(--yellow);}
-.stat-card .icon-wrap.red{background:var(--redDim);color:var(--red);}
+.stat-card:nth-child(1) .icon-wrap{background:var(--blueDim);color:var(--blue);}
+.stat-card:nth-child(2) .icon-wrap{background:var(--greenDim);color:var(--green);}
+.stat-card:nth-child(3) .icon-wrap{background:var(--yellowDim);color:var(--yellow);}
+.stat-card:nth-child(4) .icon-wrap{background:var(--redDim);color:var(--red);}
 .stat-card .s-label{font-size:12px;color:var(--text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em;}
 .stat-card .s-value{font-size:28px;font-weight:700;letter-spacing:-0.02em;line-height:1.1;}
 .stat-card .s-sub{font-size:12px;color:var(--text3);margin-top:4px;}
-.stat-card .trend{font-size:12px;font-weight:500;margin-left:8px;}
 
-/* Config cards */
+/* Info cards */
 .config-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
 .info-card{
   background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);
   padding:20px;transition:all var(--transition);
 }
-.info-card:hover{border-color:rgba(255,255,255,0.08);}
+.info-card:hover{border-color:rgba(66,133,244,0.12);}
 .info-card .ic-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
 .info-card .ic-value{font-size:15px;font-weight:600;}
 .info-card .ic-sub{font-size:12px;color:var(--text3);margin-top:4px;word-break:break-all;}
 
-/* Env table */
+/* Env section */
 .env-section{
   background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);
   padding:20px;margin-bottom:16px;
@@ -199,12 +204,11 @@ tbody tr:hover{background:var(--surface2);}
   display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;
   font-size:11px;font-weight:500;
 }
-.tag-text{background:var(--accentDim);color:var(--accent2);}
+.tag-text{background:var(--blueDim);color:var(--blue2);}
 .tag-tool{background:var(--yellowDim);color:var(--yellow);}
 .tag-error{background:var(--redDim);color:var(--red);}
-.tag-incoming{background:var(--accentDim);color:var(--accent2);}
+.tag-incoming{background:var(--blueDim);color:var(--blue2);}
 .tag-outgoing{background:var(--greenDim);color:var(--green);}
-.tag-both{background:rgba(59,130,246,0.12);color:var(--blue);}
 
 /* Forms */
 .form-section{
@@ -215,19 +219,21 @@ tbody tr:hover{background:var(--surface2);}
   font-size:13px;font-weight:600;margin-bottom:20px;color:var(--text);
   display:flex;align-items:center;gap:8px;
 }
+.form-section h3 svg{color:var(--blue);}
 .form-group{margin-bottom:18px;}
 .form-group:last-child{margin-bottom:0;}
 .form-group label{
   display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500;
 }
 .form-group .hint{font-size:11px;color:var(--text3);margin-top:3px;}
+.form-group .hint .code{color:var(--blue2);}
 .form-group input,.form-group select{
   width:100%;padding:9px 12px;border-radius:var(--radiusSm);
   border:1px solid var(--border2);background:var(--surface2);
   color:var(--text);font-size:13px;font-family:var(--font);
   outline:none;transition:all var(--transition);
 }
-.form-group input:focus,.form-group select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentDim);}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blueDim);}
 .form-group input::placeholder{color:var(--text3);}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 
@@ -239,7 +245,7 @@ tbody tr:hover{background:var(--surface2);}
   background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--mono);
   outline:none;transition:all var(--transition);
 }
-.model-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentDim);}
+.model-row input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blueDim);}
 .model-row .btn-icon{
   width:36px;height:36px;display:flex;align-items:center;justify-content:center;
   border-radius:6px;border:1px solid transparent;background:transparent;color:var(--text3);
@@ -259,7 +265,7 @@ tbody tr:hover{background:var(--surface2);}
   background:var(--surface3);color:var(--text2);font-size:12px;outline:none;
 }
 .log-bar .toggle-label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;}
-.log-bar .toggle-label input{accent-color:var(--accent);}
+.log-bar .toggle-label input{accent-color:var(--blue);}
 .log-out{
   height:420px;overflow-y:auto;padding:14px 16px;
   font-family:var(--mono);font-size:12px;line-height:1.7;
@@ -268,7 +274,7 @@ tbody tr:hover{background:var(--surface2);}
 .log-e .ts{color:var(--text3);margin-right:10px;}
 .log-e .lvl{display:inline-block;width:46px;font-weight:600;font-size:11px;}
 .log-e .lvl.DEBUG{color:var(--text3)}
-.log-e .lvl.INFO{color:var(--accent2)}
+.log-e .lvl.INFO{color:var(--blue2)}
 .log-e .lvl.WARN{color:var(--yellow)}
 .log-e .lvl.ERROR{color:var(--red)}
 
@@ -279,12 +285,10 @@ tbody tr:hover{background:var(--surface2);}
 .empty-state .sub{font-size:12px;color:var(--text3);margin-top:4px;}
 
 /* Request detail */
-.req-detail{
+.req-detail-inner{
   background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radiusSm);
-  padding:16px;margin-top:4px;display:none;
+  padding:16px;display:block;
 }
-.req-detail.open{display:table-row;}
-.req-detail-inner{display:block;padding:16px;}
 .req-detail h4{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;}
 .req-detail pre{
   background:var(--surface);padding:12px;border-radius:6px;font-size:12px;
@@ -302,22 +306,12 @@ tbody tr:hover{background:var(--surface2);}
   border:1px solid var(--border2);background:var(--surface2);color:var(--text);
   font-size:13px;font-family:var(--font);outline:none;transition:all var(--transition);
 }
-.filter-bar .search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accentDim);}
+.filter-bar .search-wrap input:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blueDim);}
 .filter-bar select{
   padding:7px 10px;border-radius:var(--radiusSm);border:1px solid var(--border2);
   background:var(--surface2);color:var(--text2);font-size:12px;outline:none;
 }
 .filter-bar .count{font-size:12px;color:var(--text3);white-space:nowrap;}
-
-/* Toggle */
-.switch{position:relative;width:36px;height:20px;background:var(--surface3);border-radius:10px;cursor:pointer;transition:background var(--transition);flex-shrink:0;}
-.switch.on{background:var(--green);}
-.switch::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform var(--transition);}
-.switch.on::after{transform:translateX(16px);}
-
-/* Loading skeleton */
-.skeleton{background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:4px;}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
 /* Toast */
 .toast{
@@ -330,14 +324,8 @@ tbody tr:hover{background:var(--surface2);}
 .toast.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}
 .toast.error{border-color:var(--redDim);color:var(--red);}
 
-/* Tooltip */
-[data-tooltip]{position:relative;}
-[data-tooltip]:hover::after{
-  content:attr(data-tooltip);position:absolute;bottom:calc(100% + 6px);left:50%;
-  transform:translateX(-50%);background:var(--surface3);color:var(--text2);
-  font-size:11px;padding:4px 8px;border-radius:4px;white-space:nowrap;
-  border:1px solid var(--border2);z-index:100;pointer-events:none;
-}
+/* Utility */
+.text-mono{font-family:var(--mono);font-size:12px;}
 
 @media(max-width:900px){
   .sidebar{width:60px}
@@ -360,7 +348,7 @@ tbody tr:hover{background:var(--surface2);}
 <!-- Sidebar -->
 <aside class="sidebar">
   <div class="sidebar-header">
-    <div class="logo">AG</div>
+    <div class="logo"><img src="icon.png" alt="Antigravity"></div>
     <div class="brand">
       <h1>Antigravity</h1>
       <span>Proxy Dashboard</span>
@@ -417,9 +405,9 @@ tbody tr:hover{background:var(--surface2);}
 
     <!-- Dashboard -->
     <section class="section active" id="sec-dashboard">
-      <div class="stat-grid" id="statsGrid">
+      <div class="stat-grid">
         <div class="stat-card">
-          <div class="icon-wrap purple">
+          <div class="icon-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           </div>
           <div class="s-label">Requests</div>
@@ -427,7 +415,7 @@ tbody tr:hover{background:var(--surface2);}
           <div class="s-sub">total proxied</div>
         </div>
         <div class="stat-card">
-          <div class="icon-wrap green">
+          <div class="icon-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
           <div class="s-label">Tokens</div>
@@ -435,7 +423,7 @@ tbody tr:hover{background:var(--surface2);}
           <div class="s-sub">prompt + output</div>
         </div>
         <div class="stat-card">
-          <div class="icon-wrap yellow">
+          <div class="icon-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           </div>
           <div class="s-label">Tool Calls</div>
@@ -443,7 +431,7 @@ tbody tr:hover{background:var(--surface2);}
           <div class="s-sub">function invocations</div>
         </div>
         <div class="stat-card">
-          <div class="icon-wrap red">
+          <div class="icon-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </div>
           <div class="s-label">Errors</div>
@@ -533,12 +521,12 @@ tbody tr:hover{background:var(--surface2);}
         <div class="form-group">
           <label>NVIDIA API Key <span id="nvKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgNvidiaKey" placeholder="nvapi-...">
-          <div class="hint">Required for NVIDIA provider. Get from <span style="color:var(--accent2)">build.nvidia.com</span></div>
+          <div class="hint">Required for NVIDIA provider. Get from <span class="code">build.nvidia.com</span></div>
         </div>
         <div class="form-group">
           <label>OpenRouter API Key <span id="orKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgOpenrouterKey" placeholder="sk-or-v1-...">
-          <div class="hint">Required for OpenRouter provider. Get from <span style="color:var(--accent2)">openrouter.ai/keys</span></div>
+          <div class="hint">Required for OpenRouter provider. Get from <span class="code">openrouter.ai/keys</span></div>
         </div>
       </div>
 
@@ -566,7 +554,7 @@ tbody tr:hover{background:var(--surface2);}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
           Save Changes
         </button>
-        <span style="font-size:12px;color:var(--text3);align-self:center">Config is saved to <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px">.env</code> — restart proxy to apply</span>
+        <span style="font-size:12px;color:var(--text3);align-self:center">Saved to <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;font-size:11px">.env</code> — restart proxy to apply</span>
       </div>
     </section>
 
@@ -605,7 +593,7 @@ tbody tr:hover{background:var(--surface2);}
           </select>
           <label class="toggle-label">
             <input type="checkbox" id="logAutoScroll" checked>
-            <span style="user-select:none">Auto-scroll</span>
+            <span>Auto-scroll</span>
           </label>
           <button class="btn btn-sm btn-ghost" onclick="clearLogView()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -628,9 +616,7 @@ const API = '';
 let eventSource = null;
 const logBuf = [];
 const pages = {dashboard:'Overview &amp; stats',requests:'Request history',config:'Settings &amp; credentials',models:'Model mappings',log:'Real-time proxy log'};
-let reqIdCounter = 0;
 
-// Navigation
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -664,29 +650,24 @@ async function api(method, path, body) {
 async function reloadAll() {
   try {
     const s = await api('GET', '/api/status');
-    // Stats
     document.getElementById('statRequests').textContent = s.stats.totalRequests;
     document.getElementById('statTokens').textContent = s.stats.totalTokens.toLocaleString();
     document.getElementById('statToolCalls').textContent = s.stats.totalToolCalls;
     document.getElementById('statErrors').textContent = s.stats.errors;
     document.getElementById('reqBadge').textContent = s.stats.totalRequests;
-    // Provider
     document.getElementById('dashProvider').innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span> ' + (s.provider || '—');
     document.getElementById('dashBaseUrl').textContent = s.baseUrl || '—';
     document.getElementById('dashProxyPort').textContent = s.proxyPort;
     document.getElementById('dashApiPort').textContent = s.apiPort;
     document.getElementById('providerText').textContent = s.provider || '—';
-    // Status
     const dot = document.getElementById('statusDot');
     dot.className = 'proxy-status-indicator ' + (s.configured ? 'online' : 'offline');
     document.getElementById('statusText').textContent = s.configured ? 'Running' : 'Config needed';
-    // Env table
     const et = document.getElementById('envTable');
     et.innerHTML = '';
     for (const [k, v] of Object.entries(s.env)) {
-      et.innerHTML += `<tr><td style="font-weight:500;white-space:nowrap;color:var(--text2);font-size:12px;width:200px">${k}</td><td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${v || '—'}</td></tr>`;
+      et.innerHTML += `<tr><td style="font-weight:500;white-space:nowrap;color:var(--text2);font-size:12px;width:200px">${k}</td><td class="text-mono" style="color:var(--text2)">${v || '—'}</td></tr>`;
     }
-    // Config form
     document.getElementById('cfgProvider').value = s.provider;
     document.getElementById('cfgProxyPort').value = s.proxyPort;
     document.getElementById('cfgApiPort').value = s.apiPort;
@@ -696,7 +677,6 @@ async function reloadAll() {
   } catch (e) { toast('Status load failed: ' + e.message, true); }
 }
 
-// Requests
 async function renderRequests() {
   try {
     const reqs = await api('GET', '/api/requests');
@@ -712,21 +692,21 @@ async function renderRequests() {
       return;
     }
     let html = '<div class="table-wrap"><table><thead><tr><th style="width:70px">Time</th><th style="width:70px">Type</th><th>Model</th><th style="width:70px">Tokens</th><th>Content</th><th style="width:44px"></th></tr></thead><tbody>';
+    let idc = 0;
     f.forEach(r => {
       const tc = (r.promptTokens||0)+(r.outputTokens||0);
       const ts = new Date(r.timestamp).toLocaleTimeString();
-      const typeTag = `<span class="tag tag-${r.type}"><span>${r.type}</span></span>`;
-      const dirTag = `<span class="tag tag-${r.direction}" style="margin-left:4px;font-size:10px">${r.direction === 'incoming' ? 'IN' : 'OUT'}</span>`;
+      const tag = `<span class="tag tag-${r.type}">${r.type}</span>`;
+      const dir = `<span class="tag tag-${r.direction}" style="margin-left:4px;font-size:10px">${r.direction === 'incoming' ? 'IN' : 'OUT'}</span>`;
       const toolStr = r.toolCalls ? r.toolCalls.length + ' tool(s)' : '';
-      c._id = c._id || 0;
-      const id = 'rd' + (++c._id);
+      const id = 'rd' + (++idc);
       html += `<tr>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${ts}</td>
-        <td>${typeTag}</td>
-        <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.resolvedModel||r.model}">${r.model||'—'}</td>
+        <td>${tag}${dir}</td>
+        <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.resolvedModel||r.model)}">${esc(r.model)||'—'}</td>
         <td style="font-size:12px;color:var(--text2)">${tc||'—'}</td>
-        <td><span class="td-wrap">${r.content ? esc(r.content.slice(0,90)) : (toolStr || '—')}</span></td>
-        <td><button class="btn btn-icon btn-ghost" onclick="toggleReqDetail('${id}')" data-tooltip="Details">
+        <td><span class="td-wrap">${esc(r.content ? r.content.slice(0,90) : toolStr || '—')}</span></td>
+        <td><button class="btn btn-icon btn-ghost" onclick="toggleReq('${id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 16 12 12 12 8"/></svg>
         </button></td></tr>
         <tr id="${id}" style="display:none"><td colspan="6"><div class="req-detail-inner">
@@ -735,7 +715,7 @@ async function renderRequests() {
           ${r.toolCalls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>' + esc(JSON.stringify(r.toolCalls,null,2)) + '</pre>' : ''}
           ${r.error ? '<h4 style="margin-top:14px;color:var(--red)">Error</h4><pre style="color:var(--red)">' + esc(r.error) + '</pre>' : ''}
           ${r.duration ? '<p style="font-size:12px;color:var(--text3);margin-top:10px">Duration: ' + r.duration + 'ms</p>' : ''}
-          <p style="font-size:11px;color:var(--text3);margin-top:8px">ID: ${r.id} · Resolved: ${r.resolvedModel||r.model}</p>
+          <p style="font-size:11px;color:var(--text3);margin-top:8px">ID: ${r.id} · Resolved: ${esc(r.resolvedModel||r.model)}</p>
         </div></td></tr>`;
     });
     html += '</tbody></table></div>';
@@ -743,11 +723,9 @@ async function renderRequests() {
   } catch (e) { toast('Requests load failed: ' + e.message, true); }
 }
 
-function toggleReqDetail(id) { const e = document.getElementById(id); e.style.display = e.style.display === 'none' ? 'table-row' : 'none'; }
+function toggleReq(id){const e=document.getElementById(id);e.style.display=e.style.display==='none'?'table-row':'none';}
+async function clearRequests(){await api('DELETE','/api/requests');renderRequests();reloadAll();toast('Requests cleared');}
 
-async function clearRequests() { await api('DELETE', '/api/requests'); renderRequests(); reloadAll(); toast('Requests cleared'); }
-
-// Config
 async function saveConfig() {
   const u = {
     PROVIDER: document.getElementById('cfgProvider').value,
@@ -758,70 +736,35 @@ async function saveConfig() {
     LOG_LEVEL: document.getElementById('cfgLogLevel').value,
   };
   Object.keys(u).forEach(k => { if (!u[k]) delete u[k]; });
-  try {
-    const r = await api('POST', '/api/config', u);
-    if (r.ok) { toast('Config saved. Restart proxy to apply.'); reloadAll(); }
-    else toast('Save failed: ' + r.error, true);
-  } catch (e) { toast('Save failed: ' + e.message, true); }
+  try { const r = await api('POST','/api/config',u); if(r.ok){toast('Config saved. Restart proxy to apply.');reloadAll();}else toast('Save failed: '+r.error,true); }
+  catch(e){toast('Save failed: '+e.message,true);}
 }
 
-// Models
 async function loadModels() {
-  try {
-    const m = await api('GET', '/api/models');
-    const tb = document.getElementById('modelsBody'); tb.innerHTML = '';
-    Object.entries(m).forEach(([k,v]) => addRow(k,v));
-  } catch (e) { toast('Models load failed: ' + e.message, true); }
+  try { const m = await api('GET','/api/models'); const tb = document.getElementById('modelsBody'); tb.innerHTML = ''; Object.entries(m).forEach(([k,v]) => addRow(k,v)); }
+  catch(e){toast('Models load failed: '+e.message,true);}
 }
-function addModelRow() { addRow('',''); }
-function addRow(k, v) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input class="model-input" style="width:100%" value="${esc(k)}" placeholder="e.g. gemini-2.5-pro"></td><td><input class="model-input" style="width:100%" value="${esc(v)}" placeholder="e.g. deepseek-ai/deepseek-v4-flash"></td><td><button class="btn-icon" onclick="this.closest('tr').remove()" data-tooltip="Remove">✕</button></td>`;
-  document.getElementById('modelsBody').appendChild(tr);
-}
-async function saveModels() {
-  const models = {};
-  document.querySelectorAll('#modelsBody tr').forEach(tr => {
-    const inp = tr.querySelectorAll('input');
-    const k = inp[0].value.trim(), v = inp[1].value.trim();
-    if (k && v) models[k] = v;
-  });
-  try { const r = await api('POST', '/api/models', models); if (r.ok) toast('Models saved'); else toast('Save failed', true); }
-  catch(e) { toast('Save failed: ' + e.message, true); }
-}
+function addModelRow(){addRow('','');}
+function addRow(k,v){const t = document.getElementById('modelsBody'), tr = document.createElement('tr'); tr.innerHTML = `<td><input class="model-input" style="width:100%" value="${esc(k)}" placeholder="e.g. gemini-2.5-pro"></td><td><input class="model-input" style="width:100%" value="${esc(v)}" placeholder="e.g. deepseek-ai/deepseek-v4-flash"></td><td><button class="btn-icon" onclick="this.closest('tr').remove()">✕</button></td>`; t.appendChild(tr);}
+async function saveModels(){const m={};document.querySelectorAll('#modelsBody tr').forEach(tr=>{const i=tr.querySelectorAll('input'),k=i[0].value.trim(),v=i[1].value.trim();if(k&&v)m[k]=v;});try{const r=await api('POST','/api/models',m);if(r.ok)toast('Models saved');else toast('Save failed',true);}catch(e){toast('Save failed: '+e.message,true);}}
 
-// Log
-function applyLogFilter() {
-  const lvl = document.getElementById('logLevelFilter').value;
-  const out = document.getElementById('logOutput'); out.innerHTML = '';
-  logBuf.forEach(e => { if (lvl === 'all' || e.level === lvl) appendLog(e); });
-}
-function appendLog(e) {
-  const out = document.getElementById('logOutput');
-  const fl = document.getElementById('logLevelFilter').value;
-  if (fl !== 'all' && fl !== e.level) return;
-  const d = document.createElement('div'); d.className = 'log-e';
-  d.innerHTML = `<span class="ts">${(e.timestamp||'').slice(11,19)}</span><span class="lvl ${e.level.toUpperCase()}">${e.level.toUpperCase()}</span>${esc(e.msg)}`;
-  out.appendChild(d);
-  if (document.getElementById('logAutoScroll').checked) out.scrollTop = out.scrollHeight;
-}
-function clearLogView() { document.getElementById('logOutput').innerHTML = ''; logBuf.length = 0; }
+function applyLogFilter(){const l=document.getElementById('logLevelFilter').value,o=document.getElementById('logOutput');o.innerHTML='';logBuf.forEach(e=>{if(l==='all'||e.level===l)appendLog(e);});}
+function appendLog(e){const o=document.getElementById('logOutput'),fl=document.getElementById('logLevelFilter').value;if(fl!=='all'&&fl!==e.level)return;const d=document.createElement('div');d.className='log-e';d.innerHTML=`<span class="ts">${(e.timestamp||'').slice(11,19)}</span><span class="lvl ${e.level.toUpperCase()}">${e.level.toUpperCase()}</span>${esc(e.msg)}`;o.appendChild(d);if(document.getElementById('logAutoScroll').checked)o.scrollTop=o.scrollHeight;}
+function clearLogView(){document.getElementById('logOutput').innerHTML='';logBuf.length=0;}
 
-// SSE
 function connectSSE() {
-  if (eventSource) eventSource.close();
-  eventSource = new EventSource(API + '/api/events');
-  eventSource.addEventListener('request', () => { reloadAll(); if (document.getElementById('sec-requests').classList.contains('active')) renderRequests(); });
-  eventSource.addEventListener('log', e => { try { const d = JSON.parse(e.data); logBuf.push(d); if (logBuf.length > 1000) logBuf.shift(); appendLog(d); } catch {} });
-  eventSource.addEventListener('cleared', () => { logBuf.length = 0; });
-  eventSource.onerror = () => { setTimeout(connectSSE, 3000); };
+  if(eventSource)eventSource.close();
+  eventSource=new EventSource(API+'/api/events');
+  eventSource.addEventListener('request',()=>{reloadAll();if(document.getElementById('sec-requests').classList.contains('active'))renderRequests();});
+  eventSource.addEventListener('log',e=>{try{const d=JSON.parse(e.data);logBuf.push(d);if(logBuf.length>1000)logBuf.shift();appendLog(d);}catch{}});
+  eventSource.addEventListener('cleared',()=>{logBuf.length=0;});
+  eventSource.onerror=()=>{setTimeout(connectSSE,3000);};
 }
 
-function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s){if(!s)return '';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-// Init
-reloadAll(); renderRequests(); loadModels(); connectSSE();
-setInterval(() => { if (document.getElementById('sec-requests').classList.contains('active')) renderRequests(); }, 3000);
+reloadAll();renderRequests();loadModels();connectSSE();
+setInterval(()=>{if(document.getElementById('sec-requests').classList.contains('active'))renderRequests();},3000);
 </script>
 </body>
 </html>
