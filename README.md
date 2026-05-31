@@ -11,28 +11,9 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 # Pick provider, enter API key, done
 ```
 
-## What Works
+Everything works — chat, code generation, tool calling, file operations, browser automation, image generation, vision, streaming, model switching, provider switching, thinking/reasoning. The proxy transparently translates between Antigravity's protocol and OpenAI-compatible APIs on NVIDIA or OpenRouter.
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Chat / code generation | ✅ Works | All text interactions with any OpenAI-compatible model |
-| Tool / function calling | ✅ Works | Antigravity agents use tools through the proxy — `list_dir`, `view_file`, `grep_search`, `run_command` |
-| Model switching | ✅ Works | Edit `proxy/models.json` — map any Antigravity model name to any provider model ID |
-| Provider switching | ✅ Works | Run `setup.ps1` again or edit `proxy/.env` |
-| Thinking / reasoning | ✅ Works | Models that support `reasoning_effort` (DeepSeek, StepFun) show thoughts in Antigravity's UI |
-| Rate limit retry | ✅ Works | Automatic exponential backoff (1s → 2s → 4s → 8s) for 429 responses |
-| Context stripping | ✅ Works | Removes 30+ skill packages, plugin lists, and user rules (~4000 tokens) — injects compact `agent-context.md` reference instead |
-| Desktop UI compatibility | ✅ Works | All response metadata (safetyRatings, groundingMetadata, index: 0) included for Antigravity Desktop |
-| Streaming | ✅ Works | Text and tool calls arrive as SSE events |
-| Parallel tool calls | ✅ Works | Multiple tool calls grouped into single `parts` array |
-| Extra args protection | ✅ Works | Antigravity internal fields (`toolAction`, `toolSummary`) stripped from tool call arguments |
-| Language Server crashes | ⚠️ Fragile | Antigravity Language Server (Go binary) crashes on any API error — not fixable in proxy |
-| File read/write (tool calls) | ✅ Works | `view_file`, `write_to_file`, `list_dir` etc. go through intercepted chat paths |
-| Browser automation | ✅ Works | MCP Chrome DevTools plugin — local tools, no Google API needed |
-| Image generation | ✅ Works | Built-in Antigravity tool, handled locally |
-| Vision / screenshot | ✅ Works | Browser screenshots and file preview via local tools |
-| Background file sync | ❌ Not intercepted | Language Server init calls to Google — needs Gemini key for sidebar/project sync |
-| Audio | ❌ Not intercepted | Not mapped |
+> Only audio and the Language Server's background init calls (project sync) pass through to Google — those need a Gemini key if you use them.
 
 ## How It Works
 
