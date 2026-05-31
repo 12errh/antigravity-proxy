@@ -1,0 +1,108 @@
+syntax = "proto3";
+package api_server_go_proto;
+
+import "google_ai.proto";
+import "codeium_common.proto";
+
+option go_package = "api_server_go_proto";
+
+service ApiServerService {
+  // Primary chat completion - used for Gemini/Google models
+  rpc GetChatMessage(GetChatMessageRequest) returns (stream google_cloud.aiplatform.v1.GenerateContentResponse);
+
+  // External model chat completions - used for non-Google providers
+  rpc GetStreamingExternalChatCompletions(GetStreamingExternalChatCompletionsRequest) returns (stream GetStreamingExternalChatCompletionsResponse);
+
+  // Health check
+  rpc CheckHealth(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message GetChatMessageRequest {
+  string model = 1;
+  repeated google_cloud.aiplatform.v1.Content contents = 2;
+  google_cloud.aiplatform.v1.SystemInstruction system_instruction = 3;
+  repeated google_cloud.aiplatform.v1.Tool tools = 4;
+  google_cloud.aiplatform.v1.GenerationConfig generation_config = 5;
+  repeated google_cloud.aiplatform.v1.SafetySetting safety_settings = 6;
+  string cached_content = 7;
+  string api_server_url = 8;
+  string cloud_code_endpoint = 9;
+}
+
+message GetStreamingExternalChatCompletionsRequest {
+  // Serialized chat messages
+  repeated ExternalChatMessage messages = 1;
+  string model = 2;
+  float temperature = 3;
+  int32 max_tokens = 4;
+  repeated float top_p = 5;
+  repeated string stop = 6;
+  bool stream = 7;
+  repeated ExternalTool tools = 8;
+  string system_prompt = 9;
+  map<string, string> metadata = 10;
+  // Provider routing
+  string provider_name = 11;
+  string base_url = 12;
+  string api_key = 13;
+  exa.codeium_common_pb.ModelProvider model_provider = 14;
+  exa.codeium_common_pb.APIProvider api_provider = 15;
+  map<string, string> provider_settings = 16;
+}
+
+message ExternalChatMessage {
+  string role = 1;  // "user", "assistant", "system", "tool"
+  repeated ExternalContentPart parts = 2;
+  string tool_call_id = 3;
+  string name = 4;
+}
+
+message ExternalContentPart {
+  string text = 1;
+  string mime_type = 2;
+  bytes data = 3;
+  ExternalFunctionCall function_call = 4;
+  ExternalFunctionResponse function_response = 5;
+}
+
+message ExternalFunctionCall {
+  string name = 1;
+  bytes arguments = 2;  // JSON-encoded
+}
+
+message ExternalFunctionResponse {
+  string name = 1;
+  bytes response = 2;  // JSON-encoded
+}
+
+message ExternalTool {
+  string type = 1;
+  ExternalFunctionDeclaration function = 2;
+}
+
+message ExternalFunctionDeclaration {
+  string name = 1;
+  string description = 2;
+  bytes parameters = 3;  // JSON Schema encoded
+}
+
+message GetStreamingExternalChatCompletionsResponse {
+  string delta_content = 1;
+  int32 index = 2;
+  string finish_reason = 3;
+  ExternalFunctionCall function_call = 4;
+  // For non-streaming responses
+  string full_content = 5;
+  string model = 6;
+  int32 prompt_tokens = 7;
+  int32 completion_tokens = 8;
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+}

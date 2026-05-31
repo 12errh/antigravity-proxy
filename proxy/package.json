@@ -1,0 +1,26 @@
+{
+  "name": "antigravity-nvidia-proxy",
+  "version": "1.0.0",
+  "description": "gRPC proxy translating Antigravity Google API calls to NVIDIA via Vercel AI SDK",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.66",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.8.1",
+    "ai": "^6.0.191",
+    "dotenv": "^17.4.2",
+    "node-forge": "^1.4.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}

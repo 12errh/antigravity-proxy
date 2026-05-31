@@ -1,0 +1,23 @@
+# Proxy
+proxy/node_modules/
+proxy/.env
+proxy/certs/
+proxy/dist/
+proxy/logs/
+
+# Antigravity binaries (installed by Antigravity setup)
+*.asar
+language_server.exe
+webm_encoder.exe
+app-asar-extracted/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

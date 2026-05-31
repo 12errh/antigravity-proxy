@@ -1,0 +1,23 @@
+{
+  "_comment": "Default model mapping for NVIDIA provider. Edit models.json to customize.",
+  "gemini-3.5-flash": "meta/llama-3.1-8b-instruct",
+  "gemini-3.5-flash-low": "meta/llama-3.1-8b-instruct",
+  "gemini-3.5-flash-medium": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.5-flash-high": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3-flash-agent": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.1-flash-lite": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.1-flash": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.1-pro": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.1-pro-low": "mistralai/mistral-7b-instruct-v0.3",
+  "gemini-3.1-pro-high": "mistralai/mistral-7b-instruct-v0.3",
+  "claude-sonnet-4-6": "deepseek-ai/deepseek-v4-flash",
+  "claude-sonnet-4-6-thinking": "deepseek-ai/deepseek-v4-flash",
+  "claude-opus-4-6": "deepseek-ai/deepseek-v4-flash",
+  "claude-opus-4-6-thinking": "deepseek-ai/deepseek-v4-flash",
+  "gpt-oss-120b": "deepseek-ai/deepseek-v4-flash",
+  "gpt-oss-120b-medium": "deepseek-ai/deepseek-v4-flash",
+  "qwen3-32b": "qwen/qwen3-32b",
+  "qwen3-32b-fast": "qwen/qwen3-32b",
+  "openai/gpt-oss-120b": "qwen/qwen3-32b",
+  "default": "deepseek-ai/deepseek-v4-flash"
+}

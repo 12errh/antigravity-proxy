@@ -1,0 +1,23 @@
+{
+  "_comment": "Default model mapping for OpenRouter provider. Edit models.json to customize.",
+  "gemini-3.5-flash": "google/gemma-4-31b-it",
+  "gemini-3.5-flash-low": "google/gemma-4-31b-it",
+  "gemini-3.5-flash-medium": "stepfun-ai/step-3.5-flash",
+  "gemini-3.5-flash-high": "stepfun-ai/step-3.5-flash",
+  "gemini-3-flash-agent": "stepfun-ai/step-3.5-flash",
+  "gemini-3.1-flash-lite": "minimaxai/minimax-m2.7",
+  "gemini-3.1-flash": "minimaxai/minimax-m2.7",
+  "gemini-3.1-pro": "minimaxai/minimax-m2.7",
+  "gemini-3.1-pro-low": "minimaxai/minimax-m2.7",
+  "gemini-3.1-pro-high": "stepfun-ai/step-3.5-flash",
+  "claude-sonnet-4-6": "moonshotai/kimi-k2.6",
+  "claude-sonnet-4-6-thinking": "moonshotai/kimi-k2.6",
+  "claude-opus-4-6": "deepseek-ai/deepseek-v4-flash",
+  "claude-opus-4-6-thinking": "qwen/qwen3-32b",
+  "gpt-oss-120b": "deepseek-ai/deepseek-v4-flash",
+  "gpt-oss-120b-medium": "openai/gpt-oss-120b",
+  "qwen3-32b": "qwen/qwen3-32b",
+  "qwen3-32b-fast": "qwen/qwen3-32b",
+  "openai/gpt-oss-120b": "openai/gpt-oss-120b",
+  "default": "deepseek-ai/deepseek-v4-flash"
+}
