@@ -7,12 +7,26 @@ const currentLevel = LOG_LEVELS[config.logLevel as keyof typeof LOG_LEVELS] ?? 1
 export const logBus = new EventEmitter();
 logBus.setMaxListeners(50);
 
+const logBuffer: { timestamp: string; level: string; msg: string; meta?: Record<string, unknown> }[] = [];
+const MAX_LOG = 500;
+
+export function getRecentLogs(count = 200): typeof logBuffer {
+  return logBuffer.slice(-count);
+}
+
+export function clearLogBuffer(): void {
+  logBuffer.length = 0;
+  logBus.emit('cleared');
+}
+
 function timestamp(): string {
   return new Date().toISOString();
 }
 
 function log(level: string, msg: string, meta?: Record<string, unknown>) {
   const entry = { timestamp: timestamp(), level, msg, meta };
+  logBuffer.push(entry);
+  if (logBuffer.length > MAX_LOG) logBuffer.shift();
   const extra = meta ? ` ${JSON.stringify(meta)}` : '';
   console.log(`[${entry.timestamp}] [${level.toUpperCase()}] ${msg}${extra}`);
   logBus.emit('log', entry);

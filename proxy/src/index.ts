@@ -10,7 +10,7 @@ import { validateApiKey } from './auth.js';
 import { streamResponse } from './engine.js';
 import { mapContentsToMessages, mapTools, mapGenerationConfig, mapModelName, extractToolCalls } from './mapper.js';
 import { requestStore } from './request-store.js';
-import { createDashboardServer } from './dashboard.js';
+import { createDashboardHandler } from './dashboard.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,15 +31,14 @@ async function resolveBackend(hostname: string): Promise<string> {
   return ip;
 }
 
-// Dashboard server (attached to port 4000)
-const _dashboardServer = createDashboardServer();
+// Dashboard handler for port 4000
+const dashboardHandler = createDashboardHandler();
 
 // Shared handler for port 4000: dashboard paths or Google forward
 function port4000Handler(req: http.IncomingMessage, res: http.ServerResponse): void {
   const pathname = req.url || '/';
-  const isStatic = /\.(png|svg|css|js|ico|json|html)$/i.test(pathname);
-  if (pathname === '/' || pathname.startsWith('/api/') || isStatic) {
-    _dashboardServer.emit('request', req, res);
+  if (pathname === '/' || pathname.startsWith('/api/')) {
+    dashboardHandler(req, res);
     return;
   }
   const hostname = 'cloudcode-pa.googleapis.com';

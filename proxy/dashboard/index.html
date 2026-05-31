@@ -632,7 +632,7 @@ const API = '';
 let eventSource = null;
 const logBuf = [];
 const pages = {dashboard:'Overview &amp; stats',requests:'Request history',config:'Settings &amp; credentials',models:'Model mappings',log:'Real-time proxy log'};
-let reqIdCounter = 0;
+let detailIdCounter = 0;
 
 // Navigation
 document.querySelectorAll('.nav-item').forEach(el => {
@@ -644,8 +644,21 @@ document.querySelectorAll('.nav-item').forEach(el => {
     document.getElementById('sec-' + tab).classList.add('active');
     document.getElementById('pageTitle').textContent = el.textContent.trim();
     document.querySelector('.subtitle').textContent = pages[tab] || '';
-    if (tab === 'requests') renderRequests();
+    refreshTab(tab);
   });
+});
+
+function refreshTab(tab) {
+  if (tab === 'requests') renderRequests();
+  else if (tab === 'models') loadModels();
+  else if (tab === 'dashboard') reloadAll();
+}
+
+// Refresh button — refreshes current tab
+document.querySelector('.topbar-actions .btn').addEventListener('click', () => {
+  const active = document.querySelector('.nav-item.active');
+  if (active) refreshTab(active.dataset.tab);
+  reloadAll(); // always refresh sidebar stats
 });
 
 function toast(msg, isError = false) {
@@ -668,36 +681,31 @@ async function api(method, path, body) {
 async function reloadAll() {
   try {
     const s = await api('GET', '/api/status');
-    // Stats
     document.getElementById('statRequests').textContent = s.stats.totalRequests;
     document.getElementById('statTokens').textContent = s.stats.totalTokens.toLocaleString();
     document.getElementById('statToolCalls').textContent = s.stats.totalToolCalls;
     document.getElementById('statErrors').textContent = s.stats.errors;
     document.getElementById('reqBadge').textContent = s.stats.totalRequests;
-    // Provider
     document.getElementById('dashProvider').innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span> ' + (s.provider || '—');
     document.getElementById('dashBaseUrl').textContent = s.baseUrl || '—';
     document.getElementById('dashProxyPort').textContent = s.proxyPort;
     document.getElementById('dashApiPort').textContent = s.apiPort;
     document.getElementById('providerText').textContent = s.provider || '—';
-    // Status
     const dot = document.getElementById('statusDot');
     dot.className = 'proxy-status-indicator ' + (s.configured ? 'online' : 'offline');
     document.getElementById('statusText').textContent = s.configured ? 'Running' : 'Config needed';
-    // Env table
     const et = document.getElementById('envTable');
     et.innerHTML = '';
     for (const [k, v] of Object.entries(s.env)) {
       et.innerHTML += `<tr><td style="font-weight:500;white-space:nowrap;color:var(--text2);font-size:12px;width:200px">${k}</td><td style="font-family:var(--mono);font-size:12px;color:var(--text2)">${v || '—'}</td></tr>`;
     }
-    // Config form
     document.getElementById('cfgProvider').value = s.provider;
     document.getElementById('cfgProxyPort').value = s.proxyPort;
     document.getElementById('cfgApiPort').value = s.apiPort;
     document.getElementById('cfgLogLevel').value = s.logLevel;
     document.getElementById('nvKeyStatus').textContent = s.env.NVIDIA_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('orKeyStatus').textContent = s.env.OPENROUTER_API_KEY ? '✓ configured' : '○ not set';
-  } catch (e) { toast('Status load failed: ' + e.message, true); }
+  } catch (e) { /* silent — retry on next interval/event */ }
 }
 
 // Requests
@@ -722,8 +730,7 @@ async function renderRequests() {
       const typeTag = `<span class="tag tag-${r.type}"><span>${r.type}</span></span>`;
       const dirTag = `<span class="tag tag-${r.direction}" style="margin-left:4px;font-size:10px">${r.direction === 'incoming' ? 'IN' : 'OUT'}</span>`;
       const toolStr = r.toolCalls ? r.toolCalls.length + ' tool(s)' : '';
-      c._id = c._id || 0;
-      const id = 'rd' + (++c._id);
+      const id = 'rd' + (++detailIdCounter);
       html += `<tr>
         <td style="font-size:11px;color:var(--text3);white-space:nowrap">${ts}</td>
         <td>${typeTag}</td>
@@ -744,10 +751,10 @@ async function renderRequests() {
     });
     html += '</tbody></table></div>';
     c.innerHTML = html;
-  } catch (e) { toast('Requests load failed: ' + e.message, true); }
+  } catch (e) { /* silent */ }
 }
 
-function toggleReqDetail(id) { const e = document.getElementById(id); e.style.display = e.style.display === 'none' ? 'table-row' : 'none'; }
+function toggleReqDetail(id) { const e = document.getElementById(id); if (e) e.style.display = e.style.display === 'none' ? 'table-row' : 'none'; }
 
 async function clearRequests() { await api('DELETE', '/api/requests'); renderRequests(); reloadAll(); toast('Requests cleared'); }
 
@@ -775,7 +782,7 @@ async function loadModels() {
     const m = await api('GET', '/api/models');
     const tb = document.getElementById('modelsBody'); tb.innerHTML = '';
     Object.entries(m).forEach(([k,v]) => addRow(k,v));
-  } catch (e) { toast('Models load failed: ' + e.message, true); }
+  } catch (e) { /* silent */ }
 }
 function addModelRow() { addRow('',''); }
 function addRow(k, v) {
@@ -798,26 +805,42 @@ async function saveModels() {
 function applyLogFilter() {
   const lvl = document.getElementById('logLevelFilter').value;
   const out = document.getElementById('logOutput'); out.innerHTML = '';
-  logBuf.forEach(e => { if (lvl === 'all' || e.level === lvl) appendLog(e); });
+  logBuf.forEach(e => { if (lvl === 'all' || e.level === lvl) appendLog(e, true); });
 }
-function appendLog(e) {
+function appendLog(e, skipScrollCheck) {
   const out = document.getElementById('logOutput');
   const fl = document.getElementById('logLevelFilter').value;
   if (fl !== 'all' && fl !== e.level) return;
   const d = document.createElement('div'); d.className = 'log-e';
   d.innerHTML = `<span class="ts">${(e.timestamp||'').slice(11,19)}</span><span class="lvl ${e.level.toUpperCase()}">${e.level.toUpperCase()}</span>${esc(e.msg)}`;
   out.appendChild(d);
-  if (document.getElementById('logAutoScroll').checked) out.scrollTop = out.scrollHeight;
+  if (skipScrollCheck || document.getElementById('logAutoScroll').checked) {
+    requestAnimationFrame(() => { out.scrollTop = out.scrollHeight; });
+  }
 }
-function clearLogView() { document.getElementById('logOutput').innerHTML = ''; logBuf.length = 0; }
+function clearLogView() {
+  document.getElementById('logOutput').innerHTML = '';
+  logBuf.length = 0;
+  api('DELETE', '/api/logs').catch(() => {});
+}
 
 // SSE
 function connectSSE() {
   if (eventSource) eventSource.close();
   eventSource = new EventSource(API + '/api/events');
-  eventSource.addEventListener('request', () => { reloadAll(); if (document.getElementById('sec-requests').classList.contains('active')) renderRequests(); });
-  eventSource.addEventListener('log', e => { try { const d = JSON.parse(e.data); logBuf.push(d); if (logBuf.length > 1000) logBuf.shift(); appendLog(d); } catch {} });
-  eventSource.addEventListener('cleared', () => { logBuf.length = 0; });
+  eventSource.addEventListener('request', () => {
+    reloadAll();
+    if (document.getElementById('sec-requests').classList.contains('active')) renderRequests();
+  });
+  eventSource.addEventListener('log', e => {
+    try {
+      const d = JSON.parse(e.data);
+      logBuf.push(d);
+      if (logBuf.length > 1000) logBuf.shift();
+      appendLog(d);
+    } catch {}
+  });
+  eventSource.addEventListener('cleared', () => { logBuf.length = 0; document.getElementById('logOutput').innerHTML = ''; });
   eventSource.onerror = () => { setTimeout(connectSSE, 3000); };
 }
 
@@ -825,7 +848,16 @@ function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').repl
 
 // Init
 reloadAll(); renderRequests(); loadModels(); connectSSE();
-setInterval(() => { if (document.getElementById('sec-requests').classList.contains('active')) renderRequests(); }, 3000);
+
+// Load historical logs on init
+api('GET', '/api/logs').then(logs => {
+  logs.forEach(e => { logBuf.push(e); appendLog(e, true); });
+}).catch(() => {});
+
+// Auto-refresh requests tab every 3s
+setInterval(() => {
+  if (document.getElementById('sec-requests').classList.contains('active')) renderRequests();
+}, 3000);
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@ import path from 'path';
 import http from 'http';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { logger, logBus } from './logger.js';
+import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
 import { requestStore } from './request-store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,22 +61,22 @@ function writeModels(models: Record<string, string>): boolean {
   } catch { return false; }
 }
 
-export function createDashboardServer(): http.Server {
-  return http.createServer((req, res) => {
+export function createDashboardHandler(): (req: http.IncomingMessage, res: http.ServerResponse) => void {
+  const handler = (req: http.IncomingMessage, res: http.ServerResponse) => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const method = req.method || 'GET';
-    const staticDir = path.resolve(__dirname, '..', 'dashboard');
 
-    // Serve static files from dashboard/ directory
-    if (method === 'GET') {
-      const filePath = url.pathname === '/' ? path.join(staticDir, 'index.html') : path.join(staticDir, url.pathname);
-      if (filePath.startsWith(staticDir) && fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-        const ext = path.extname(filePath).toLowerCase();
-        const mime: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.css': 'text/css', '.js': 'application/javascript', '.ico': 'image/x-icon', '.json': 'application/json' };
-        res.writeHead(200, { 'content-type': mime[ext] || 'application/octet-stream' });
-        res.end(fs.readFileSync(filePath));
-        return;
+    // Serve dashboard SPA
+    if (url.pathname === '/' && method === 'GET') {
+      if (fs.existsSync(dashboardHtml)) {
+        const html = fs.readFileSync(dashboardHtml, 'utf-8');
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.end(html);
+      } else {
+        res.writeHead(200, { 'content-type': 'text/html' });
+        res.end('<h1>Dashboard</h1><p>Build dashboard/index.html</p>');
       }
+      return;
     }
 
     // API routes
@@ -143,6 +143,23 @@ export function createDashboardServer(): http.Server {
       return;
     }
 
+    if (url.pathname === '/api/logs' && method === 'GET') {
+      try {
+        const logs = getRecentLogs();
+        jsonResp(res, logs);
+      } catch (e: any) {
+        logger.error('dashboard logs API error', { error: e.message, stack: e.stack });
+        jsonResp(res, { error: e.message }, 500);
+      }
+      return;
+    }
+
+    if (url.pathname === '/api/logs' && method === 'DELETE') {
+      clearLogBuffer();
+      jsonResp(res, { ok: true });
+      return;
+    }
+
     if (url.pathname === '/api/events' && method === 'GET') {
       res.writeHead(200, {
         'content-type': 'text/event-stream',
@@ -163,6 +180,7 @@ export function createDashboardServer(): http.Server {
       };
 
       logBus.on('log', onLog);
+      logBus.on('cleared', onClear);
       requestStore.on('request', onRequest);
       requestStore.on('cleared', onClear);
 
@@ -170,6 +188,7 @@ export function createDashboardServer(): http.Server {
 
       req.on('close', () => {
         logBus.off('log', onLog);
+        logBus.off('cleared', onClear);
         requestStore.off('request', onRequest);
         requestStore.off('cleared', onClear);
         clearInterval(sent);
@@ -178,5 +197,6 @@ export function createDashboardServer(): http.Server {
     }
 
     jsonResp(res, { error: 'not found' }, 404);
-  });
+  };
+  return handler;
 }
