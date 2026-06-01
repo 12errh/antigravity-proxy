@@ -253,22 +253,15 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       if ((chunk as any).provider) usedProvider = (chunk as any).provider;
       if ((chunk as any).resolvedModel) usedModel = (chunk as any).resolvedModel;
       if (ctype === 'text') {
-        fullText += (chunk as any).content as string || '';
-      } else if (ctype === 'thought') {
-        thoughtText += (chunk as any).content as string || '';
-      } else if (ctype === 'tool-call') {
-        toolCalls.push({ name: (chunk as any).name, args: (chunk as any).args });
-      }
-      // Stream progress to client — writes current accumulated text immediately
-      const parts: any[] = [];
-      if (thoughtText) parts.push({ thought: true, text: thoughtText });
-      if (fullText) parts.push({ text: fullText });
-      if (parts.length > 0) {
+        const c = (chunk as any).content as string || '';
+        fullText += c;
+        // Send only the delta — Google's client concatenates text from each event
+        const deltaParts: any[] = [{ text: c }];
         const outTokens = estTokens(fullText + thoughtText);
         res.write(`data: ${JSON.stringify({
           response: {
             candidates: [{
-              index: 0, content: { role: 'model', parts },
+              index: 0, content: { role: 'model', parts: deltaParts },
               safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
             }],
             usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outTokens, totalTokenCount: promptTokens + outTokens },
@@ -276,6 +269,22 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
             responseId,
           }, traceId, metadata: {},
         })}\n\n`, 'utf-8');
+      } else if (ctype === 'thought') {
+        const c = (chunk as any).content as string || '';
+        thoughtText += c;
+        const deltaParts: any[] = [{ thought: true, text: c }];
+        res.write(`data: ${JSON.stringify({
+          response: {
+            candidates: [{
+              index: 0, content: { role: 'model', parts: deltaParts },
+              safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
+            }],
+            modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
+            responseId,
+          }, traceId, metadata: {},
+        })}\n\n`, 'utf-8');
+      } else if (ctype === 'tool-call') {
+        toolCalls.push({ name: (chunk as any).name, args: (chunk as any).args });
       }
     }
 
@@ -283,7 +292,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     const outputTokens = estTokens(fullText + thoughtText);
     const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, promptTokens, outputTokens) : 0;
 
-    // Send final event with finishReason + tool calls if any
+    // Send final event with finishReason and complete state
     const finalParts: any[] = [];
     if (thoughtText) finalParts.push({ thought: true, text: thoughtText });
     const hasToolCalls = toolCalls.length > 0;
