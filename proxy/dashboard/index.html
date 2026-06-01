@@ -554,32 +554,32 @@ tbody tr:hover{background:var(--surface2);}
           API Keys
         </h3>
         <div class="form-group">
-          <label>OpenRouter API Key <span id="orKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openrouter.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">OpenRouter API Key <span id="orKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgOpenrouterKey" placeholder="sk-or-v1-...">
           <div class="hint">From <span style="color:var(--accent2)">openrouter.ai/keys</span></div>
         </div>
         <div class="form-group">
-          <label>NVIDIA API Key <span id="nvKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/nvidia.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">NVIDIA API Key <span id="nvKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgNvidiaKey" placeholder="nvapi-...">
           <div class="hint">From <span style="color:var(--accent2)">build.nvidia.com</span></div>
         </div>
         <div class="form-group">
-          <label>OpenAI API Key <span id="oaiKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">OpenAI API Key <span id="oaiKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgOpenaiKey" placeholder="sk-...">
           <div class="hint">From <span style="color:var(--accent2)">platform.openai.com/api-keys</span></div>
         </div>
         <div class="form-group">
-          <label>Groq API Key <span id="groqKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://www.groq.com/favicon.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">Groq API Key <span id="groqKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgGroqKey" placeholder="gsk_...">
           <div class="hint">From <span style="color:var(--accent2)">console.groq.com/keys</span></div>
         </div>
         <div class="form-group">
-          <label>Anthropic API Key <span id="anthKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">Anthropic API Key <span id="anthKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgAnthropicKey" placeholder="sk-ant-...">
           <div class="hint">From <span style="color:var(--accent2)">console.anthropic.com/settings/keys</span></div>
         </div>
         <div class="form-group">
-          <label>Google API Key <span id="googleKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <label><img src="https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">Google API Key <span id="googleKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
           <input type="password" id="cfgGoogleKey" placeholder="AIza...">
           <div class="hint">From <span style="color:var(--accent2)">aistudio.google.com/apikey</span></div>
         </div>
@@ -766,11 +766,13 @@ async function reloadAll() {
     document.getElementById('statToolCalls').textContent = s.stats.totalToolCalls;
     document.getElementById('statErrors').textContent = s.stats.errors;
     document.getElementById('reqBadge').textContent = s.stats.totalRequests;
-    document.getElementById('dashProvider').innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span> ' + (s.provider||'—');
+    const dm = PROVIDER_META[s.provider] || {};
+    document.getElementById('dashProvider').innerHTML = (dm.logo?'<img src="'+dm.logo+'" style="width:16px;height:16px;border-radius:3px;vertical-align:middle;margin-right:6px" onerror="this.style.display=\'none\'">':'') + '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px"></span> ' + (s.provider||'—');
     document.getElementById('dashBaseUrl').textContent = s.baseUrl||'—';
     document.getElementById('dashProxyPort').textContent = s.proxyPort;
     document.getElementById('dashApiPort').textContent = s.apiPort;
-    document.getElementById('providerText').textContent = s.provider||'—';
+    const pfm = PROVIDER_META[s.provider] || {};
+    document.getElementById('providerText').innerHTML = (pfm.logo?'<img src="'+pfm.logo+'" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;border-radius:2px" onerror="this.style.display=\'none\'">':'') + (s.provider||'—');
     document.getElementById('statusDot').className = 'proxy-status-indicator '+(s.configured?'online':'offline');
     document.getElementById('statusText').textContent = s.configured ? 'Running' : 'Config needed';
     const et = document.getElementById('envTable');
@@ -1074,15 +1076,15 @@ async function deleteSession(file) {
 
 // ---- Config ----
 const PROVIDER_META = {
-  openrouter: { label: 'OpenRouter', color: '#84e', desc: 'Broad model selection' },
-  nvidia:     { label: 'NVIDIA',     color: '#4b8', desc: 'NVIDIA NIM API' },
-  openai:     { label: 'OpenAI',     color: '#090', desc: 'Direct OpenAI API' },
-  groq:       { label: 'Groq',       color: '#e80', desc: 'Groq LPU inference' },
-  anthropic:  { label: 'Anthropic',  color: '#e48', desc: 'Claude models API' },
-  google:     { label: 'Google',     color: '#48e', desc: 'Gemini models API' },
-  ollama:     { label: 'Ollama',     color: '#888', desc: 'Local: localhost:11434' },
-  vllm:       { label: 'vLLM',       color: '#888', desc: 'Local: localhost:8000' },
-  lmstudio:   { label: 'LM Studio',  color: '#888', desc: 'Local: localhost:1234' },
+  openrouter: { label: 'OpenRouter', color: '#84e', desc: 'Broad model selection', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openrouter.svg' },
+  nvidia:     { label: 'NVIDIA',     color: '#4b8', desc: 'NVIDIA NIM API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/nvidia.svg' },
+  openai:     { label: 'OpenAI',     color: '#090', desc: 'Direct OpenAI API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg' },
+  groq:       { label: 'Groq',       color: '#e80', desc: 'Groq LPU inference', logo: 'https://www.groq.com/favicon.svg' },
+  anthropic:  { label: 'Anthropic',  color: '#e48', desc: 'Claude models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg' },
+  google:     { label: 'Google',     color: '#48e', desc: 'Gemini models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg' },
+  ollama:     { label: 'Ollama',     color: '#888', desc: 'Local: localhost:11434', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/ollama.svg' },
+  vllm:       { label: 'vLLM',       color: '#888', desc: 'Local: localhost:8000', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/vllm.svg' },
+  lmstudio:   { label: 'LM Studio',  color: '#888', desc: 'Local: localhost:1234', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/lmstudio.svg' },
 };
 
 function renderProviderPriority(priority, providers) {
@@ -1093,7 +1095,7 @@ function renderProviderPriority(priority, providers) {
     const keyStatus = hasKey(id) ? '✓' : '○';
     return '<div class="prio-item" data-provider="'+id+'" draggable="true" style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:6px;cursor:grab;font-size:13px">' +
       '<span style="color:var(--text3);font-size:11px;width:16px">'+(i+1)+'</span>' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:'+meta.color+';flex-shrink:0"></span>' +
+      (meta.logo?'<img src="'+meta.logo+'" style="width:16px;height:16px;border-radius:3px;flex-shrink:0" onerror="this.style.display=\'none\'">':'<span style="width:8px;height:8px;border-radius:50%;background:'+meta.color+';flex-shrink:0"></span>') +
       '<span style="flex:1;color:var(--text1);font-weight:500">'+meta.label+'</span>' +
       '<span style="color:'+(hasKey(id)?'var(--green)':'var(--text3)')+';font-size:11px">'+keyStatus+'</span>' +
       '<span style="color:var(--text3);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+meta.desc+'</span>' +
@@ -1139,7 +1141,7 @@ function showAddProviderModal(currentPriority, currentProviders) {
   picker.innerHTML = ids.map(id => {
     const meta = PROVIDER_META[id];
     return '<button class="btn btn-sm" data-provider="'+id+'" style="display:flex;align-items:center;gap:4px;font-size:12px">' +
-      '<span style="width:6px;height:6px;border-radius:50%;background:'+meta.color+'"></span> '+meta.label +
+      (meta.logo?'<img src="'+meta.logo+'" style="width:14px;height:14px;border-radius:2px" onerror="this.style.display=\'none\'">':'<span style="width:6px;height:6px;border-radius:50%;background:'+meta.color+'"></span>')+' '+meta.label +
     '</button>';
   }).join('');
   picker.querySelectorAll('button').forEach(btn => {
@@ -1185,15 +1187,15 @@ async function saveConfig() {
 // ---- Models ----
 const PROVIDER_OPTIONS = [
   { value: '', label: 'Default (all)' },
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'nvidia', label: 'NVIDIA' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'groq', label: 'Groq' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'google', label: 'Google' },
-  { value: 'ollama', label: 'Ollama' },
-  { value: 'vllm', label: 'vLLM' },
-  { value: 'lmstudio', label: 'LM Studio' },
+  { value: 'openrouter', label: 'OpenRouter', logo: PROVIDER_META.openrouter.logo },
+  { value: 'nvidia', label: 'NVIDIA', logo: PROVIDER_META.nvidia.logo },
+  { value: 'openai', label: 'OpenAI', logo: PROVIDER_META.openai.logo },
+  { value: 'groq', label: 'Groq', logo: PROVIDER_META.groq.logo },
+  { value: 'anthropic', label: 'Anthropic', logo: PROVIDER_META.anthropic.logo },
+  { value: 'google', label: 'Google', logo: PROVIDER_META.google.logo },
+  { value: 'ollama', label: 'Ollama', logo: PROVIDER_META.ollama.logo },
+  { value: 'vllm', label: 'vLLM', logo: PROVIDER_META.vllm.logo },
+  { value: 'lmstudio', label: 'LM Studio', logo: PROVIDER_META.lmstudio.logo },
 ];
 
 async function loadModels() {
@@ -1215,11 +1217,23 @@ async function loadModels() {
 function addModelRow() { addRow('','',''); }
 function addRow(k, v, provider) {
   const tr = document.createElement('tr');
-  const sel = PROVIDER_OPTIONS.map(o => '<option value="'+o.value+'"'+(o.value===provider?' selected':'')+'>'+o.label+'</option>').join('');
+  const selOptions = PROVIDER_OPTIONS.map(o => '<option value="'+o.value+'"'+(o.value===provider?' selected':'')+'>'+o.label+'</option>').join('');
+  const selVal = provider || '';
+  const selMeta = PROVIDER_OPTIONS.find(o => o.value === selVal);
+  const il = selMeta && selMeta.logo ? selMeta.logo : '';
   tr.innerHTML = '<td><input class="model-input" value="'+esc(k)+'" placeholder="e.g. gemini-2.5-pro"></td>' +
     '<td><input class="model-input" value="'+esc(v)+'" placeholder="e.g. deepseek-ai/deepseek-v4-flash"></td>' +
-    '<td><select class="model-provider-select" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none">'+sel+'</select></td>' +
+    '<td style="display:flex;align-items:center;gap:4px">' +
+    '<img class="mlogo" src="'+il+'" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;'+(il?'':'display:none')+'" onerror="this.style.display=\'none\'">' +
+    '<select class="model-provider-select" style="width:100%;padding:6px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none">'+selOptions+'</select></td>' +
     '<td><button class="btn-icon" onclick="this.closest(\'tr\').remove()" data-tooltip="Remove">✕</button></td>';
+  const sel = tr.querySelector('select');
+  const img = tr.querySelector('.mlogo');
+  sel.onchange = function() {
+    const o = PROVIDER_OPTIONS.find(x => x.value === this.value);
+    if (o && o.logo) { img.src = o.logo; img.style.display = ''; img.onerror = function(){this.style.display='none'}; }
+    else { img.style.display = 'none'; }
+  };
   document.getElementById('modelsBody').appendChild(tr);
 }
 async function saveModels() {
