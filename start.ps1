@@ -1,17 +1,14 @@
 <#
 .SYNOPSIS
-  Antigravity Proxy - Interactive setup and launcher.
+  Antigravity Proxy - Launcher.
 .DESCRIPTION
-  First run:  Guides you through provider selection, API key entry, and configuration.
-  Subsequent: Starts the proxy and optionally launches Antigravity.
-  Supports NVIDIA and OpenRouter providers.
+  Checks prerequisites, installs deps, generates certs, starts the proxy.
+  All configuration (providers, API keys, models, pricing) is done from the dashboard at http://localhost:4000
 #>
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $ProxyDir = Join-Path $ScriptDir 'proxy'
-$EnvFile = Join-Path $ProxyDir '.env'
-$ModelsFile = Join-Path $ProxyDir 'models.json'
 
 # -- Color helpers ------------------------------------------------------------
 function Write-Info  { Write-Host "  $args" -Foreground Cyan }
@@ -40,73 +37,7 @@ $npm = Get-Command 'npm' -ErrorAction SilentlyContinue
 if (-not $npm) { Write-Err "npm not found."; exit 1 }
 Write-Ok "Node.js $($node.Version) / npm $(& $npm --version)"
 
-cd $ProxyDir
-
-# -- First-run / config check -------------------------------------------------
-$firstRun = $true
-if (Test-Path $EnvFile) {
-  $content = Get-Content $EnvFile -Raw
-  $firstRun = $content -notmatch 'PROVIDER=' -or $content -notmatch 'API_KEY='
-}
-
-if ($firstRun -or (Read-Host "`nReconfigure? (y/N)") -eq 'y') {
-  Write-Step "Setting up provider"
-
-  # -- Provider choice --------------------------------------------------------
-  Write-Host "`nChoose your AI provider:"
-  Write-Host "  1) NVIDIA  (nvidia.com)      -- Models: DeepSeek, Llama, Mistral"
-  Write-Host "  2) OpenRouter (openrouter.ai) -- Many models, unified API"
-  $provChoice = Read-Host "`nEnter 1 or 2"
-  while ($provChoice -notin '1','2') { $provChoice = Read-Host "Enter 1 for NVIDIA, 2 for OpenRouter" }
-
-  $provider = if ($provChoice -eq '1') { 'nvidia' } else { 'openrouter' }
-
-  # -- API key ----------------------------------------------------------------
-  $keyPrompt = if ($provider -eq 'nvidia') {
-    "`nEnter your NVIDIA API key (get at build.nvidia.com)"
-  } else {
-    "`nEnter your OpenRouter API key (get at openrouter.ai/keys)"
-  }
-  Write-Host $keyPrompt
-  $apiKey = Read-Host "API key"
-  while ([string]::IsNullOrWhiteSpace($apiKey)) {
-    $apiKey = Read-Host "API key (required)"
-  }
-
-  # -- Write .env -------------------------------------------------------------
-  $envContent = @"
-# Provider: nvidia or openrouter
-PROVIDER=$provider
-$($provider.ToUpper())_API_KEY=$apiKey
-
-# Proxy ports
-PROXY_PORT=443
-API_PORT=4000
-
-# Log level: debug, info, warn, error
-LOG_LEVEL=info
-"@
-  Set-Content -Path $EnvFile -Value $envContent -Encoding Ascii
-  Write-Ok "Saved .env"
-
-  # -- Set model defaults -----------------------------------------------------
-  $defaultModelFile = Join-Path $ProxyDir "models.$provider.json"
-  if (Test-Path $defaultModelFile) {
-    Copy-Item $defaultModelFile $ModelsFile -Force
-    Write-Ok "Copied default model config for $provider"
-  }
-
-  Write-Ok "Configuration complete!"
-} else {
-  # Read existing provider from .env
-  $providerLine = Select-String -Path $EnvFile -Pattern '^PROVIDER=' | Select-Object -First 1
-  if ($providerLine) {
-    $provider = ($providerLine -split '=')[1].Trim()
-  } else {
-    $provider = 'openrouter'
-  }
-  Write-Ok "Using existing config - provider: $provider"
-}
+Set-Location -LiteralPath $ProxyDir
 
 # -- npm install --------------------------------------------------------------
 Write-Step "Installing dependencies"
@@ -177,12 +108,9 @@ if ($antigravityPath) {
 
 # -- Summary ------------------------------------------------------------------
 Write-Step "Ready!"
-Write-Info "  Provider:  $provider"
-Write-Info "  Proxy:     http://localhost:4000 (REST) | https://localhost:443 (TLS)"
+Write-Info "  Dashboard: http://localhost:4000"
+Write-Info "  Proxy:     https://localhost:443 (TLS)"
 Write-Info "  Logs:      $logFile"
-Write-Info "  Models:    $ModelsFile"
 Write-Info ""
-Write-Info "  To change provider or API key, run setup.ps1 again."
-Write-Info "  To edit model mappings, edit models.json."
-Write-Info ""
+Write-Info "  Configure providers, API keys, models, and pricing from the dashboard."
 Write-Info "  Press Ctrl+C in the proxy window to stop."
