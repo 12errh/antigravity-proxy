@@ -1,6 +1,7 @@
 import { logger } from '../logger.js';
 import type { OpenAIMessage } from '../mapper.js';
 import type { StreamChunk, ModelAdapter } from './types.js';
+import { poolFetch } from '../http-pool.js';
 
 export class AnthropicAdapter implements ModelAdapter {
   provider = 'anthropic';
@@ -149,7 +150,7 @@ export class AnthropicAdapter implements ModelAdapter {
   }
 
   private async fetchResponse(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
-    const response = await fetch(`${this.baseUrl}/messages`, {
+    const response = await poolFetch(`${this.baseUrl}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

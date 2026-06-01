@@ -4,6 +4,7 @@ import http from 'http';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
+import { poolFetch } from './http-pool.js';
 import { requestStore } from './request-store.js';
 import { reloadRouter } from './engine.js';
 import * as db from './db.js';
@@ -283,7 +284,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
           if (provider === 'google') {
             const u = `${def.baseUrl}/v1/models?key=${encodeURIComponent(key)}`;
-            const r = await fetch(u);
+            const r = await poolFetch(u);
             const d = await r.json();
             models = (d.models || []).map((m: any) => m.name.replace(/^models\//, ''));
           } else {
@@ -291,7 +292,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
             if (provider === 'anthropic') { h['x-api-key'] = key; h['anthropic-version'] = '2023-06-01'; }
             else if (key) h['Authorization'] = `Bearer ${key}`;
             const url = provider === 'ollama' ? `${def.baseUrl}/api/tags` : `${def.baseUrl}/models`;
-            const r = await fetch(url, { headers: h });
+            const r = await poolFetch(url, { headers: h });
             const d = await r.json();
             if (provider === 'ollama') models = (d.models || []).map((m: any) => m.name);
             else models = (d.data || []).map((m: any) => m.id);

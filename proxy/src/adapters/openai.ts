@@ -1,5 +1,6 @@
 import type { OpenAIMessage } from '../mapper.js';
 import type { StreamChunk, ModelAdapter } from './types.js';
+import { poolFetch } from '../http-pool.js';
 
 export class OpenAICompatAdapter implements ModelAdapter {
   provider: string;
@@ -120,7 +121,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
   }
 
   private async fetchWithRetry(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await poolFetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

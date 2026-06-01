@@ -1,6 +1,7 @@
 import { logger } from '../logger.js';
 import type { OpenAIMessage } from '../mapper.js';
 import type { StreamChunk, ModelAdapter } from './types.js';
+import { poolFetch } from '../http-pool.js';
 
 export class GoogleAdapter implements ModelAdapter {
   provider = 'google';
@@ -121,7 +122,7 @@ export class GoogleAdapter implements ModelAdapter {
   }
 
   private async fetchResponse(url: string, body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
-    const response = await fetch(url, {
+    const response = await poolFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

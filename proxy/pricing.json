@@ -25,8 +25,8 @@
       "output": 0
     },
     "stepfun-ai/step-3.7-flash": {
-      "input": 1,
-      "output": 2
+      "input": 5,
+      "output": 25
     },
     "minimaxai/minimax-m2.7": {
       "input": 0,

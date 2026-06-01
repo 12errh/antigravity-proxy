@@ -13,6 +13,7 @@ import { requestStore } from './request-store.js';
 import { createDashboardHandler } from './dashboard.js';
 import * as db from './db.js';
 import { calculateCost } from './pricing.js';
+import { httpPool } from './http-pool.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -491,6 +492,11 @@ async function main(): Promise<void> {
   logger.info('Ready');
 }
 
-process.on('SIGINT', () => { logger.info('Shutdown'); process.exit(0); });
-process.on('SIGTERM', () => { logger.info('Shutdown'); process.exit(0); });
+async function shutdown(): Promise<void> {
+  logger.info('Shutdown');
+  await httpPool.closeAll();
+  process.exit(0);
+}
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
 main().catch((err) => { logger.error('Fatal', { error: String(err) }); process.exit(1); });
