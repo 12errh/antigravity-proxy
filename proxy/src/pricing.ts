@@ -64,8 +64,8 @@ export function getPrice(provider: string, model: string): PriceEntry {
   for (const [key, val] of Object.entries(prov)) {
     if (key !== 'default' && (model.startsWith(key) || model.includes(key))) return val;
   }
-  if (isProviderFree(provider)) return { input: 0, output: 0 };
   const def = prov['default'];
+  if (isProviderFree(provider) && (!def || (def.input === 0 && def.output === 0))) return { input: 0, output: 0 };
   return def || { input: 0, output: 0 };
 }
 
