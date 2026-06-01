@@ -17,16 +17,16 @@
   },
   "nvidia": {
     "default": {
-      "input": 0,
-      "output": 0
+      "input": 1,
+      "output": 2
     },
     "deepseek-ai/deepseek-v4-flash": {
       "input": 0,
       "output": 0
     },
     "stepfun-ai/step-3.7-flash": {
-      "input": 0,
-      "output": 0
+      "input": 1,
+      "output": 2
     },
     "minimaxai/minimax-m2.7": {
       "input": 0,
@@ -35,7 +35,7 @@
   },
   "openai": {
     "default": {
-      "input": 0,
+      "input": 1,
       "output": 0
     },
     "gpt-4o": {
