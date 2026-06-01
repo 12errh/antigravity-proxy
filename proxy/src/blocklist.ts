@@ -30,11 +30,14 @@ export function reload(): void {
   load();
 }
 
-export function checkBlocked(provider: string, model: string, content?: string): { blocked: boolean; reason?: string } {
-  if (blocklist.blockedProviders.includes(provider)) {
-    return { blocked: true, reason: `Provider "${provider}" is blocked` };
+export function checkBlocked(providers: string | string[], model: string, content?: string): { blocked: boolean; reason?: string } {
+  const providerList = Array.isArray(providers) ? providers : [providers];
+  for (const p of providerList) {
+    if (blocklist.blockedProviders.includes(p)) {
+      return { blocked: true, reason: `Provider "${p}" is blocked` };
+    }
   }
-  if (blocklist.blockedModels.some(p => model === p || model.startsWith(p.replace('*', '')) || (p.includes('*') && new RegExp('^' + p.replace(/\*/g, '.*') + '$').test(model)))) {
+  if (blocklist.blockedModels.some(p => model === p || model.includes(p) || model.startsWith(p.replace('*', '')) || (p.includes('*') && new RegExp('^' + p.replace(/\*/g, '.*') + '$').test(model)))) {
     return { blocked: true, reason: `Model "${model}" matches a blocked pattern` };
   }
   if (content && blocklist.contentPatterns.length > 0) {

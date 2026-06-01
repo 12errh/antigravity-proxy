@@ -196,8 +196,8 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   const tools: Tool[] = inner.tools || [];
   const genConfig: GenerationConfig = inner.generationConfig;
 
-  // Check blocklist before processing
-  const blockCheck = checkBlocked(config.provider, model);
+  // Check blocklist against all priority providers + model
+  const blockCheck = checkBlocked(config.providerPriority, model);
   if (blockCheck.blocked) {
     logger.warn(`BLOCKED: ${model} — ${blockCheck.reason}`);
     res.writeHead(403, { 'content-type': 'application/json' });

@@ -28,13 +28,15 @@ function prune(key: string, now: number): void {
 
 export function checkRateLimit(provider?: string): { allowed: boolean; retryAfter: number } {
   const now = Date.now();
-  prune(globalKey, now);
-  const globalTimestamps = windows.get(globalKey) || [];
-  if (globalTimestamps.length >= config.globalMax) {
-    const oldest = globalTimestamps[0] || now;
-    return { allowed: false, retryAfter: Math.max(1, Math.ceil((oldest + config.windowMs - now) / 1000)) };
+  if (config.globalMax > 0) {
+    prune(globalKey, now);
+    const globalTimestamps = windows.get(globalKey) || [];
+    if (globalTimestamps.length >= config.globalMax) {
+      const oldest = globalTimestamps[0] || now;
+      return { allowed: false, retryAfter: Math.max(1, Math.ceil((oldest + config.windowMs - now) / 1000)) };
+    }
   }
-  if (provider) {
+  if (provider && config.providerMax > 0) {
     prune(provider, now);
     const provTimestamps = windows.get(provider) || [];
     if (provTimestamps.length >= config.providerMax) {
@@ -60,7 +62,9 @@ export function recordRequest(provider?: string): void {
 }
 
 export function setRateLimitConfig(cfg: Partial<RateLimitConfig>): void {
-  config = { ...DEFAULT_CONFIG, ...cfg };
+  if (cfg.globalMax !== undefined) config.globalMax = cfg.globalMax;
+  if (cfg.providerMax !== undefined) config.providerMax = cfg.providerMax;
+  if (cfg.windowMs !== undefined) config.windowMs = cfg.windowMs;
 }
 
 export function getRateLimitConfig(): RateLimitConfig & { active: boolean } {
