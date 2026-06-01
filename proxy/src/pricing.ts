@@ -57,7 +57,6 @@ function getProviderPricing(provider: string): ProviderPricing | undefined {
 }
 
 export function getPrice(provider: string, model: string): PriceEntry {
-  if (isProviderFree(provider)) return { input: 0, output: 0 };
   const prov = getProviderPricing(provider);
   if (!prov) return { input: 0, output: 0 };
   const exact = prov[model];
@@ -65,6 +64,7 @@ export function getPrice(provider: string, model: string): PriceEntry {
   for (const [key, val] of Object.entries(prov)) {
     if (key !== 'default' && (model.startsWith(key) || model.includes(key))) return val;
   }
+  if (isProviderFree(provider)) return { input: 0, output: 0 };
   const def = prov['default'];
   return def || { input: 0, output: 0 };
 }
