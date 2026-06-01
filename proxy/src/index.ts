@@ -238,6 +238,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     'x-goog-api-version': '2',
   });
 
+  const genStart = Date.now();
   try {
     const generator = streamResponse(mapped, model);
     let fullText = '';
@@ -260,6 +261,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       }
     }
 
+    const duration = Date.now() - genStart;
     const outputTokens = estTokens(fullText + thoughtText);
     const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, promptTokens, outputTokens) : 0;
 
@@ -290,14 +292,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'tool-call', content: fullText,
         toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })),
-        promptTokens, outputTokens, cost,
+        promptTokens, outputTokens, cost, duration,
       });
     } else {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, model: ${model}, provider: ${usedProvider})`);
       requestStore.push({
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'text', content: fullText,
-        promptTokens, outputTokens, cost,
+        promptTokens, outputTokens, cost, duration,
       });
     }
   } catch (err: any) {
@@ -305,7 +307,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     requestStore.push({
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: model,
         direction: 'outgoing', type: 'error', content: '',
-      error: err.message,
+      error: err.message, duration: Date.now() - genStart,
     });
     const errResp = JSON.stringify({
       response: {
