@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { ProviderConfig, ProviderId } from './adapter.js';
+import type { LocalProviderInfo } from './local-discovery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = path.resolve(__dirname, '..', '.env');
@@ -16,17 +17,23 @@ function parsePriority(): ProviderId[] {
   return raw.length > 0 ? raw : ['openrouter', 'nvidia'];
 }
 
-function buildProviders(priority: ProviderId[]): ProviderConfig[] {
-  return priority.map((id, idx) => {
+function buildProviders(priority: ProviderId[], localConfigs?: ProviderConfig[]): ProviderConfig[] {
+  const fromPriority: ProviderConfig[] = priority.map((id, idx) => {
     const envKey = id.toUpperCase();
     return {
       id,
       priority: idx,
-      apiKey: process.env[`${envKey}_API_KEY`] || '',
+      apiKey: process.env[`${envKey}_API_KEY`] || undefined,
       baseUrl: process.env[`${envKey}_BASE_URL`] || undefined,
       enabled: true,
     };
   });
+  if (!localConfigs || localConfigs.length === 0) return fromPriority;
+  const localIds = new Set(localConfigs.map(c => c.id));
+  const merged = fromPriority.filter(c => !localIds.has(c.id));
+  const startPriority = merged.length;
+  merged.push(...localConfigs.map((c, i) => ({ ...c, priority: startPriority + i })));
+  return merged;
 }
 
 function parseEnvFile(): void {
@@ -40,6 +47,8 @@ function parseEnvFile(): void {
 }
 
 function createConfig() {
+  let localProviders: ProviderConfig[] = [];
+
   return {
     legacyProvider: (process.env.PROVIDER || 'openrouter') as Provider,
     nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
@@ -56,6 +65,18 @@ function createConfig() {
     rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
     providerPriority: parsePriority(),
     providers: buildProviders(parsePriority()),
+    get localProviders(): ProviderConfig[] { return localProviders; },
+    setLocalProviders(discovered: LocalProviderInfo[]): void {
+      localProviders = discovered.filter(p => p.online).map(p => ({
+        id: p.id,
+        priority: 999,
+        apiKey: '',
+        baseUrl: p.baseUrl,
+        enabled: true,
+        models: p.models.reduce((acc, m) => { acc[m] = m; return acc; }, {} as Record<string, string>),
+      } as ProviderConfig));
+      this.providers = buildProviders(this.providerPriority, localProviders);
+    },
     get isConfigured(): boolean {
       return this.providers.some((p: ProviderConfig) => !!p.apiKey);
     },
@@ -84,7 +105,7 @@ function createConfig() {
       this.rateLimitProvider = parseInt(process.env.RATE_LIMIT_PROVIDER || '30', 10);
       this.rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
       this.providerPriority = parsePriority();
-      this.providers = buildProviders(this.providerPriority);
+      this.providers = buildProviders(this.providerPriority, localProviders);
     },
   };
 }

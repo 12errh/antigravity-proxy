@@ -11,6 +11,7 @@ import * as db from './db.js';
 import { calculateCost, getAllPricing, savePricing, reload as reloadPricing } from './pricing.js';
 import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLimits } from './rate-limiter.js';
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
+import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
@@ -489,6 +490,31 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
           const data = JSON.parse(body);
           if (saveBlocklist(data)) { reloadBlocklist(); jsonResp(res, { ok: true }); }
           else jsonResp(res, { ok: false, error: 'write failed' }, 500);
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
+      return;
+    }
+
+    // Local provider discovery
+    if (url.pathname === '/api/local/discover' && method === 'POST') {
+      scanLocalProviders().then(results => {
+        jsonResp(res, { providers: results });
+      });
+      return;
+    }
+    if (url.pathname === '/api/local/discover' && method === 'GET') {
+      jsonResp(res, { providers: getCachedLocalProviders() });
+      return;
+    }
+    if (url.pathname === '/api/local/apply' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          config.setLocalProviders(data.providers || getCachedLocalProviders());
+          reloadRouter();
+          jsonResp(res, { ok: true, providers: config.providers.map(p => ({ id: p.id, priority: p.priority, hasKey: !!p.apiKey, enabled: p.enabled })) });
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
       });
       return;

@@ -703,6 +703,23 @@ tbody tr:hover{background:var(--surface2);}
         </div>
       </div>
 
+      <div class="form-section">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M4 16l4.5-4.5 3 3L15 9l4 4"/><path d="M21 10v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><circle cx="16" cy="6" r="2"/></svg>
+          Local Models
+        </h3>
+        <div id="localDiscoveryStatus" style="font-size:12px;color:var(--text3);margin-bottom:8px">Scanning...</div>
+        <div id="localProvidersContainer" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-sm" onclick="rescanLocalProviders()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Re-scan
+          </button>
+          <button class="btn btn-sm btn-primary" id="applyLocalBtn" onclick="applyLocalProviders()" style="display:none">Apply to Provider List</button>
+          <span style="font-size:11px;color:var(--text3);align-self:center" id="localProviderStatus"></span>
+        </div>
+      </div>
+
       <div style="display:flex;gap:10px">
         <button class="btn btn-primary" onclick="saveConfig()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -1013,6 +1030,7 @@ async function reloadAll() {
     document.getElementById('anthKeyStatus').textContent = s.env.ANTHROPIC_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('googleKeyStatus').textContent = s.env.GOOGLE_API_KEY ? '✓ configured' : '○ not set';
   } catch (e) {}
+  loadLocalProviders();
 }
 
 // ---- Paginated table renderer ----
@@ -1416,6 +1434,72 @@ async function resetRateLimits() {
   await api('POST', '/api/rate-limit/reset');
   loadRateLimit();
   toast('Rate limit counters reset');
+}
+
+let _localProviders = [];
+let _localApplied = true;
+
+async function loadLocalProviders() {
+  try {
+    const r = await api('GET', '/api/local/discover');
+    _localProviders = r.providers || [];
+    renderLocalProviders();
+  } catch { document.getElementById('localDiscoveryStatus').textContent = 'Failed to load'; }
+}
+
+function renderLocalProviders() {
+  const container = document.getElementById('localProvidersContainer');
+  const status = document.getElementById('localDiscoveryStatus');
+  const applyBtn = document.getElementById('applyLocalBtn');
+  const online = _localProviders.filter(p => p.online);
+  if (_localProviders.length === 0) {
+    status.textContent = 'No local providers detected. Run a local LLM server (Ollama, vLLM, LM Studio) then click Re-scan.';
+    container.innerHTML = '';
+    applyBtn.style.display = 'none';
+    return;
+  }
+  status.textContent = `${_localProviders.length} checked, ${online.length} online`;
+  container.innerHTML = _localProviders.map(p => {
+    const models = p.models.map(m => `<span style="display:inline-block;padding:2px 8px;background:var(--surface3);border-radius:4px;font-size:11px;font-family:var(--mono);margin:2px">${esc(m)}</span>`).join('');
+    const badge = p.online ? '<span style="color:var(--green)">● Online</span>' : '<span style="color:var(--text3)">○ Offline</span>';
+    const err = p.error ? `<span style="color:var(--red);font-size:11px;margin-left:6px">${esc(p.error)}</span>` : '';
+    return `<div style="display:flex;flex-direction:column;gap:4px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid ${p.online ? 'var(--green-translucent, rgba(52,211,153,0.2))' : 'var(--border2)'}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <strong style="font-size:13px">${esc(p.label)}</strong>
+        ${badge}${err}
+        <span style="font-size:11px;color:var(--text3)">${esc(p.baseUrl)}</span>
+        <span style="flex:1"></span>
+        <span style="font-size:11px;color:var(--text3)">${p.models.length} model${p.models.length!==1?'s':''}</span>
+      </div>
+      ${p.online && p.models.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:2px">${models}</div>` : ''}
+    </div>`;
+  }).join('');
+  _localApplied = false;
+  applyBtn.style.display = online.length > 0 ? '' : 'none';
+}
+
+async function rescanLocalProviders() {
+  document.getElementById('localDiscoveryStatus').textContent = 'Scanning...';
+  document.getElementById('localProviderStatus').textContent = '';
+  try {
+    const r = await api('POST', '/api/local/discover');
+    _localProviders = r.providers || [];
+    renderLocalProviders();
+    toast('Scan complete');
+  } catch { document.getElementById('localDiscoveryStatus').textContent = 'Scan failed'; }
+}
+
+async function applyLocalProviders() {
+  try {
+    const r = await api('POST', '/api/local/apply');
+    if (r.ok) {
+      _localApplied = true;
+      document.getElementById('applyLocalBtn').style.display = 'none';
+      document.getElementById('localProviderStatus').textContent = 'Applied - local providers added to routing';
+      toast('Local providers applied');
+      reloadAll();
+    }
+  } catch { toast('Apply failed', true); }
 }
 
 async function loadBlocklist() {

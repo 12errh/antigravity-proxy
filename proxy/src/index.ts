@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { validateApiKey } from './auth.js';
 import { streamResponse } from './engine.js';
+import { reloadRouter } from './engine.js';
 import { mapContentsToMessages, mapTools, mapGenerationConfig, extractToolCalls } from './mapper.js';
 import { requestStore } from './request-store.js';
 import { createDashboardHandler } from './dashboard.js';
@@ -16,6 +17,7 @@ import { calculateCost } from './pricing.js';
 import { httpPool } from './http-pool.js';
 import { checkRateLimit, recordRequest, setRateLimitConfig, resetRateLimits } from './rate-limiter.js';
 import { checkBlocked } from './blocklist.js';
+import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -518,6 +520,18 @@ async function main(): Promise<void> {
   }
 
   logger.info(`${config.provider}: ${config.baseUrl}`);
+
+  scanLocalProviders().then(async (results) => {
+    const online = results.filter(p => p.online);
+    if (online.length > 0) {
+      logger.info(`Local providers found: ${online.map(p => `${p.label} (${p.models.length} models)`).join(', ')}`);
+      config.setLocalProviders(online);
+      reloadRouter();
+    } else {
+      logger.info('No local providers detected');
+    }
+  });
+
   logger.info('Ready');
 }
 
