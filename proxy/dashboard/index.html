@@ -406,6 +406,10 @@ tbody tr:hover{background:var(--surface2);}
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       <span>Browse Models</span>
     </div>
+    <div class="nav-item" data-tab="cost">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Cost</span>
+    </div>
     <div class="nav-item" data-tab="log">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
       <span>Live Log</span>
@@ -687,6 +691,27 @@ tbody tr:hover{background:var(--surface2);}
       </div>
     </section>
 
+    <!-- Cost -->
+    <section class="section" id="sec-cost">
+      <div style="margin-bottom:16px">
+        <p style="font-size:13px;color:var(--text2)">Cost tracking across providers and models.</p>
+      </div>
+      <div id="costContent" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="card">
+          <div class="card-header">By Provider</div>
+          <div id="costByProvider" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+        </div>
+        <div class="card">
+          <div class="card-header">By Model</div>
+          <div id="costByModel" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <div class="card-header">By Day</div>
+          <div id="costByDay" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+        </div>
+      </div>
+    </section>
+
     <!-- Live Log -->
     <section class="section" id="sec-log">
       <div class="log-section">
@@ -740,7 +765,7 @@ tbody tr:hover{background:var(--surface2);}
 const API = '';
 let eventSource = null;
 const logBuf = [];
-const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',log:'Real-time proxy log',history:'Browse by date'};
+const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',cost:'Cost tracking',log:'Real-time proxy log',history:'Browse by date'};
 const openDetails = new Set(); // tracks open detail rows by request.id
 const PER_PAGE = 25;
 
@@ -762,6 +787,7 @@ function refreshTab(tab) {
   if (tab === 'requests') renderRequests();
   else if (tab === 'models') loadModels();
   else if (tab === 'browse') { if (_browseProvider && window._fetchedModels[_browseProvider]) { document.getElementById('browseResultsPanel').style.display = 'block'; renderBrowseModels(); } }
+  else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') reloadAll();
   else if (tab === 'history') { loadSessionDates(); loadSessions(); }
 }
@@ -1369,7 +1395,10 @@ function createProviderSelect(selected, onChange) {
 function addRow(k, v, provider) {
   const tr = document.createElement('tr');
   const td1 = document.createElement('td');
-  td1.innerHTML = '<div style="display:flex;align-items:center;gap:4px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg><input class="model-input" value="'+esc(k)+'" placeholder="e.g. gemini-2.5-pro"></div>';
+  const km = k.toLowerCase();
+  const kMeta = km.startsWith('claude') ? PROVIDER_META.anthropic : km.startsWith('gemini') ? PROVIDER_META.google : km.startsWith('gpt') ? PROVIDER_META.openai : null;
+  const kLogo = kMeta ? logoHtml(kMeta, 14) : '';
+  td1.innerHTML = '<div style="display:flex;align-items:center;gap:4px">'+kLogo+'<input class="model-input" value="'+esc(k)+'" placeholder="e.g. gemini-2.5-pro"></div>';
 
   const pMeta = provider ? PROVIDER_META[provider] : null;
   const resolverLogo = pMeta ? logoHtml(pMeta, 14) : '';
@@ -1520,7 +1549,38 @@ async function browseAddSelected() {
   if (added === 0) { toast('Models already in config'); return; }
   toast('Added '+added+' model'+(added!==1?'s':'')+', saving...');
   await saveModels();
-  switchTab('models');
+  const modelsTab = document.querySelector('.nav-item[data-tab="models"]');
+  if (modelsTab) modelsTab.click();
+}
+
+// ---- Cost ----
+async function loadCostData() {
+  try {
+    const data = await api('GET', '/api/cost');
+    if (!data) return;
+    const fmt = (n) => '$' + (Number(n) || 0).toFixed(4);
+    const fmtN = (n) => (Number(n) || 0).toLocaleString();
+    document.getElementById('costByProvider').innerHTML = (data.byProvider||[]).length
+      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Provider</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
+        (data.byProvider||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
+        '</table>'
+      : '<span style="color:var(--text3)">No cost data yet</span>';
+    document.getElementById('costByModel').innerHTML = (data.byModel||[]).length
+      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Model</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
+        (data.byModel||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
+        '</table>'
+      : '<span style="color:var(--text3)">No cost data yet</span>';
+    document.getElementById('costByDay').innerHTML = (data.byDay||[]).length
+      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Date</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
+        (data.byDay||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
+        '</table>'
+      : '<span style="color:var(--text3)">No cost data yet</span>';
+  } catch (e) {
+    ['costByProvider','costByModel','costByDay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<span style="color:var(--red)">Failed to load: '+esc(e.message)+'</span>';
+    });
+  }
 }
 
 // ---- Log ----

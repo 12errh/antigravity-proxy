@@ -4,10 +4,10 @@
       "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "claude-sonnet-4-6": {
-      "nvidia": "minimaxai/minimax-m2.7"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "claude-sonnet-4-6-thinking": {
-      "nvidia": "minimaxai/minimax-m2.7"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "claude-opus-4-6": {
       "nvidia": "stepfun-ai/step-3.7-flash"
@@ -16,38 +16,36 @@
       "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.5-flash": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.5-flash-low": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.5-flash-medium": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.5-flash-high": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3-flash-agent": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-flash-lite": {
-      "groq": "qwen/qwen3-32b"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-flash": {
-      "groq": "qwen/qwen3-32b"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-pro": {
-      "groq": "qwen/qwen3-32b"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-pro-low": {
-      "groq": "qwen/qwen3-32b"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-pro-high": {
-      "groq": "qwen/qwen3-32b"
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-pro-agent": {
-      "groq": "qwen/qwen3-32b",
-      "google": "gemma-4-31b-it",
       "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gpt-oss-120b": {

@@ -6,6 +6,8 @@ import { config } from './config.js';
 import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
 import { requestStore } from './request-store.js';
 import { reloadRouter } from './engine.js';
+import * as db from './db.js';
+import { calculateCost, getAllPricing, savePricing, reload as reloadPricing } from './pricing.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
@@ -355,6 +357,35 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     if (url.pathname === '/api/logs' && method === 'DELETE') {
       clearLogBuffer();
       jsonResp(res, { ok: true });
+      return;
+    }
+
+    // Cost & Pricing
+    if (url.pathname === '/api/cost' && method === 'GET') {
+      jsonResp(res, {
+        byDay: db.getCostAggregation('day'),
+        byModel: db.getCostAggregation('model'),
+        byProvider: db.getCostAggregation('provider'),
+        total: db.getStats(),
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/pricing' && method === 'GET') {
+      jsonResp(res, getAllPricing());
+      return;
+    }
+
+    if (url.pathname === '/api/pricing' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (savePricing(data)) { reloadPricing(); jsonResp(res, { ok: true }); }
+          else jsonResp(res, { ok: false, error: 'write failed' }, 500);
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
       return;
     }
 

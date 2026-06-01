@@ -11,6 +11,8 @@ import { streamResponse } from './engine.js';
 import { mapContentsToMessages, mapTools, mapGenerationConfig, extractToolCalls } from './mapper.js';
 import { requestStore } from './request-store.js';
 import { createDashboardHandler } from './dashboard.js';
+import * as db from './db.js';
+import { calculateCost } from './pricing.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -242,8 +244,13 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     let thoughtText = '';
     const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
 
+    let usedProvider = '';
+    let usedModel = '';
+
     for await (const chunk of generator) {
       const ctype = (chunk as any).type as string;
+      if ((chunk as any).provider) usedProvider = (chunk as any).provider;
+      if ((chunk as any).resolvedModel) usedModel = (chunk as any).resolvedModel;
       if (ctype === 'text') {
         fullText += (chunk as any).content as string || '';
       } else if (ctype === 'thought') {
@@ -252,6 +259,9 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
         toolCalls.push({ name: (chunk as any).name, args: (chunk as any).args });
       }
     }
+
+    const outputTokens = estTokens(fullText + thoughtText);
+    const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, promptTokens, outputTokens) : 0;
 
     if (toolCalls.length > 0) {
       if (fullText) {
@@ -277,17 +287,17 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     if (toolCalls.length > 0) {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, ${toolCalls.length} tool calls)`, { toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })) });
       requestStore.push({
-        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: model,
-        direction: 'outgoing', type: 'tool-call', content: fullText,
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
+        provider: usedProvider, direction: 'outgoing', type: 'tool-call', content: fullText,
         toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })),
-        promptTokens, outputTokens: estTokens(fullText),
+        promptTokens, outputTokens, cost,
       });
     } else {
-      logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, ${toolCalls.length} tool calls, model: ${model})`);
+      logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, model: ${model}, provider: ${usedProvider})`);
       requestStore.push({
-        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: model,
-        direction: 'outgoing', type: 'text', content: fullText,
-        promptTokens, outputTokens: estTokens(fullText),
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
+        provider: usedProvider, direction: 'outgoing', type: 'text', content: fullText,
+        promptTokens, outputTokens, cost,
       });
     }
   } catch (err: any) {
@@ -393,6 +403,7 @@ async function handleTlsRequest(req: http2.Http2ServerRequest, res: http2.Http2S
 
 // Main
 async function main(): Promise<void> {
+  db.init();
   logger.info(`=== Antigravity Proxy (${config.provider}) ===`);
 
   if (!validateApiKey()) process.exit(1);

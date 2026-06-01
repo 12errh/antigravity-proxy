@@ -1,0 +1,32 @@
+{
+  "nvidia": {
+    "default": { "input": 0.10, "output": 0.40 },
+    "deepseek-ai/deepseek-v4-flash": { "input": 0.15, "output": 0.60 },
+    "stepfun-ai/step-3.7-flash": { "input": 0.20, "output": 0.80 },
+    "minimaxai/minimax-m2.7": { "input": 0.50, "output": 2.00 }
+  },
+  "openrouter": {
+    "default": { "input": 0.50, "output": 2.00 }
+  },
+  "openai": {
+    "default": { "input": 1.00, "output": 4.00 },
+    "gpt-4o": { "input": 2.50, "output": 10.00 },
+    "gpt-4o-mini": { "input": 0.15, "output": 0.60 }
+  },
+  "groq": {
+    "default": { "input": 0.10, "output": 0.40 }
+  },
+  "anthropic": {
+    "default": { "input": 3.00, "output": 15.00 },
+    "claude-sonnet-4-20250514": { "input": 3.00, "output": 15.00 },
+    "claude-opus-4-20250514": { "input": 15.00, "output": 75.00 }
+  },
+  "google": {
+    "default": { "input": 0.50, "output": 2.00 },
+    "gemini-2.5-pro": { "input": 1.25, "output": 10.00 },
+    "gemini-2.0-flash": { "input": 0.10, "output": 0.40 }
+  },
+  "ollama": { "default": { "input": 0, "output": 0 } },
+  "vllm": { "default": { "input": 0, "output": 0 } },
+  "lmstudio": { "default": { "input": 0, "output": 0 } }
+}

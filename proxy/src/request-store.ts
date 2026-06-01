@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import * as db from './db.js';
 
 export interface RequestRecord {
   id: string;
@@ -14,49 +15,53 @@ export interface RequestRecord {
   duration?: number;
   status?: number;
   error?: string;
+  sessionId?: string;
+  provider?: string;
+  cost?: number;
+  attempts?: number;
 }
 
 class RequestStore extends EventEmitter {
-  private requests: RequestRecord[] = [];
-  private maxSize = 500;
-
   push(record: RequestRecord): void {
-    this.requests.unshift(record);
-    if (this.requests.length > this.maxSize) this.requests.pop();
+    db.insertRequest({
+      id: record.id,
+      sessionId: record.sessionId,
+      timestamp: record.timestamp,
+      model: record.model,
+      resolvedModel: record.resolvedModel,
+      provider: record.provider || '',
+      direction: record.direction,
+      type: record.type,
+      content: record.content,
+      promptTokens: record.promptTokens,
+      outputTokens: record.outputTokens,
+      toolCalls: record.toolCalls ? JSON.stringify(record.toolCalls) : undefined,
+      error: record.error,
+      durationMs: record.duration,
+      attempts: record.attempts,
+      cost: record.cost,
+    });
     this.emit('request', record);
   }
 
   getAll(): RequestRecord[] {
-    return this.requests;
+    return db.getAllRequests() as RequestRecord[];
   }
 
   getDates(): { date: string; count: number }[] {
-    const map = new Map<string, number>();
-    for (const r of this.requests) {
-      const d = r.timestamp.slice(0, 10);
-      map.set(d, (map.get(d) || 0) + 1);
-    }
-    return Array.from(map.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => b.date.localeCompare(a.date));
+    return db.getRequestDates();
   }
 
   getByDate(date: string): RequestRecord[] {
-    return this.requests.filter(r => r.timestamp.slice(0, 10) === date);
+    return db.getRequestsByDate(date) as RequestRecord[];
   }
 
   getStats(): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number } {
-    let totalTokens = 0;
-    let totalToolCalls = 0;
-    let errors = 0;
-    for (const r of this.requests) {
-      totalTokens += (r.promptTokens || 0) + (r.outputTokens || 0);
-      totalToolCalls += r.toolCalls?.length || 0;
-      if (r.type === 'error') errors++;
-    }
-    return { totalRequests: this.requests.length, totalTokens, totalToolCalls, errors };
+    return db.getStats();
   }
 
   clear(): void {
-    this.requests = [];
+    db.clearRequests();
     this.emit('cleared');
   }
 }

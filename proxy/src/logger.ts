@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EventEmitter } from 'events';
 import { config } from './config.js';
+import * as db from './db.js';
 
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
 const currentLevel = LOG_LEVELS[config.logLevel as keyof typeof LOG_LEVELS] ?? 1;
@@ -26,15 +27,12 @@ const logStream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf-8' 
 export const logBus = new EventEmitter();
 logBus.setMaxListeners(50);
 
-const logBuffer: { timestamp: string; level: string; msg: string; meta?: Record<string, unknown> }[] = [];
-const MAX_LOG = 500;
-
-export function getRecentLogs(count = 200): typeof logBuffer {
-  return logBuffer.slice(-count);
+export function getRecentLogs(count = 200): any[] {
+  return db.getRecentLogs(count);
 }
 
 export function clearLogBuffer(): void {
-  logBuffer.length = 0;
+  db.clearLogs();
   logBus.emit('cleared');
 }
 
@@ -43,13 +41,12 @@ function timestamp(): string {
 }
 
 function log(level: string, msg: string, meta?: Record<string, unknown>) {
-  const entry = { timestamp: timestamp(), level, msg, meta };
-  logBuffer.push(entry);
-  if (logBuffer.length > MAX_LOG) logBuffer.shift();
-  const line = `[${entry.timestamp}] [${level.toUpperCase()}] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`;
+  const ts = timestamp();
+  db.insertLog({ timestamp: ts, level, msg, meta: meta ? JSON.stringify(meta) : undefined });
+  const line = `[${ts}] [${level.toUpperCase()}] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`;
   logStream.write(line + '\n');
   console.log(line);
-  logBus.emit('log', entry);
+  logBus.emit('log', { timestamp: ts, level, msg, meta });
 }
 
 export const logger = {
