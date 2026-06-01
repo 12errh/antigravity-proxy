@@ -1,20 +1,45 @@
 {
-  "gemini-3.5-flash": "deepseek-ai/deepseek-v4-flash",
-  "gemini-3.5-flash-low": "deepseek-ai/deepseek-v4-flash",
-  "gemini-3.5-flash-medium": "deepseek-ai/deepseek-v4-flash",
-  "gemini-3.5-flash-high": "openrouter/free",
-  "gemini-3-flash-agent": "openrouter/free",
-  "gemini-3.1-flash-lite": "deepseek-ai/deepseek-v4-flash",
-  "gemini-3.1-flash": "deepseek-ai/deepseek-v4-flash",
-  "gemini-3.1-pro": "qwen/qwen3.5-122b-a10b",
-  "gemini-3.1-pro-low": "qwen/qwen3.5-122b-a10b",
-  "gemini-3.1-pro-high": "qwen/qwen3.5-122b-a10b",
   "claude-sonnet-4-6": "minimaxai/minimax-m2.7",
   "claude-sonnet-4-6-thinking": "minimaxai/minimax-m2.7",
   "claude-opus-4-6": "stepfun-ai/step-3.7-flash",
   "claude-opus-4-6-thinking": "stepfun-ai/step-3.7-flash",
   "default": "stepfun-ai/step-3.7-flash",
   "_provider_models": {
+    "gemini-3.5-flash": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.5-flash-low": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.5-flash-medium": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.5-flash-high": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3-flash-agent": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.1-flash-lite": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.1-flash": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.1-pro": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.1-pro-low": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-3.1-pro-high": {
+      "groq": "qwen/qwen3-32b"
+    },
+    "gemini-pro-agent": {
+      "groq": "qwen/qwen3-32b",
+      "google": "gemma-4-31b-it",
+      "nvidia": "stepfun-ai/step-3.7-flash"
+    },
     "gpt-oss-120b": {
       "google": "gemma-4-31b-it"
     },
