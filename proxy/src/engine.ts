@@ -39,7 +39,7 @@ export async function* streamResponse(
   mapped: MappedRequest,
   modelId?: string,
   abortSignal?: AbortSignal,
-): AsyncGenerator<{ type: 'text'; content: string } | { type: 'thought'; content: string } | { type: 'tool-call'; name: string; args: Record<string, unknown> }> {
+): AsyncGenerator<{ type: 'text'; content: string; provider?: string; resolvedModel?: string } | { type: 'thought'; content: string; provider?: string; resolvedModel?: string } | { type: 'tool-call'; name: string; args: Record<string, unknown>; provider?: string; resolvedModel?: string }> {
   const model = modelId || 'default';
   const r = getRouter();
   const providerIds = config.providerPriority;
@@ -60,12 +60,14 @@ export async function* streamResponse(
     }, abortSignal);
 
     for await (const chunk of gen) {
+      const prov = (chunk as any).provider;
+      const rmodel = (chunk as any).resolvedModel;
       if (chunk.type === 'text') {
-        yield { type: 'text', content: chunk.content || '' };
+        yield { type: 'text', content: chunk.content || '', provider: prov, resolvedModel: rmodel };
       } else if (chunk.type === 'thought') {
-        yield { type: 'thought', content: chunk.content || '' };
+        yield { type: 'thought', content: chunk.content || '', provider: prov, resolvedModel: rmodel };
       } else if (chunk.type === 'tool-call') {
-        yield { type: 'tool-call', name: chunk.name || 'unknown', args: stripUnknownArgs(chunk.args || {}, chunk.name || 'unknown', mapped.tools) };
+        yield { type: 'tool-call', name: chunk.name || 'unknown', args: stripUnknownArgs(chunk.args || {}, chunk.name || 'unknown', mapped.tools), provider: prov, resolvedModel: rmodel };
       } else if (chunk.type === 'error') {
         throw new Error(chunk.content || 'router error');
       }

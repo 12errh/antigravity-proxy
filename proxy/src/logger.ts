@@ -10,7 +10,12 @@ const currentLevel = LOG_LEVELS[config.logLevel as keyof typeof LOG_LEVELS] ?? 1
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logDir = path.resolve(__dirname, '..', 'logs');
-function makeLogFilename(): string {
+
+let logStream: fs.WriteStream | null = null;
+
+function ensureStream(): fs.WriteStream {
+  if (logStream) return logStream;
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
   const d = new Date();
   const y = d.getFullYear();
   const mo = String(d.getMonth() + 1).padStart(2, '0');
@@ -18,11 +23,10 @@ function makeLogFilename(): string {
   const h = String(d.getHours()).padStart(2, '0');
   const mi = String(d.getMinutes()).padStart(2, '0');
   const s = String(d.getSeconds()).padStart(2, '0');
-  return `proxy_${y}${mo}${dd}_${h}${mi}${s}.log`;
+  const name = `proxy_${y}${mo}${dd}_${h}${mi}${s}.log`;
+  logStream = fs.createWriteStream(path.join(logDir, name), { flags: 'a', encoding: 'utf-8' });
+  return logStream;
 }
-const logFile = path.join(logDir, makeLogFilename());
-if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-const logStream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf-8' });
 
 export const logBus = new EventEmitter();
 logBus.setMaxListeners(50);
@@ -44,7 +48,7 @@ function log(level: string, msg: string, meta?: Record<string, unknown>) {
   const ts = timestamp();
   db.insertLog({ timestamp: ts, level, msg, meta: meta ? JSON.stringify(meta) : undefined });
   const line = `[${ts}] [${level.toUpperCase()}] ${msg}${meta ? ` ${JSON.stringify(meta)}` : ''}`;
-  logStream.write(line + '\n');
+  ensureStream().write(line + '\n');
   console.log(line);
   logBus.emit('log', { timestamp: ts, level, msg, meta });
 }

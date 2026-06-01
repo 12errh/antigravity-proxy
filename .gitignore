@@ -4,6 +4,7 @@ proxy/.env
 proxy/certs/
 proxy/dist/
 proxy/logs/
+proxy/data/
 
 # Antigravity binaries (installed by Antigravity setup)
 *.asar

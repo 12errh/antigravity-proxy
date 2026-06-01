@@ -315,7 +315,19 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
-    // Session history
+    if (url.pathname === '/api/requests/dates' && method === 'GET') {
+      jsonResp(res, requestStore.getDates());
+      return;
+    }
+
+    if (url.pathname === '/api/requests/by-date' && method === 'GET') {
+      const date = (url.searchParams.get('date') || '').trim();
+      if (!date) { jsonResp(res, { error: 'date param required' }, 400); return; }
+      jsonResp(res, requestStore.getByDate(date));
+      return;
+    }
+
+    // Session history (legacy — kept for log view access)
     if (url.pathname === '/api/sessions' && method === 'GET') {
       const date = (url.searchParams.get('date') || '').trim();
       if (date) {

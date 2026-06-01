@@ -694,7 +694,7 @@ tbody tr:hover{background:var(--surface2);}
     <!-- Cost -->
     <section class="section" id="sec-cost">
       <div style="margin-bottom:16px">
-        <p style="font-size:13px;color:var(--text2)">Cost tracking across providers and models.</p>
+        <p style="font-size:13px;color:var(--text2)">Cost tracking across providers and models. All prices are per 1M tokens in USD.</p>
       </div>
       <div id="costContent" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="card">
@@ -709,6 +709,26 @@ tbody tr:hover{background:var(--surface2);}
           <div class="card-header">By Day</div>
           <div id="costByDay" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
         </div>
+      </div>
+
+      <!-- Pricing Config Editor -->
+      <div class="env-section" style="margin-top:16px">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Pricing Configuration
+        </h3>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Edit per-model pricing. Set input/output to 0 for free models. Changes save to pricing.json.</p>
+        <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;user-select:none">
+            <input type="checkbox" id="pricingAutoFree" onchange="toggleAutoFree()" style="accent-color:var(--accent);width:16px;height:16px">
+            Auto-detect free providers (NVIDIA, Ollama, vLLM, LM Studio always <strong>$0</strong>)
+          </label>
+          <span style="flex:1"></span>
+          <span style="font-size:11px;color:var(--text3)" id="pricingStatus"></span>
+          <button class="btn btn-sm" onclick="savePricingConfig()">Save Changes</button>
+          <button class="btn btn-sm btn-ghost" onclick="loadPricingConfig()">Discard</button>
+        </div>
+        <div id="pricingEditor"><div style="color:var(--text3);font-size:13px;padding:12px">Loading pricing data...</div></div>
       </div>
     </section>
 
@@ -739,21 +759,32 @@ tbody tr:hover{background:var(--surface2);}
     <!-- History -->
     <section class="section" id="sec-history">
       <div class="filter-bar">
-        <div class="search-wrap" style="max-width:200px">
+        <div class="search-wrap" style="max-width:200px;position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <input type="date" id="historyDate" onchange="loadSessions()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+          <input type="date" id="historyDate" onchange="loadRequestsByDate()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
         <span class="count" id="historyCount">Select a date</span>
-        <span style="flex:1"></span>
         <div id="historyDateList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <span style="flex:1"></span>
+        <div class="search-wrap" style="max-width:180px;position:relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="historySearch" placeholder="Search by model/provider..." oninput="filterHistory()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+        </div>
+      </div>
+      <div class="stat-grid" id="historyStats" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;display:none">
+        <div class="stat-card"><div class="s-label">Requests</div><div class="s-value" id="hsReqs" style="font-size:22px">0</div></div>
+        <div class="stat-card"><div class="s-label">Total Tokens</div><div class="s-value" id="hsTokens" style="font-size:22px">0</div></div>
+        <div class="stat-card"><div class="s-label">Total Cost</div><div class="s-value" id="hsCost" style="font-size:22px">$0.00</div></div>
+        <div class="stat-card"><div class="s-label">Avg Duration</div><div class="s-value" id="hsDuration" style="font-size:22px">—</div></div>
       </div>
       <div id="historyContent">
         <div class="empty-state">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <p>Select a date to see session history</p>
-          <p class="sub">Each session is one proxy launch. Expand to see all requests within it.</p>
+          <p>Select a date to see request history</p>
+          <p class="sub">Each row is one request routed through the proxy.</p>
         </div>
       </div>
+      <div class="pagination" id="historyPagination" style="display:none;margin-top:12px"></div>
     </section>
 
   </main>
@@ -789,7 +820,7 @@ function refreshTab(tab) {
   else if (tab === 'browse') { if (_browseProvider && window._fetchedModels[_browseProvider]) { document.getElementById('browseResultsPanel').style.display = 'block'; renderBrowseModels(); } }
   else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') reloadAll();
-  else if (tab === 'history') { loadSessionDates(); loadSessions(); }
+  else if (tab === 'history') { loadHistoryDates(); }
 }
 
 // Refresh button
@@ -934,202 +965,140 @@ function goReqPage(p) { _reqPage = p; renderRequests(); }
 
 async function clearRequests() { await api('DELETE','/api/requests'); openDetails.clear(); _reqPage = 1; renderRequests(); reloadAll(); toast('Requests cleared'); }
 
-// ---- History tab (session-based) ----
+// ---- History tab (SQLite-based) ----
 let _histDate = '';
-let _openSessions = new Set();
+let _histAll = [];
+let _histPage = 1;
 
 function todayStr() { return new Date().toISOString().slice(0,10); }
 
-async function loadSessionDates() {
+async function loadHistoryDates() {
   try {
-    const dates = await api('GET', '/api/sessions');
+    const dates = await api('GET', '/api/requests/dates');
     const container = document.getElementById('historyDateList');
     const currentDate = document.getElementById('historyDate').value || todayStr();
     container.innerHTML = dates.map(d =>
-      `<span class="date-chip${d.date===currentDate?' active':''}" onclick="pickSessionDate('${d.date}')">${d.date} <span class="dc-count">${d.count}</span></span>`
+      `<span class="date-chip${d.date===currentDate?' active':''}" onclick="pickHistoryDate('${d.date}')">${d.date} <span class="dc-count">${d.count}</span></span>`
     ).join('');
-    if (!document.getElementById('historyDate').value) {
-      document.getElementById('historyDate').value = currentDate;
+    if (!document.getElementById('historyDate').value && dates.length > 0) {
+      document.getElementById('historyDate').value = dates[0].date;
     }
-    loadSessions();
+    loadRequestsByDate();
   } catch (e) {}
 }
 
-function pickSessionDate(date) {
+function pickHistoryDate(date) {
   document.getElementById('historyDate').value = date;
   document.querySelectorAll('.date-chip').forEach(c => c.classList.toggle('active', c.textContent.trim().startsWith(date)));
-  _openSessions.clear();
-  loadSessions();
+  _histPage = 1;
+  loadRequestsByDate();
 }
 
-async function loadSessions() {
+async function loadRequestsByDate() {
+  const date = document.getElementById('historyDate').value;
+  if (!date) return;
+  _histDate = date;
   try {
-    const date = document.getElementById('historyDate').value;
-    if (!date) return;
-    _histDate = date;
-    _openSessions.clear();
-    const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(date));
-    document.getElementById('historyCount').textContent = sessions.length + ' session' + (sessions.length!==1?'s':'') + ' on ' + date;
-    const c = document.getElementById('historyContent');
-    if (sessions.length === 0) {
-      c.innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No sessions on this date</p><p class="sub">Start the proxy to create a new session.</p></div>';
-      return;
-    }
-    let html = '';
-    for (const s of sessions) {
-      const sid = esc(s.file);
-      html += `<div class="env-section" style="cursor:pointer" onclick="toggleSession('${sid}')">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex-shrink:0;color:var(--accent2)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            <div style="min-width:0">
-              <div style="font-size:13px;font-weight:500">${esc(s.file)}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.startTime)}${s.duration ? ' · '+esc(s.duration) : ''}</div>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
-            <span style="font-size:12px;color:var(--text2)">${s.requestCount} req</span>
-            ${s.models.map(m => `<span class="tag tag-text">${esc(m)}</span>`).join('')}
-            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteSession('${sid}')" data-tooltip="Delete session">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-              Delete
-            </button>
-            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;color:var(--text3);transition:transform 200ms"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-        </div>
-      </div>
-      <div id="ss-${sid}" style="display:none;margin-top:0;padding:0 20px 20px">
-        <div class="session-reqs" id="sreq-${sid}"><div style="text-align:center;padding:20px;color:var(--text3)">Loading requests...</div></div>
-      </div>`;
-    }
-    c.innerHTML = html;
+    _histAll = await api('GET', '/api/requests/by-date?date='+encodeURIComponent(date));
+    _histPage = 1;
+    renderHistoryTable();
+    renderHistoryStats();
   } catch (e) {}
 }
 
-async function toggleSession(file) {
-  const sid = esc(file);
-  const el = document.getElementById('ss-'+sid);
-  if (!el) return;
-  const isOpening = !_openSessions.has(file);
-  if (isOpening) {
-    _openSessions.add(file);
-    el.style.display = 'block';
-    const arrow = el.previousElementSibling.querySelector('.chevron');
-    if (arrow) arrow.style.transform = 'rotate(180deg)';
-    // Load session content
-    try {
-      const data = await api('GET', '/api/sessions/content?file='+encodeURIComponent(file));
-      const reqs = parseLogToRequests(data.content);
-      const container = document.getElementById('sreq-'+sid);
-      if (reqs.length === 0) {
-        container.innerHTML = '<div style="text-align:center;padding:16px;color:var(--text3);font-size:13px">No requests in this session</div>';
-        return;
-      }
-      let html = '<div class="table-wrap"><table><thead><tr><th style="width:70px">Time</th><th style="width:70px">Type</th><th>Model</th><th style="width:70px">Tokens</th><th>Content</th><th style="width:44px"></th></tr></thead><tbody>';
-      for (const r of reqs) {
-        const tc = (r.promptTokens||0)+(r.outputTokens||0);
-        const typeTag = `<span class="tag tag-${r.type}"><span>${r.type}</span></span>`;
-        const toolStr = r.toolCalls ? r.toolCalls.length+' tool(s)' : '';
-        const rid = esc(r.id);
-        html += `<tr style="cursor:pointer" onclick="toggleSessDetail('${rid}')">
-          <td style="font-size:11px;color:var(--text3);white-space:nowrap">${esc(r.time)}</td>
-          <td>${typeTag}</td>
-          <td style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px" title="${esc(r.model)}">${esc(r.model||'—')}</td>
-          <td style="font-size:12px;color:var(--text2)">${tc||'—'}</td>
-          <td><span class="td-wrap">${r.content ? esc(r.content.slice(0,90)) : (toolStr||'—')}</span></td>
-          <td><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;color:var(--text3)"><circle cx="12" cy="12" r="10"/><polyline points="12 16 12 12 12 8"/></svg></td>
-        </tr>
-        <tr id="sd-${rid}" style="display:none"><td colspan="6"><div class="req-detail-inner">
-          <h4>Full Content</h4><pre>${esc(r.content||'—')}</pre>
-          ${r.toolCalls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>'+esc(JSON.stringify(r.toolCalls,null,2))+'</pre>' : ''}
-          ${r.error ? '<h4 style="margin-top:14px;color:var(--red)">Error</h4><pre style="color:var(--red)">'+esc(r.error)+'</pre>' : ''}
-          <p style="font-size:11px;color:var(--text3);margin-top:8px">Model: ${esc(r.model)}</p>
-        </div></td></tr>`;
-      }
-      html += '</tbody></table></div>';
-      container.innerHTML = html;
-    } catch (e) {
-      document.getElementById('sreq-'+sid).innerHTML = '<div style="text-align:center;padding:16px;color:var(--red);font-size:13px">Failed to load session: '+esc(e.message)+'</div>';
-    }
-  } else {
-    _openSessions.delete(file);
-    el.style.display = 'none';
-    const arrow = el.previousElementSibling.querySelector('.chevron');
-    if (arrow) arrow.style.transform = 'rotate(0deg)';
+function filterHistory() {
+  _histPage = 1;
+  renderHistoryTable();
+  renderHistoryStats();
+}
+
+function getFilteredHistory() {
+  const q = (document.getElementById('historySearch').value||'').toLowerCase();
+  if (!q) return _histAll;
+  return _histAll.filter(r =>
+    (r.model||'').toLowerCase().includes(q) ||
+    (r.resolved_model||'').toLowerCase().includes(q) ||
+    (r.provider||'').toLowerCase().includes(q) ||
+    (r.type||'').toLowerCase().includes(q)
+  );
+}
+
+function renderHistoryStats() {
+  const all = getFilteredHistory();
+  const statsEl = document.getElementById('historyStats');
+  if (all.length === 0) { statsEl.style.display = 'none'; return; }
+  statsEl.style.display = 'grid';
+  const totalTokens = all.reduce((s, r) => s + (r.prompt_tokens||0) + (r.output_tokens||0), 0);
+  const totalCost = all.reduce((s, r) => s + (r.cost||0), 0);
+  const durations = all.filter(r => r.duration_ms);
+  const avgDur = durations.length > 0 ? Math.round(durations.reduce((s, r) => s + (r.duration_ms||0), 0) / durations.length) : null;
+  document.getElementById('hsReqs').textContent = all.length;
+  document.getElementById('hsTokens').textContent = totalTokens.toLocaleString();
+  document.getElementById('hsCost').textContent = '$' + (totalCost < 0.0001 ? '0' : totalCost.toFixed(6));
+  document.getElementById('hsDuration').textContent = avgDur ? avgDur + 'ms' : '—';
+  document.getElementById('historyCount').textContent = all.length + ' request' + (all.length!==1?'s':'') + ' on ' + _histDate;
+}
+
+function renderHistoryTable() {
+  const c = document.getElementById('historyContent');
+  const list = getFilteredHistory();
+  if (list.length === 0) {
+    c.innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No requests on this date</p><p class="sub">Start the proxy and send requests to see them here.</p></div>';
+    document.getElementById('historyPagination').style.display = 'none';
+    document.getElementById('historyStats').style.display = 'none';
+    return;
   }
-}
-
-function toggleSessDetail(id) {
-  const el = document.getElementById('sd-'+id);
-  if (!el) return;
-  el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
-}
-
-function parseLogToRequests(content) {
-  const lines = content.split('\n').filter(l => l.trim());
-  const reqs = [];
-  let current = null;
-  for (const line of lines) {
-    const tsMatch = line.match(/^\[([^\]]+)\]/);
-    const ts = tsMatch ? tsMatch[1] : '';
-    const time = ts.slice(11,19);
-
-    if (line.includes('INTERCEPTED:')) {
-      if (current) reqs.push(current);
-      const modelMatch = line.match(/model=([^\s&]+)/);
-      const model = modelMatch ? decodeURIComponent(modelMatch[1]) : '—';
-      current = { id: 'r'+reqs.length+'_'+Date.now(), time, ts, type: 'incoming', model, content: '', toolCalls: null, error: null, promptTokens: 0, outputTokens: 0 };
-      // Extract body snippet
-      const bm = line.match(/bodySnippet":"([^"]+)/);
-      if (bm) current.content = bm[1].replace(/\\n/g,'\n').replace(/\\"/g,'"').slice(0,500);
-    } else if (line.includes('Completed:')) {
-      if (!current) {
-        current = { id: 'r'+reqs.length+'_'+Date.now(), time, ts, type: 'incoming', model: '—', content: '', toolCalls: null, error: null, promptTokens: 0, outputTokens: 0 };
-      }
-      current.type = 'text';
-      // Extract chars
-      const cm = line.match(/\((\d+) chars/);
-      if (cm) current.outputTokens = parseInt(cm[1]);
-      // Extract tool calls
-      const tcm = line.match(/(\d+) tool calls?/);
-      if (tcm) {
-        const tcCount = parseInt(tcm[1]);
-        // Try to extract tool call details from JSON at end
-        const jsonMatch = line.match(/\{.*"toolCalls":/);
-        if (jsonMatch) {
-          try {
-            const jsonStart = line.indexOf('{');
-            const jsonStr = line.slice(jsonStart);
-            const parsed = JSON.parse(jsonStr);
-            current.toolCalls = parsed.toolCalls || [];
-          } catch {}
-        }
-        if (!current.toolCalls) current.toolCalls = [{name: '(see detail)', args: {}}];
-      }
-      // Extract model
-      const modelMatch = line.match(/model:\s*([^)\s]+)/);
-      if (modelMatch) current.model = modelMatch[1];
-      reqs.push(current);
-      current = null;
-    } else if (line.includes('ERROR') || line.includes('error')) {
-      if (current) {
-        current.error = line;
-      }
-    }
+  const start = (_histPage-1)*PER_PAGE;
+  const pageItems = list.slice(start, start+PER_PAGE);
+  let html = '<div class="table-wrap"><table><thead><tr><th style="width:70px">Time</th><th style="width:60px">Provider</th><th>Model</th><th style="width:50px">Type</th><th style="width:70px">Tokens</th><th style="width:80px">Cost</th><th style="width:70px">Duration</th><th style="width:44px"></th></tr></thead><tbody>';
+  for (const r of pageItems) {
+    const ts = new Date(r.timestamp).toLocaleTimeString();
+    const meta = PROVIDER_META[r.provider] || {};
+    const provHtml = meta.logo ? logoHtml(meta,14) : esc(r.provider||'—');
+    const typeTag = `<span class="tag tag-${r.type==='error'?'error':r.type==='tool-call'?'tool':r.direction==='incoming'?'incoming':'outgoing'}"><span>${r.type||r.direction||'text'}</span></span>`;
+    const tok = (r.prompt_tokens||0)+(r.output_tokens||0);
+    const costStr = r.cost ? '$' + (r.cost < 0.0001 ? '0' : r.cost.toFixed(6)) : '—';
+    const durStr = r.duration_ms ? r.duration_ms + 'ms' : '—';
+    const rid = esc(r.id);
+    const open = openDetails.has(r.id) ? '' : ' style="display:none"';
+    html += `<tr>
+      <td style="font-size:11px;color:var(--text3);white-space:nowrap">${ts}</td>
+      <td style="font-size:12px;white-space:nowrap">${provHtml}</td>
+      <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.resolved_model||r.model)}">${esc(r.resolved_model||r.model||'—')}</td>
+      <td>${typeTag}</td>
+      <td style="font-size:12px;color:var(--text2)">${tok||'—'}</td>
+      <td style="font-size:12px;color:${r.cost?'var(--text)':'var(--text3)'}">${costStr}</td>
+      <td style="font-size:12px;color:var(--text2)">${durStr}</td>
+      <td><button class="btn btn-icon btn-ghost" onclick="toggleHistoryDetail('${rid}')" data-tooltip="Details">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 16 12 12 12 8"/></svg>
+      </button></td></tr>
+      <tr id="hd-${rid}"${open}><td colspan="8"><div class="req-detail-inner">
+        <h4>Full Content</h4><pre>${esc(r.content||'—')}</pre>
+        ${r.tool_calls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>'+esc(typeof r.tool_calls==='string'?r.tool_calls:JSON.stringify(r.tool_calls,null,2))+'</pre>' : ''}
+        ${r.error ? '<h4 style="margin-top:14px;color:var(--red)">Error</h4><pre style="color:var(--red)">'+esc(r.error)+'</pre>' : ''}
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">ID: ${esc(r.id)} · Provider: ${esc(r.provider||'—')} · Model: ${esc(r.model||'—')} · Resolved: ${esc(r.resolved_model||r.model)}</p>
+        <p style="font-size:11px;color:var(--text3)">Tokens: ${((r.prompt_tokens||0)+(r.output_tokens||0)).toLocaleString()} (${r.prompt_tokens||0} prompt + ${r.output_tokens||0} output) · Cost: ${costStr} · Duration: ${durStr}</p>
+        ${r.attempts && r.attempts > 1 ? '<p style="font-size:11px;color:var(--yellow)">Attempts: '+r.attempts+'</p>' : ''}
+      </div></td></tr>`;
   }
-  if (current) reqs.push(current);
-  return reqs;
+  html += '</tbody></table></div>';
+  c.innerHTML = html;
+  renderHistoryPagination();
 }
 
-async function deleteSession(file) {
-  if (!confirm('Delete session '+file+'?')) return;
-  try {
-    await api('DELETE', '/api/sessions?file='+encodeURIComponent(file));
-    _openSessions.delete(file);
-    toast('Session deleted');
-    loadSessions();
-    loadSessionDates();
-  } catch (e) { toast('Delete failed: '+e.message, true); }
+function renderHistoryPagination() {
+  const total = getFilteredHistory().length;
+  if (total <= PER_PAGE) { document.getElementById('historyPagination').style.display = 'none'; return; }
+  renderPagination(document.getElementById('historyPagination'), _histPage, total, PER_PAGE, 'histGoPage');
+}
+
+function histGoPage(p) { _histPage = p; renderHistoryTable(); }
+
+function toggleHistoryDetail(id) {
+  const el = document.getElementById('hd-'+id);
+  if (!el) return;
+  if (openDetails.has(id)) { openDetails.delete(id); el.style.display = 'none'; }
+  else { openDetails.add(id); el.style.display = 'table-row'; }
 }
 
 // ---- Config ----
@@ -1575,11 +1544,142 @@ async function loadCostData() {
         (data.byDay||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
         '</table>'
       : '<span style="color:var(--text3)">No cost data yet</span>';
+    loadPricingConfig();
   } catch (e) {
     ['costByProvider','costByModel','costByDay'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<span style="color:var(--red)">Failed to load: '+esc(e.message)+'</span>';
     });
+  }
+}
+
+// ---- Pricing Config Editor ----
+let _pricingData = null;
+
+async function loadPricingConfig() {
+  const status = document.getElementById('pricingStatus');
+  status.textContent = 'Loading...';
+  try {
+    _pricingData = await api('GET', '/api/pricing');
+    renderPricingEditor(_pricingData);
+    status.textContent = '';
+  } catch (e) {
+    document.getElementById('pricingEditor').innerHTML = '<span style="color:var(--red)">Failed to load pricing: '+esc(e.message)+'</span>';
+    status.textContent = 'Error';
+  }
+}
+
+function renderPricingEditor(data) {
+  const meta = data['$meta'] || {};
+  document.getElementById('pricingAutoFree').checked = meta.autoFree !== false;
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','ollama','vllm','lmstudio'];
+  let html = '';
+  for (const pid of providerIds) {
+    const pmeta = PROVIDER_META[pid] || { label: pid, color: '#888' };
+    const prov = data[pid] || {};
+    const entries = Object.entries(prov).filter(([k]) => k !== 'default');
+    const def = prov['default'] || { input: 0, output: 0 };
+    html += `<div class="env-section" style="padding:14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        ${pmeta.logo?logoHtml(pmeta,16):'<span style="width:8px;height:8px;border-radius:50%;background:'+pmeta.color+';flex-shrink:0"></span>'}
+        <span style="font-size:13px;font-weight:600">${pmeta.label}</span>
+        <span style="flex:1"></span>
+        <span style="font-size:11px;color:var(--text3);margin-right:4px">Default</span>
+        <input class="pdef-in" data-provider="${pid}" type="number" step="any" min="0" value="${def.input}" style="width:68px;padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;text-align:right" title="Default input price per 1M tokens">
+        <input class="pdef-out" data-provider="${pid}" type="number" step="any" min="0" value="${def.output}" style="width:68px;padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;text-align:right" title="Default output price per 1M tokens">
+        <button class="btn btn-sm btn-ghost" onclick="addPricingRow('${pid}')" style="font-size:11px">+ Model</button>
+      </div>
+      <div id="pe-${pid}">
+        ${entries.length === 0 ? '<div style="font-size:12px;color:var(--text3);padding:4px 0">No model-specific overrides.</div>' : ''}
+        ${entries.map(([model, price], i) => `
+          <div class="prow" data-provider="${pid}" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;margin-bottom:6px;align-items:center">
+            <input class="pmodel" value="${esc(model)}" placeholder="model-name" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none">
+            <input class="pinput" type="number" step="any" min="0" value="${price.input}" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;text-align:right" title="Input price per 1M tokens">
+            <input class="poutput" type="number" step="any" min="0" value="${price.output}" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;text-align:right" title="Output price per 1M tokens">
+            <button class="btn btn-icon" onclick="removePricingRow(this)" style="width:28px;height:28px;padding:0;font-size:14px;color:var(--text3)">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+  html += `<div style="font-size:11px;color:var(--text3);padding-top:8px">Default prices are used when no model-specific override exists. Set to 0 for free models.</div>`;
+  document.getElementById('pricingEditor').innerHTML = html;
+}
+
+function toggleAutoFree() {
+  const checked = document.getElementById('pricingAutoFree').checked;
+  if (!_pricingData) return;
+  if (!_pricingData['$meta']) _pricingData['$meta'] = {};
+  _pricingData['$meta'].autoFree = checked;
+}
+
+function addPricingRow(provider) {
+  const container = document.getElementById('pe-'+provider);
+  const rows = container.querySelectorAll('.prow');
+  const idx = rows.length;
+  const div = document.createElement('div');
+  div.className = 'prow';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;margin-bottom:6px;align-items:center';
+  div.innerHTML = `
+    <input class="pmodel" value="" placeholder="model-name" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none">
+    <input class="pinput" type="number" step="any" min="0" value="0" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;text-align:right">
+    <input class="poutput" type="number" step="any" min="0" value="0" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;text-align:right">
+    <button class="btn btn-icon" onclick="removePricingRow(this)" style="width:28px;height:28px;padding:0;font-size:14px;color:var(--text3)">✕</button>
+  `;
+  container.appendChild(div);
+  // Remove the empty-placeholder text if present
+  const ph = container.querySelector('div[style*="color:var(--text3);padding:4px 0"]');
+  if (ph) ph.remove();
+}
+
+function removePricingRow(btn) {
+  const row = btn.closest('.prow');
+  if (!row) return;
+  const container = row.parentElement;
+  row.remove();
+  if (container.querySelectorAll('.prow').length === 0) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">No model-specific overrides.</div>';
+  }
+}
+
+function collectPricingFromEditor() {
+  const data = { '$meta': _pricingData?.['$meta'] || { autoFree: true } };
+  data['$meta'].autoFree = document.getElementById('pricingAutoFree').checked;
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','ollama','vllm','lmstudio'];
+  for (const pid of providerIds) {
+    const entries = {};
+    const defIn = parseFloat(document.querySelector(`.pdef-in[data-provider="${pid}"]`)?.value) || 0;
+    const defOut = parseFloat(document.querySelector(`.pdef-out[data-provider="${pid}"]`)?.value) || 0;
+    entries['default'] = { input: defIn, output: defOut };
+    const rows = document.querySelectorAll(`#pe-${pid} .prow`);
+    rows.forEach(row => {
+      const model = row.querySelector('.pmodel').value.trim();
+      const input = parseFloat(row.querySelector('.pinput').value) || 0;
+      const output = parseFloat(row.querySelector('.poutput').value) || 0;
+      if (model) entries[model] = { input, output };
+    });
+    data[pid] = entries;
+  }
+  return data;
+}
+
+async function savePricingConfig() {
+  const status = document.getElementById('pricingStatus');
+  status.textContent = 'Saving...';
+  try {
+    const data = collectPricingFromEditor();
+    const r = await api('POST', '/api/pricing', data);
+    if (r.ok) {
+      _pricingData = data;
+      status.textContent = '✓ Saved';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+      // Refresh cost data since pricing changed
+      loadCostData();
+    } else {
+      status.textContent = 'Save failed: ' + (r.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
   }
 }
 
@@ -1608,7 +1708,8 @@ function connectSSE() {
     reloadAll();
     const tab = document.querySelector('.nav-item.active')?.dataset.tab;
     if (tab === 'requests') renderRequests();
-    if (tab === 'history') { loadSessionDates(); loadSessions(); }
+    if (tab === 'cost') loadCostData();
+    if (tab === 'history') loadHistoryDates();
   });
   eventSource.addEventListener('log', e => {
     try { const d = JSON.parse(e.data); logBuf.push(d); if (logBuf.length>1000) logBuf.shift(); appendLog(d); } catch {}
@@ -1625,7 +1726,7 @@ document.addEventListener('click', function(e) {
 });
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();
-reloadAll(); renderRequests(); loadModels(); connectSSE(); loadSessionDates(); browseInit();
+reloadAll(); renderRequests(); loadModels(); connectSSE(); loadHistoryDates(); browseInit();
 api('GET','/api/logs').then(logs => { logs.forEach(e => { logBuf.push(e); appendLog(e, true); }); }).catch(()=>{});
 </script>
 </body>
