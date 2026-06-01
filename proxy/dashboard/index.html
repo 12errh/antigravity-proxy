@@ -288,7 +288,7 @@ tbody tr:hover{background:var(--surface2);}
   padding:16px;margin-top:4px;display:none;
 }
 .req-detail.open{display:table-row;}
-.req-detail-inner{display:block;padding:16px;max-height:500px;overflow-y:auto;}
+.req-detail-inner{display:block;padding:16px;max-height:70vh;overflow-y:auto;}
 .req-detail h4{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:600;}
 .req-detail pre{
   background:var(--surface);padding:12px;border-radius:6px;font-size:12px;
@@ -891,6 +891,7 @@ function refreshTab(tab) {
   else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') reloadAll();
   else if (tab === 'history') { loadHistoryDates(); }
+  else if (tab === 'log') { scrollLogToBottom(); }
 }
 
 // Refresh button
@@ -974,17 +975,19 @@ function buildReqRows(list, page) {
   let html = '', idx = start;
   for (const r of pageItems) {
     idx++;
-    const tc = (r.promptTokens||0)+(r.outputTokens||0);
+    const pt = r.prompt_tokens||0, ot = r.output_tokens||0, tc = pt+ot;
+    const costVal = r.cost||0;
+    const costStr = costVal ? '$' + (costVal < 0.0001 ? '0' : costVal.toFixed(6)) : '—';
     const ts = new Date(r.timestamp).toLocaleTimeString();
     const typeTag = `<span class="tag tag-${r.type}"><span>${r.type}</span></span>`;
     const dirTag = `<span class="tag tag-${r.direction}" style="margin-left:4px;font-size:10px">${r.direction==='incoming'?'IN':'OUT'}</span>`;
-    const toolStr = r.toolCalls ? r.toolCalls.length+' tool(s)' : '';
+    const toolStr = r.toolCalls ? (typeof r.toolCalls==='string'?r.toolCalls:JSON.stringify(r.toolCalls)).length+' chars' : '';
     const rid = esc(r.id);
     const open = openDetails.has(r.id) ? '' : ' style="display:none"';
     html += `<tr>
       <td style="font-size:11px;color:var(--text3);white-space:nowrap">${ts}</td>
       <td>${typeTag}${dirTag}</td>
-      <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.resolvedModel||r.model)}">${esc(r.model||'—')}</td>
+      <td style="font-size:12px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.resolved_model||r.model)}">${esc(r.model||'—')}</td>
       <td style="font-size:12px;color:var(--text2)">${tc||'—'}</td>
       <td><span class="td-wrap">${r.content ? esc(r.content.slice(0,90)) : (toolStr||'—')}</span></td>
       <td><button class="btn btn-icon btn-ghost" onclick="toggleDetail('${rid}')" data-tooltip="Details">
@@ -992,10 +995,10 @@ function buildReqRows(list, page) {
       </button></td></tr>
       <tr id="d-${rid}"${open}><td colspan="6"><div class="req-detail-inner">
         <h4>Full Content</h4><pre>${esc(r.content||'—')}</pre>
-        ${r.toolCalls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>'+esc(JSON.stringify(r.toolCalls,null,2))+'</pre>' : ''}
+        ${r.toolCalls ? '<h4 style="margin-top:14px">Tool Calls</h4><pre>'+esc(typeof r.toolCalls==='string'?r.toolCalls:JSON.stringify(r.toolCalls,null,2))+'</pre>' : ''}
         ${r.error ? '<h4 style="margin-top:14px;color:var(--red)">Error</h4><pre style="color:var(--red)">'+esc(r.error)+'</pre>' : ''}
-        ${r.duration ? '<p style="font-size:12px;color:var(--text3);margin-top:10px">Duration: '+r.duration+'ms</p>' : ''}
-        <p style="font-size:11px;color:var(--text3);margin-top:8px">ID: ${esc(r.id)} · Resolved: ${esc(r.resolvedModel||r.model)}</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:8px">Tokens: ${tc.toLocaleString()} (${pt} prompt + ${ot} output) · Cost: ${costStr} · Duration: ${r.duration_ms?r.duration_ms+'ms':'—'}</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">ID: ${esc(r.id)} · Provider: ${esc(r.provider||'—')} · Model: ${esc(r.model||'—')} · Resolved: ${esc(r.resolved_model||r.model)}</p>
       </div></td></tr>`;
   }
   return html;
@@ -1006,7 +1009,7 @@ function toggleDetail(id) {
   const el = document.getElementById('d-'+id);
   if (!el) return;
   if (openDetails.has(id)) { openDetails.delete(id); el.style.display = 'none'; }
-  else { openDetails.add(id); el.style.display = 'table-row'; }
+  else { openDetails.add(id); el.style.display = 'table-row'; el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
 // ---- Requests tab ----
@@ -1168,7 +1171,7 @@ function toggleHistoryDetail(id) {
   const el = document.getElementById('hd-'+id);
   if (!el) return;
   if (openDetails.has(id)) { openDetails.delete(id); el.style.display = 'none'; }
-  else { openDetails.add(id); el.style.display = 'table-row'; }
+  else { openDetails.add(id); el.style.display = 'table-row'; el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
 }
 
 // ---- Config ----
@@ -1826,12 +1829,17 @@ function renderPricingEditor(data) {
         ${pmeta.logo?logoHtml(pmeta,16):'<span style="width:8px;height:8px;border-radius:50%;background:'+pmeta.color+';flex-shrink:0"></span>'}
         <span style="font-size:13px;font-weight:600">${pmeta.label}</span>
         <span style="flex:1"></span>
+        <span style="font-size:10px;color:var(--text3);margin-right:4px">Input / 1M</span>
+        <span style="font-size:10px;color:var(--text3);margin-right:10px">Output / 1M</span>
         <span style="font-size:11px;color:var(--text3);margin-right:4px">Default</span>
-        <input class="pdef-in" data-provider="${pid}" type="number" step="any" min="0" value="${def.input}" style="width:68px;padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;text-align:right" title="Default input price per 1M tokens">
+        <input class="pdef-in" data-provider="${pid}" type="number" step="any" min="0" value="${def.input}" style="width:68px;padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;text-align:right" title="Input price per 1M tokens">
         <input class="pdef-out" data-provider="${pid}" type="number" step="any" min="0" value="${def.output}" style="width:68px;padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;text-align:right" title="Default output price per 1M tokens">
         <button class="btn btn-sm btn-ghost" onclick="addPricingRow('${pid}')" style="font-size:11px">+ Model</button>
       </div>
       <div id="pe-${pid}">
+        <div style="display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;margin-bottom:4px;align-items:center;font-size:10px;color:var(--text3);padding:0 4px">
+          <span>Model</span><span style="text-align:right">Input $</span><span style="text-align:right">Output $</span><span></span>
+        </div>
         ${entries.length === 0 ? '<div style="font-size:12px;color:var(--text3);padding:4px 0">No model-specific overrides.</div>' : ''}
         ${entries.map(([model, price], i) => `
           <div class="prow" data-provider="${pid}" data-idx="${i}" style="display:grid;grid-template-columns:1fr 80px 80px 28px;gap:6px;margin-bottom:6px;align-items:center">
@@ -1941,6 +1949,7 @@ function appendLog(e, skipScroll) {
   if (skipScroll || document.getElementById('logAutoScroll').checked) requestAnimationFrame(() => { out.scrollTop = out.scrollHeight; });
 }
 function clearLogView() { document.getElementById('logOutput').innerHTML=''; logBuf.length=0; api('DELETE','/api/logs').catch(()=>{}); }
+function scrollLogToBottom() { requestAnimationFrame(() => { const out = document.getElementById('logOutput'); if (out) out.scrollTop = out.scrollHeight; }); }
 
 // ---- SSE ----
 function connectSSE() {
