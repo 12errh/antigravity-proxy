@@ -57,6 +57,9 @@ export function init(): void {
 
     CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp);
   `);
+
+  // Migration: add failover_events column if missing
+  try { db.exec("ALTER TABLE requests ADD COLUMN failover_events TEXT"); } catch { /* already exists */ }
 }
 
 export function insertRequest(r: {
@@ -64,13 +67,13 @@ export function insertRequest(r: {
   resolvedModel: string; provider: string; direction: string;
   type: string; content: string; promptTokens?: number;
   outputTokens?: number; toolCalls?: string; error?: string;
-  durationMs?: number; attempts?: number; cost?: number;
+  durationMs?: number; attempts?: number; cost?: number; failoverEvents?: string;
 }): void {
   const stmt = db.prepare(`
-    INSERT OR REPLACE INTO requests (id, session_id, timestamp, model, resolved_model, provider, direction, type, content, prompt_tokens, output_tokens, tool_calls, error, duration_ms, attempts, cost)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO requests (id, session_id, timestamp, model, resolved_model, provider, direction, type, content, prompt_tokens, output_tokens, tool_calls, error, duration_ms, attempts, cost, failover_events)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(r.id, r.sessionId || null, r.timestamp, r.model, r.resolvedModel, r.provider, r.direction, r.type, r.content, r.promptTokens || 0, r.outputTokens || 0, r.toolCalls || null, r.error || null, r.durationMs || null, r.attempts || 1, r.cost || 0);
+  stmt.run(r.id, r.sessionId || null, r.timestamp, r.model, r.resolvedModel, r.provider, r.direction, r.type, r.content, r.promptTokens || 0, r.outputTokens || 0, r.toolCalls || null, r.error || null, r.durationMs || null, r.attempts || 1, r.cost || 0, r.failoverEvents || null);
 }
 
 export function getAllRequests(limit = 500, offset = 0): any[] {
@@ -85,6 +88,20 @@ export function searchRequests(q: string, limit = 50, offset = 0): { rows: any[]
   const pattern = `%${q}%`;
   const countRow = db.prepare("SELECT COUNT(*) as total FROM requests WHERE model LIKE ? OR resolved_model LIKE ? OR provider LIKE ? OR type LIKE ? OR content LIKE ?").get(pattern, pattern, pattern, pattern, pattern) as any;
   const rows = db.prepare("SELECT * FROM requests WHERE model LIKE ? OR resolved_model LIKE ? OR provider LIKE ? OR type LIKE ? OR content LIKE ? ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(pattern, pattern, pattern, pattern, pattern, limit, offset);
+  return { rows, total: countRow.total };
+}
+
+export function searchSessions(q: string, limit = 50, offset = 0): { rows: any[]; total: number } {
+  const pattern = `%${q}%`;
+  const countRow = db.prepare("SELECT COUNT(*) as total FROM sessions WHERE id LIKE ?").get(pattern) as any;
+  const rows = db.prepare("SELECT * FROM sessions WHERE id LIKE ? ORDER BY started_at DESC LIMIT ? OFFSET ?").all(pattern, limit, offset);
+  return { rows, total: countRow.total };
+}
+
+export function searchLogs(q: string, limit = 50, offset = 0): { rows: any[]; total: number } {
+  const pattern = `%${q}%`;
+  const countRow = db.prepare("SELECT COUNT(*) as total FROM logs WHERE msg LIKE ? OR meta LIKE ?").get(pattern, pattern) as any;
+  const rows = db.prepare("SELECT * FROM logs WHERE msg LIKE ? OR meta LIKE ? ORDER BY timestamp DESC LIMIT ? OFFSET ?").all(pattern, pattern, limit, offset);
   return { rows, total: countRow.total };
 }
 

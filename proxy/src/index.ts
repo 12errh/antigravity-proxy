@@ -270,9 +270,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
 
     let usedProvider = '';
     let usedModel = '';
+    const failoverEvents: any[] = [];
 
     for await (const chunk of generator) {
       const ctype = (chunk as any).type as string;
+      if (ctype === 'attempt') {
+        failoverEvents.push({ provider: (chunk as any).provider, model: (chunk as any).resolvedModel, attempt: (chunk as any).attempt, status: (chunk as any).status });
+        continue;
+      }
       if ((chunk as any).provider) usedProvider = (chunk as any).provider;
       if ((chunk as any).resolvedModel) {
         usedModel = (chunk as any).resolvedModel;
@@ -366,14 +371,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'tool-call', content: fullText,
         toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })),
-        promptTokens, outputTokens, cost, duration,
+        promptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
       });
     } else {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, model: ${model}, provider: ${usedProvider})`);
       requestStore.push({
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'text', content: fullText,
-        promptTokens, outputTokens, cost, duration,
+        promptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
       });
     }
   } catch (err: any) {

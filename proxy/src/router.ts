@@ -70,6 +70,7 @@ export class Router {
       logger.info(`[router] Trying ${providerId} → ${resolvedModel} (from ${model})`);
 
       for (let attempt = 0; attempt <= this.options.retries; attempt++) {
+        yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying' };
         try {
           const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
           for await (const chunk of gen) {
@@ -85,6 +86,7 @@ export class Router {
 
           if (isLastAttempt && isLastProvider) {
             logger.error(`[router] All providers exhausted for ${model}`);
+            yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failed' };
             yield { type: 'error', content: `All providers failed: ${err.message}`, provider: providerId, resolvedModel };
             return;
           }
@@ -98,6 +100,7 @@ export class Router {
             await new Promise(r => setTimeout(r, waitMs));
           } else {
             logger.warn(`[router] ${providerId} exhausted, failing over to next provider: ${err.message}`);
+            yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failover' };
           }
         }
       }

@@ -19,6 +19,7 @@ export interface RequestRecord {
   provider?: string;
   cost?: number;
   attempts?: number;
+  failoverEvents?: string;
 }
 
 class RequestStore extends EventEmitter {
@@ -40,6 +41,7 @@ class RequestStore extends EventEmitter {
       durationMs: record.duration,
       attempts: record.attempts,
       cost: record.cost,
+      failoverEvents: record.failoverEvents,
     });
     this.emit('request', record);
   }
@@ -59,6 +61,15 @@ class RequestStore extends EventEmitter {
   search(q: string, page: number = 1, perPage: number = 50): { rows: RequestRecord[]; total: number } {
     const offset = (page - 1) * perPage;
     return db.searchRequests(q, perPage, offset) as any;
+  }
+
+  searchAll(q: string, page: number = 1, perPage: number = 50): { requests: { rows: RequestRecord[]; total: number }; sessions: { rows: any[]; total: number }; logs: { rows: any[]; total: number } } {
+    const offset = (page - 1) * perPage;
+    return {
+      requests: db.searchRequests(q, perPage, offset) as any,
+      sessions: db.searchSessions(q, perPage, offset) as any,
+      logs: db.searchLogs(q, perPage, offset) as any,
+    };
   }
 
   getStats(): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number } {

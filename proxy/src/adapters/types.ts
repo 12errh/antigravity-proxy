@@ -1,11 +1,13 @@
 import type { OpenAIMessage } from '../mapper.js';
 
 export interface StreamChunk {
-  type: 'text' | 'tool-call' | 'error' | 'done' | 'thought';
+  type: 'text' | 'tool-call' | 'error' | 'done' | 'thought' | 'attempt';
   content?: string;
   name?: string;
   args?: Record<string, unknown>;
   finishReason?: string;
+  attempt?: number;
+  status?: 'trying' | 'retrying' | 'failover' | 'failed';
 }
 
 export interface ModelAdapter {

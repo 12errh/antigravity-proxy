@@ -6,9 +6,9 @@ import { config } from './config.js';
 import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
 import { poolFetch } from './http-pool.js';
 import { requestStore } from './request-store.js';
-import { reloadRouter } from './engine.js';
+import { reloadRouter, streamResponse } from './engine.js';
 import * as db from './db.js';
-import { calculateCost, getAllPricing, savePricing, reload as reloadPricing } from './pricing.js';
+import { getAllPricing, savePricing, reload as reloadPricing } from './pricing.js';
 import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLimits } from './rate-limiter.js';
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
 import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
@@ -515,6 +515,37 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
           config.setLocalProviders(data.providers || getCachedLocalProviders());
           reloadRouter();
           jsonResp(res, { ok: true, providers: config.providers.map(p => ({ id: p.id, priority: p.priority, hasKey: !!p.apiKey, enabled: p.enabled })) });
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
+      return;
+    }
+
+    // Unified search across requests, sessions, logs
+    if (url.pathname === '/api/search' && method === 'GET') {
+      const q = (url.searchParams.get('q') || '').trim();
+      if (!q) { jsonResp(res, { requests: { rows: [], total: 0 }, sessions: { rows: [], total: 0 }, logs: { rows: [], total: 0 } }); return; }
+      const page = parseInt(url.searchParams.get('page') || '1', 10);
+      const perPage = parseInt(url.searchParams.get('per_page') || '20', 10);
+      jsonResp(res, requestStore.searchAll(q, page, perPage));
+      return;
+    }
+
+    // Replay a request
+    if (url.pathname === '/api/replay' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', async () => {
+        try {
+          const { model, messages } = JSON.parse(body);
+          if (!model || !messages) { jsonResp(res, { ok: false, error: 'model and messages required' }, 400); return; }
+          const mapped: any = { messages };
+          let text = '';
+          for await (const chunk of streamResponse(mapped, model)) {
+            const c = chunk as any;
+            if (c.type === 'text') text += c.content;
+            if (c.type === 'error') throw new Error(c.content);
+          }
+          jsonResp(res, { ok: true, text });
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
       });
       return;

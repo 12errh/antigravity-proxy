@@ -90,9 +90,23 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 }
 
 .sidebar-footer{
-  padding:14px 20px;border-top:1px solid var(--border2);
-  display:flex;align-items:center;gap:10px;
+
 }
+
+/* Collapsed sidebar */
+.sidebar.collapsed{width:56px;}
+.sidebar.collapsed .sidebar-header .brand,
+.sidebar.collapsed .sidebar-footer .footer-info,
+.sidebar.collapsed .nav-item span,
+.sidebar.collapsed .nav-item .badge,
+.sidebar.collapsed .sidebar-toggle span{display:none;}
+.sidebar.collapsed .nav-item{padding:10px;justify-content:center;}
+.sidebar.collapsed .sidebar-header{padding:14px;justify-content:center;}
+.sidebar.collapsed .sidebar-footer{padding:10px;justify-content:center;}
+.sidebar.collapsed .sidebar-toggle{padding:8px;justify-content:center;}
+.sidebar-toggle{display:flex;align-items:center;gap:8px;padding:8px 16px;cursor:pointer;color:var(--text3);font-size:11px;border-top:1px solid var(--border2);transition:color 0.15s;}
+.sidebar-toggle:hover{color:var(--text);}
+.sidebar-toggle svg{width:16px;height:16px;flex-shrink:0;}
 .proxy-status-indicator{
   width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;
 }
@@ -442,6 +456,10 @@ tbody tr:hover{background:var(--surface2);}
       <div class="p-provider" id="providerText">nvidia</div>
     </div>
   </div>
+  <div class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+    <span>Collapse</span>
+  </div>
 </aside>
 
 <!-- Main -->
@@ -450,6 +468,12 @@ tbody tr:hover{background:var(--surface2);}
     <div class="topbar-left">
       <h2 id="pageTitle">Dashboard</h2>
       <span class="subtitle" id="pageSubtitle">Overview &amp; stats</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="search-wrap" style="width:200px;position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3);pointer-events:none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="globalSearch" placeholder="Search all (/)..." onkeydown="if(event.key==='Enter')searchAll()" style="width:100%;padding:6px 10px 6px 28px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--font);outline:none">
+      </div>
     </div>
     <div class="topbar-actions">
       <button class="btn btn-ghost btn-sm" onclick="reloadAll()">
@@ -907,7 +931,12 @@ tbody tr:hover{background:var(--surface2);}
           <input type="date" id="historyDate" onchange="loadRequestsByDate()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
         <span class="count" id="historyCount">Select a date</span>
+        <span id="compareBtnWrap" style="display:flex;gap:6px;align-items:center;margin-left:auto">
+          <button class="btn btn-sm btn-ghost" id="compareBtn" onclick="compareSessions()" style="display:none;font-size:11px">Compare Selected</button>
+          <button class="btn btn-sm btn-ghost" onclick="clearCompare()" style="display:none;font-size:11px" id="clearCompareBtn">Clear</button>
+        </span>
         <div id="historyDateList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <div id="sessionList" style="display:none;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
         <span style="flex:1"></span>
         <div class="search-wrap" style="max-width:180px;position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1135,7 +1164,26 @@ async function loadHistoryDates() {
       document.getElementById('historyDate').value = dates[0].date;
     }
     loadRequestsByDate();
+    // Also load sessions for compare
+    loadSessionList();
   } catch (e) {}
+}
+
+async function loadSessionList() {
+  const date = document.getElementById('historyDate').value;
+  if (!date) return;
+  try {
+    const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(date));
+    const container = document.getElementById('sessionList');
+    if (!sessions || sessions.length === 0) { if (container) container.style.display = 'none'; return; }
+    if (container) {
+      container.style.display = 'flex';
+      container.innerHTML = sessions.map(s => {
+        const checked = _compareSessions.has(s.file) ? 'checked' : '';
+        return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);padding:3px 8px;background:var(--surface2);border-radius:4px;cursor:pointer"><input type="checkbox" ${checked} onchange="toggleCompareSession('${s.file}')" style="accent-color:var(--accent)"> ${esc(s.file.slice(0,30))}</label>`;
+      }).join('') || '';
+    }
+  } catch {}
 }
 
 function pickHistoryDate(date) {
@@ -1268,6 +1316,11 @@ function renderHistoryTable() {
         <p style="font-size:11px;color:var(--text3);margin-top:8px">ID: ${esc(r.id)} · Provider: ${esc(r.provider||'—')} · Model: ${esc(r.model||'—')} · Resolved: ${esc(r.resolved_model||r.model)}</p>
         <p style="font-size:11px;color:var(--text3)">Tokens: ${((r.prompt_tokens||0)+(r.output_tokens||0)).toLocaleString()} (${r.prompt_tokens||0} prompt + ${r.output_tokens||0} output) · Cost: ${costStr} · Duration: ${durStr}</p>
         ${r.attempts && r.attempts > 1 ? '<p style="font-size:11px;color:var(--yellow)">Attempts: '+r.attempts+'</p>' : ''}
+        ${renderFailoverTimeline(r.failover_events ? (typeof r.failover_events==='string' ? safeJsonParse(r.failover_events) : r.failover_events) : null)}
+        <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm" id="replay-${rid}" data-model="${esc(r.resolved_model||r.model||'')}" data-prompt="${esc((r.content||'').slice(0,200))}" onclick="replayRequest('${rid}')">↻ Replay</button>
+          <span class="replay-result" id="rr-${rid}" style="display:none;font-size:11px;color:var(--text2);max-height:100px;overflow-y:auto;padding:4px 8px;background:var(--surface2);border-radius:4px"></span>
+        </div>
       </div></td></tr>`;
   }
   html += '</tbody></table></div>';
@@ -2201,12 +2254,129 @@ function connectSSE() {
 
 function esc(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+function safeJsonParse(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// ---- Sidebar Toggle ----
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const collapsed = sb.classList.toggle('collapsed');
+  localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+}
+function initSidebar() {
+  if (localStorage.getItem('sidebarCollapsed') === '1') document.querySelector('.sidebar').classList.add('collapsed');
+}
+
+// ---- Keyboard Shortcuts ----
+function initShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+      if (e.key === 'Escape') e.target.blur();
+      return;
+    }
+    if (e.key === '/') { e.preventDefault(); const s = document.querySelector('#historySearch'); if (s) s.focus(); return; }
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); reloadAll(); toast('Refreshed'); return; }
+    if (e.key === 'j' || e.key === 'k') {
+      const rows = document.querySelectorAll('#historyContent tbody tr:not([id^="hd-"])');
+      if (rows.length === 0) return;
+      const active = document.querySelector('#historyContent tr.active-row');
+      let idx = Array.from(rows).indexOf(active);
+      if (e.key === 'j') idx = Math.min(idx + 1, rows.length - 1); else idx = Math.max(idx - 1, 0);
+      rows.forEach(r => r.classList.remove('active-row'));
+      const next = rows[idx]; if (!next) return;
+      next.classList.add('active-row'); next.scrollIntoView({ block: 'nearest' });
+      const btn = next.querySelector('button'); if (btn) btn.focus();
+    }
+  });
+}
+
+// ---- Request Replay ----
+async function replayRequest(id) {
+  const btn = document.querySelector(`#replay-${id}`);
+  if (!btn) return;
+  const original = btn.dataset;
+  btn.disabled = true; btn.innerHTML = '...';
+  try {
+    const r = await api('POST', '/api/replay', { model: original.model, messages: [{ role: 'user', content: original.prompt || 'Repeat the last output' }] });
+    if (r.ok) {
+      btn.disabled = false; btn.innerHTML = '✓ Replied';
+      const detail = document.querySelector(`#hd-${id} .replay-result`);
+      if (detail) { detail.textContent = r.text; detail.style.display = 'block'; }
+      setTimeout(() => { btn.innerHTML = '↻ Replay'; btn.disabled = false; }, 3000);
+    } else { throw new Error(r.error); }
+  } catch (e) { btn.disabled = false; btn.innerHTML = '✕ Failed'; }
+}
+
+// ---- Failover Timeline Renderer ----
+function renderFailoverTimeline(events) {
+  if (!events || events.length === 0) return '';
+  let html = '<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border2)"><h4 style="margin-bottom:8px;font-size:12px">Failover Timeline</h4><div style="display:flex;flex-direction:column;gap:4px">';
+  for (const ev of events) {
+    const label = ev.status === 'trying' ? '→ Trying' : ev.status === 'retrying' ? '↻ Retry #'+ev.attempt : ev.status === 'failover' ? '⇢ Failover to next' : '✕ Failed';
+    const color = ev.status === 'failed' ? 'var(--red)' : ev.status === 'failover' ? 'var(--yellow)' : ev.status === 'retrying' ? 'var(--accent)' : 'var(--text2)';
+    html += `<div style="display:flex;align-items:center;gap:8px;font-size:11px"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span><span style="color:${color}">${label}</span><span style="color:var(--text3)">${esc(ev.provider||'')}</span><span style="color:var(--text3);font-family:var(--mono);font-size:10px">${esc(ev.model||'')}</span></div>`;
+  }
+  html += '</div></div>';
+  return html;
+}
+
+// ---- Session Compare ----
+let _compareSessions = new Set();
+function toggleCompareSession(sessionId) {
+  if (_compareSessions.has(sessionId)) _compareSessions.delete(sessionId);
+  else if (_compareSessions.size < 2) _compareSessions.add(sessionId);
+  else { toast('Select at most 2 sessions to compare'); return; }
+  const show = _compareSessions.size === 2;
+  document.getElementById('compareBtn').style.display = show ? '' : 'none';
+  document.getElementById('clearCompareBtn').style.display = _compareSessions.size > 0 ? '' : 'none';
+}
+function clearCompare() { _compareSessions.clear(); document.getElementById('compareBtn').style.display = 'none'; document.getElementById('comparePanel')?.remove(); }
+async function compareSessions() {
+  if (_compareSessions.size !== 2) return;
+  const ids = Array.from(_compareSessions);
+  try {
+    const [a, b] = await Promise.all(ids.map(id => api('GET', '/api/sessions/content?file='+encodeURIComponent(id))));
+    let html = '<div id="comparePanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()"><div style="background:var(--surface);border-radius:12px;padding:20px;max-width:90vw;max-height:90vh;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:700px"><div><h3 style="margin-bottom:8px">Session 1: '+esc(ids[0])+'</h3><pre style="font-size:11px;max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word">'+esc(a||'No data')+'</pre></div><div><h3 style="margin-bottom:8px">Session 2: '+esc(ids[1])+'</h3><pre style="font-size:11px;max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word">'+esc(b||'No data')+'</pre></div><button class="btn btn-sm btn-ghost" onclick="this.closest(\'#comparePanel\').remove()" style="position:absolute;top:12px;right:12px">✕</button></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    clearCompare();
+  } catch { toast('Compare failed', true); clearCompare(); }
+}
+
+// ---- Unified Search (across requests, sessions, logs) ----
+async function searchAll() {
+  const q = document.getElementById('globalSearch')?.value?.trim();
+  if (!q) return;
+  document.getElementById('globalSearchResults')?.remove();
+  try {
+    const r = await api('GET', '/api/search?q='+encodeURIComponent(q));
+    let html = '<div id="globalSearchResults" style="position:fixed;top:60px;right:20px;width:480px;max-height:80vh;background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:16px;overflow-y:auto;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,0.3)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h3 style="font-size:14px">Results: "'+esc(q)+'"</h3><button class="btn btn-sm btn-ghost" onclick="this.closest(\'#globalSearchResults\').remove()">✕</button></div>';
+    const sections = [
+      { label: 'Requests', items: r.requests.rows, total: r.requests.total },
+      { label: 'Sessions', items: r.sessions.rows, total: r.sessions.total },
+      { label: 'Logs', items: r.logs.rows, total: r.logs.total },
+    ];
+    for (const sec of sections) {
+      html += `<div style="margin-bottom:10px"><strong style="font-size:12px">${sec.label} (${sec.total})</strong>`;
+      if (sec.items.length === 0) { html += '<div style="font-size:11px;color:var(--text3);padding:4px 0">None found</div></div>'; continue; }
+      for (const item of sec.items.slice(0, 10)) {
+        if (sec.label === 'Requests') html += `<div style="font-size:11px;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--surface2);cursor:pointer" onclick="switchTab('history');this.closest('#globalSearchResults').remove()">${esc(item.model||'')} · ${esc(item.provider||'')} · ${esc((item.content||'').slice(0,80))}</div>`;
+        else if (sec.label === 'Sessions') html += `<div style="font-size:11px;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--surface2)">${esc(item.id||'')} · ${esc(item.started_at||'')}</div>`;
+        else html += `<div style="font-size:11px;padding:4px 6px;border-radius:4px;margin:2px 0;background:var(--surface2)">[${esc(item.level||'')}] ${esc((item.msg||'').slice(0,120))}</div>`;
+      }
+      if (sec.items.length > 10) html += `<div style="font-size:10px;color:var(--text3);padding:2px 6px">+${sec.total - 10} more</div>`;
+      html += '</div>';
+    }
+    html += '</div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  } catch {}
+}
+
 // ---- Init ----
 document.addEventListener('click', function(e) {
   document.querySelectorAll('.psel-menu').forEach(m => { if (!m.closest('.psel-wrap')?.contains(e.target)) m.style.display = 'none'; });
 });
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();
+initSidebar(); initShortcuts();
 reloadAll(); renderRequests(); loadModels(); connectSSE(); loadHistoryDates(); browseInit();
 api('GET','/api/logs').then(logs => { logs.forEach(e => { logBuf.push(e); appendLog(e, true); }); }).catch(()=>{});
 </script>
