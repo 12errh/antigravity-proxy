@@ -1362,7 +1362,9 @@ async function saveConfig() {
 async function loadRateLimit() {
   try {
     const r = await api('GET', '/api/rate-limit');
-    document.getElementById('rateLimitStatus').textContent = `Global: ${r.stats.global}/${r.config.globalMax} · Providers: ${Object.entries(r.stats.providers).map(([k,v]) => k+':'+v+'/'+r.config.providerMax).join(', ') || 'idle'}`;
+    const fmtMax = (v) => v === 0 ? 'unlimited' : v;
+    const provStr = Object.entries(r.stats.providers).map(([k,v]) => k+':'+v+'/'+fmtMax(r.config.providerMax)).join(', ') || 'idle';
+    document.getElementById('rateLimitStatus').textContent = `Global: ${r.stats.global}/${fmtMax(r.config.globalMax)} · Providers: ${provStr}`;
   } catch { document.getElementById('rateLimitStatus').textContent = 'offline'; }
 }
 

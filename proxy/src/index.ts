@@ -272,7 +272,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     for await (const chunk of generator) {
       const ctype = (chunk as any).type as string;
       if ((chunk as any).provider) usedProvider = (chunk as any).provider;
-      if ((chunk as any).resolvedModel) usedModel = (chunk as any).resolvedModel;
+      if ((chunk as any).resolvedModel) {
+        usedModel = (chunk as any).resolvedModel;
+        // Check resolved model against blocklist (catches models.json mappings)
+        const resolvedCheck = checkBlocked(config.providerPriority, usedModel);
+        if (resolvedCheck.blocked) {
+          throw new Error(`Request blocked: ${resolvedCheck.reason}`);
+        }
+      }
       if (ctype === 'text') {
         const c = (chunk as any).content as string || '';
         fullText += c;
