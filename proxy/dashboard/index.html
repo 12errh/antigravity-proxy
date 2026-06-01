@@ -756,15 +756,6 @@ tbody tr:hover{background:var(--surface2);}
             <span style="flex:1"></span>
             <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByProviderTable')">table</span>
           </div>
-          <div class="cost-table" id="costByProviderTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
-        </div>
-        <div class="card">
-          <div class="card-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            By Provider
-            <span style="flex:1"></span>
-            <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByProviderTable')">table</span>
-          </div>
           <div class="chart-wrap"><canvas id="costByProviderChart"></canvas></div>
           <div class="cost-table" id="costByProviderTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
         </div>
@@ -784,17 +775,6 @@ tbody tr:hover{background:var(--surface2);}
             By Day
             <span style="flex:1"></span>
             <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByDayTable')">table</span>
-          </div>
-          <div class="chart-wrap" style="min-height:260px"><canvas id="costByDayChart"></canvas></div>
-          <div class="cost-table" id="costByDayTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
-        </div>
-          <div class="chart-wrap"><canvas id="costByModelChart"></canvas></div>
-          <div class="cost-table" id="costByModelTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
-        </div>
-        <div class="card" style="grid-column:1/-1">
-          <div class="card-header">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            By Day
           </div>
           <div class="chart-wrap" style="min-height:260px"><canvas id="costByDayChart"></canvas></div>
           <div class="cost-table" id="costByDayTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
