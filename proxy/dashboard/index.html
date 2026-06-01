@@ -357,7 +357,22 @@ tbody tr:hover{background:var(--surface2);}
   border:1px solid var(--border2);z-index:100;pointer-events:none;
 }
 
-@media(max-width:900px){
+  /* Card component for cost charts */
+  .card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;transition:all var(--transition)}
+  .card:hover{border-color:rgba(255,255,255,0.08)}
+  .card-header{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
+  .card .chart-wrap{position:relative;width:100%;min-height:220px}
+  .card .chart-wrap canvas{width:100%!important}
+  .card .cost-table{font-size:11px;color:var(--text3);margin-top:12px;border-top:1px solid var(--border2);padding-top:10px;max-height:0;overflow:hidden;transition:max-height var(--transition)}
+  .card .cost-table.open{max-height:400px;overflow-y:auto}
+  .card .cost-table table{width:100%;border-collapse:collapse;font-size:11px}
+  .card .cost-table th{padding:3px 6px;text-align:left;color:var(--text3);font-weight:500;font-size:10px;text-transform:uppercase;letter-spacing:0.04em}
+  .card .cost-table td{padding:3px 6px;color:var(--text2);border-top:1px solid var(--border2)}
+  .cost-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+  .cost-summary .stat-card{padding:16px}
+  .cost-summary .stat-card .s-value{font-size:22px}
+  
+  @media(max-width:900px){
   .sidebar{width:60px}
   .sidebar-header .brand,.sidebar-footer .footer-info,.nav-item span{display:none}
   .nav-item{padding:10px;justify-content:center}
@@ -372,6 +387,7 @@ tbody tr:hover{background:var(--surface2);}
   .form-row{grid-template-columns:1fr}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -694,20 +710,94 @@ tbody tr:hover{background:var(--surface2);}
     <!-- Cost -->
     <section class="section" id="sec-cost">
       <div style="margin-bottom:16px">
-        <p style="font-size:13px;color:var(--text2)">Cost tracking across providers and models. All prices are per 1M tokens in USD.</p>
+        <p style="font-size:13px;color:var(--text2)">Cost tracking across providers and models. All prices are per 1M tokens in USD. Hover charts for details.</p>
       </div>
+
+      <div class="cost-summary" id="costSummary">
+        <div class="stat-card">
+          <div class="icon-wrap purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div class="s-label">Total Cost</div>
+          <div class="s-value" id="costTotalVal">$0.00</div>
+          <div class="s-sub">all time</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon-wrap green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="s-label">Total Tokens</div>
+          <div class="s-value" id="costTotalTokens">0</div>
+          <div class="s-sub">prompt + output</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon-wrap yellow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="s-label">Total Requests</div>
+          <div class="s-value" id="costTotalReqs">0</div>
+          <div class="s-sub">routed through proxy</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon-wrap red">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="s-label">Avg Cost / Req</div>
+          <div class="s-value" id="costAvgCost">$0.00</div>
+          <div class="s-sub">per request average</div>
+        </div>
+      </div>
+
       <div id="costContent" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="card">
-          <div class="card-header">By Provider</div>
-          <div id="costByProvider" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            By Provider
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByProviderTable')">table</span>
+          </div>
+          <div class="cost-table" id="costByProviderTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
         </div>
         <div class="card">
-          <div class="card-header">By Model</div>
-          <div id="costByModel" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            By Provider
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByProviderTable')">table</span>
+          </div>
+          <div class="chart-wrap"><canvas id="costByProviderChart"></canvas></div>
+          <div class="cost-table" id="costByProviderTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            By Model
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByModelTable')">table</span>
+          </div>
+          <div class="chart-wrap"><canvas id="costByModelChart"></canvas></div>
+          <div class="cost-table" id="costByModelTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
         </div>
         <div class="card" style="grid-column:1/-1">
-          <div class="card-header">By Day</div>
-          <div id="costByDay" style="font-size:12px;color:var(--text2);padding:8px">Loading...</div>
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            By Day
+            <span style="flex:1"></span>
+            <span style="font-size:11px;color:var(--text3);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;user-select:none" onclick="toggleCostTable('costByDayTable')">table</span>
+          </div>
+          <div class="chart-wrap" style="min-height:260px"><canvas id="costByDayChart"></canvas></div>
+          <div class="cost-table" id="costByDayTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
+        </div>
+          <div class="chart-wrap"><canvas id="costByModelChart"></canvas></div>
+          <div class="cost-table" id="costByModelTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <div class="card-header">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            By Day
+          </div>
+          <div class="chart-wrap" style="min-height:260px"><canvas id="costByDayChart"></canvas></div>
+          <div class="cost-table" id="costByDayTable"><div style="color:var(--text3);padding:4px">Loading...</div></div>
         </div>
       </div>
 
@@ -1523,32 +1613,197 @@ async function browseAddSelected() {
 }
 
 // ---- Cost ----
+function toggleCostTable(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+let _costCharts = [];
+
+function destroyCostCharts() {
+  _costCharts.forEach(c => { try { c.destroy(); } catch {} });
+  _costCharts = [];
+}
+
+const CHART_COLORS = ['#7c3aed','#a855f7','#22c55e','#eab308','#3b82f6','#ef4444','#ec4899','#f97316','#14b8a6','#8b5cf6'];
+
+function chartTheme() {
+  const s = getComputedStyle(document.body);
+  return {
+    text: (s.getPropertyValue('--text2') || '#94a3b8').trim(),
+    text1: (s.getPropertyValue('--text') || '#f1f5f9').trim(),
+    grid: (s.getPropertyValue('--border2') || 'rgba(255,255,255,0.06)').trim(),
+    accent: (s.getPropertyValue('--accent') || '#7c3aed').trim(),
+    surface2: (s.getPropertyValue('--surface2') || '#1a1a26').trim(),
+    surface: (s.getPropertyValue('--surface') || '#12121a').trim(),
+  };
+}
+
+function buildCostTableHtml(rows, headers, keyCol, valCols) {
+  if (!rows || !rows.length) return '<div style="color:var(--text3);padding:4px">No data</div>';
+  const fmt = (n) => '$' + (Number(n) || 0).toFixed(4);
+  const fmtN = (n) => (Number(n) || 0).toLocaleString();
+  let h = '<table><tr>'+headers.map(hh => '<th>'+hh+'</th>').join('')+'</tr>';
+  rows.forEach(r => {
+    h += '<tr><td style="font-weight:500;color:var(--text)">'+esc(r[keyCol]||'')+'</td>';
+    valCols.forEach(vc => {
+      if (vc === 'cost') h += '<td style="color:var(--accent)">'+fmt(r.total_cost)+'</td>';
+      else if (vc === 'tokens') h += '<td>'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td>';
+      else h += '<td>'+fmtN(r[vc]||0)+'</td>';
+    });
+    h += '</tr>';
+  });
+  return h + '</table>';
+}
+
 async function loadCostData() {
   try {
     const data = await api('GET', '/api/cost');
     if (!data) return;
-    const fmt = (n) => '$' + (Number(n) || 0).toFixed(4);
-    const fmtN = (n) => (Number(n) || 0).toLocaleString();
-    document.getElementById('costByProvider').innerHTML = (data.byProvider||[]).length
-      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Provider</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
-        (data.byProvider||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
-        '</table>'
-      : '<span style="color:var(--text3)">No cost data yet</span>';
-    document.getElementById('costByModel').innerHTML = (data.byModel||[]).length
-      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Model</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
-        (data.byModel||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
-        '</table>'
-      : '<span style="color:var(--text3)">No cost data yet</span>';
-    document.getElementById('costByDay').innerHTML = (data.byDay||[]).length
-      ? '<table style="width:100%;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><th style="text-align:left;padding:4px 8px">Date</th><th style="text-align:right;padding:4px 8px">Requests</th><th style="text-align:right;padding:4px 8px">Tokens</th><th style="text-align:right;padding:4px 8px">Cost</th></tr>' +
-        (data.byDay||[]).map((r) => '<tr><td style="padding:4px 8px">'+esc(r.key)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN(r.requests)+'</td><td style="text-align:right;padding:4px 8px;color:var(--text2)">'+fmtN((r.prompt_tokens||0)+(r.output_tokens||0))+'</td><td style="text-align:right;padding:4px 8px;color:var(--accent);font-weight:600">'+fmt(r.total_cost)+'</td></tr>').join('') +
-        '</table>'
-      : '<span style="color:var(--text3)">No cost data yet</span>';
+    const theme = chartTheme();
+    destroyCostCharts();
+
+    // Summary stats
+    const total = data.total || {};
+    document.getElementById('costTotalVal').textContent = '$' + (Number(total.total_cost) || 0).toFixed(4);
+    document.getElementById('costTotalTokens').textContent = ((total.prompt_tokens||0)+(total.output_tokens||0)).toLocaleString();
+    document.getElementById('costTotalReqs').textContent = (total.requests||0).toLocaleString();
+    const avg = total.requests ? (Number(total.total_cost) / total.requests) : 0;
+    document.getElementById('costAvgCost').textContent = '$' + (avg < 0.0001 ? '0' : avg.toFixed(6));
+
+    // Helper to create chart with proper sizing
+    function createCostChart(canvasId, type, labels, datasets, opts) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
+      const ctx = canvas.getContext('2d');
+      const parent = canvas.parentElement;
+      const w = parent.clientWidth || 300;
+      parent.style.height = type === 'doughnut' ? Math.max(220, Math.min(320, w * 0.5)) + 'px' : Math.max(220, Math.min(280, w * 0.45)) + 'px';
+      canvas.height = parseInt(parent.style.height);
+      canvas.width = w;
+      const chart = new Chart(ctx, {
+        type, data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          color: theme.text,
+          borderColor: theme.grid,
+          font: { family: 'var(--font)' },
+          plugins: {
+            legend: { position: type === 'doughnut' ? 'right' : 'bottom', align: 'center', labels: { color: theme.text, boxWidth: 12, padding: 8, font: { size: 10 } } },
+            tooltip: { backgroundColor: theme.surface2, titleColor: theme.text1, bodyColor: theme.text1, borderColor: theme.grid, borderWidth: 1, cornerRadius: 8, padding: 10, bodyFont: { size: 12 } },
+          },
+          ...opts,
+        },
+      });
+      _costCharts.push(chart);
+      return chart;
+    }
+
+    // By Provider — Doughnut chart
+    const prov = (data.byProvider||[]).filter(r => Number(r.total_cost) > 0);
+    const pLabels = prov.map(r => esc(r.key));
+    const pColors = prov.map(r => {
+      const meta = PROVIDER_META[r.key];
+      return meta ? meta.color + 'cc' : '#7c3aedcc';
+    });
+    const pBorder = prov.map(r => {
+      const meta = PROVIDER_META[r.key];
+      return meta ? meta.color : '#7c3aed';
+    });
+    if (prov.length) {
+      createCostChart('costByProviderChart', 'doughnut', pLabels, [{
+        data: prov.map(r => Number(r.total_cost) || 0),
+        backgroundColor: pColors,
+        borderColor: pBorder,
+        borderWidth: 2,
+        hoverOffset: 8,
+      }], {
+        cutout: '55%',
+        plugins: {
+          legend: { display: true, labels: { color: theme.text, boxWidth: 12, padding: 8, font: { size: 10 }, generateLabels: function(chart) {
+            const data = chart.data;
+            return data.labels.map((label, i) => ({
+              text: label + '  ' + '$' + (Number(data.datasets[0].data[i]) || 0).toFixed(4),
+              fillStyle: data.datasets[0].backgroundColor[i],
+              strokeStyle: data.datasets[0].borderColor[i],
+              lineWidth: 2,
+              index: i,
+            }));
+          }}},
+        },
+      });
+    } else {
+      document.getElementById('costByProviderChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No cost data — send requests first</div>';
+    }
+    document.getElementById('costByProviderTable').innerHTML = buildCostTableHtml(data.byProvider, ['Provider','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
+
+    // By Model — Horizontal Bar (top 10)
+    const models = (data.byModel||[]).filter(r => Number(r.total_cost) > 0).sort((a, b) => (b.total_cost||0) - (a.total_cost||0)).slice(0, 10);
+    if (models.length) {
+      createCostChart('costByModelChart', 'bar', models.map(r => {
+        const label = r.key || 'unknown';
+        return label.length > 28 ? label.slice(0, 25) + '...' : label;
+      }).reverse(), [{
+        data: models.map(r => Number(r.total_cost) || 0).reverse(),
+        backgroundColor: models.map((_, i) => CHART_COLORS[i % CHART_COLORS.length] + '99').reverse(),
+        borderColor: models.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]).reverse(),
+        borderWidth: 1,
+        borderRadius: 4,
+      }], {
+        indexAxis: 'y',
+        scales: {
+          x: { ticks: { color: theme.text, font: { size: 10 }, callback: (v) => '$' + Number(v).toFixed(4) }, grid: { color: theme.grid } },
+          y: { ticks: { color: theme.text, font: { size: 10, family: 'var(--mono)' } }, grid: { display: false } },
+        },
+        plugins: { legend: { display: false } },
+      });
+    } else {
+      document.getElementById('costByModelChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No model cost data yet</div>';
+    }
+    document.getElementById('costByModelTable').innerHTML = buildCostTableHtml(data.byModel, ['Model','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
+
+    // By Day — Line chart
+    const days = (data.byDay||[]).filter(r => Number(r.total_cost) > 0).sort((a, b) => (a.key||'').localeCompare(b.key||''));
+    if (days.length) {
+      createCostChart('costByDayChart', 'line', days.map(r => {
+        const d = r.key || '';
+        return d.length > 10 ? d.slice(5) : d;
+      }), [{
+        data: days.map(r => Number(r.total_cost) || 0),
+        backgroundColor: theme.accent + '22',
+        borderColor: theme.accent,
+        borderWidth: 2,
+        pointBackgroundColor: theme.accent,
+        pointBorderColor: '#0a0a0f',
+        pointBorderWidth: 1,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.2,
+      }], {
+        scales: {
+          x: { ticks: { color: theme.text, font: { size: 10 }, maxTicksLimit: 12 }, grid: { color: theme.grid } },
+          y: { ticks: { color: theme.text, font: { size: 10 }, callback: (v) => '$' + Number(v).toFixed(4) }, grid: { color: theme.grid } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => '$' + Number(ctx.raw).toFixed(4) + '  (' + (days[ctx.dataIndex]?.requests||0) + ' req, ' + ((days[ctx.dataIndex]?.prompt_tokens||0)+(days[ctx.dataIndex]?.output_tokens||0)).toLocaleString() + ' tok)',
+            },
+          },
+        },
+      });
+    } else {
+      document.getElementById('costByDayChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No daily cost data yet</div>';
+    }
+    document.getElementById('costByDayTable').innerHTML = buildCostTableHtml(data.byDay, ['Date','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
+
     loadPricingConfig();
   } catch (e) {
-    ['costByProvider','costByModel','costByDay'].forEach(id => {
+    const ids = ['costByProviderChart','costByModelChart','costByDayChart'];
+    ids.forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.innerHTML = '<span style="color:var(--red)">Failed to load: '+esc(e.message)+'</span>';
+      if (el) el.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-size:13px">Failed: '+esc(e.message)+'</div>';
     });
   }
 }
