@@ -37,6 +37,20 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 | Request history & live logs | ✅ |
 | Config & model management UI | ✅ |
 | Session-based history browsing | ✅ |
+| Cost tracking & charts (per-day, per-model, per-provider) | ✅ |
+| SQLite persistence (survives restarts) | ✅ |
+| Local model discovery (Ollama, vLLM, LM Studio) | ✅ |
+| Rate limiting (global + per-provider) | ✅ |
+| Blocklist (provider, model glob, content regex) | ✅ |
+| Full-text search across requests/sessions/logs | ✅ |
+| Keyboard shortcuts (`/` search, `r` refresh, `j`/`k` navigate) | ✅ |
+| Collapsible sidebar | ✅ |
+| Request replay with model selector | ✅ |
+| Session compare (side-by-side) | ✅ |
+| Dashboard basic auth (configurable from UI) | ✅ |
+| TLS certificate info & expiry warning | ✅ |
+| Failover webhook (configurable from UI) | ✅ |
+| Provider failover timeline visualization | ✅ |
 
 ## Supported Providers
 

@@ -42,6 +42,12 @@ LOG_LEVEL=info
 | `PROXY_BACKOFF_MS` | Initial backoff in ms (doubles each retry) | `1000` |
 | `LOG_LEVEL` | Log verbosity | `info` |
 | `ANTIGRAVITY_CONTEXT` | Set to `false` to disable context injection | `true` |
+| `DASHBOARD_USER` | Basic auth username for dashboard (set from Config tab) | — |
+| `DASHBOARD_PASSWORD` | Basic auth password for dashboard (set from Config tab) | — |
+| `FAILOVER_WEBHOOK_URL` | URL to receive POST notifications on provider failover (set from Config tab) | — |
+| `RATE_LIMIT_GLOBAL` | Max requests per window across all providers (`0` = unlimited) | `60` |
+| `RATE_LIMIT_PROVIDER` | Max requests per window per provider (`0` = unlimited) | `30` |
+| `RATE_LIMIT_WINDOW_MS` | Rate limit window in milliseconds | `60000` |
 
 ### Supported Providers
 

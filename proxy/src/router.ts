@@ -1,9 +1,17 @@
 import { logger } from './logger.js';
+import { config } from './config.js';
 import type { ProviderConfig, ProviderId } from './adapter.js';
 import { createAdapter } from './adapter.js';
 import type { ModelAdapter, StreamChunk } from './adapters/types.js';
 import type { OpenAIMessage } from './mapper.js';
 import type { ModelResolver } from './models.js';
+
+function fireFailoverWebhook(provider: string, model: string, error: string, status: string): void {
+  const url = config.failoverWebhookUrl;
+  if (!url) return;
+  const body = JSON.stringify({ event: 'failover', provider, model, error, status, timestamp: new Date().toISOString() });
+  fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body }).catch(() => {});
+}
 
 export interface RouterOptions {
   retries: number;
@@ -69,23 +77,36 @@ export class Router {
       const resolvedModel = this.modelResolver.resolve(model, providerId);
       logger.info(`[router] Trying ${providerId} → ${resolvedModel} (from ${model})`);
 
+      let hasStreamedData = false;
+
       for (let attempt = 0; attempt <= this.options.retries; attempt++) {
         yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying' };
         try {
           const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
           for await (const chunk of gen) {
-            yield { ...chunk, provider: providerId, resolvedModel };
             if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
+            hasStreamedData = true;
+            yield { ...chunk, provider: providerId, resolvedModel };
           }
           logger.info(`[router] ${providerId} succeeded`);
           return;
         } catch (err: any) {
           if (signal?.aborted) throw err;
+
+          // If we already yielded data to the client, retrying would duplicate content
+          if (hasStreamedData) {
+            logger.error(`[router] ${providerId} failed mid-stream — cannot retry (would duplicate): ${err.message}`);
+            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failed');
+            yield { type: 'error', content: `Stream failed: ${err.message}`, provider: providerId, resolvedModel };
+            return;
+          }
+
           const isLastAttempt = attempt >= this.options.retries;
           const isLastProvider = candidates.indexOf(providerId) === candidates.length - 1;
 
           if (isLastAttempt && isLastProvider) {
             logger.error(`[router] All providers exhausted for ${model}`);
+            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failed');
             yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failed' };
             yield { type: 'error', content: `All providers failed: ${err.message}`, provider: providerId, resolvedModel };
             return;
@@ -100,6 +121,7 @@ export class Router {
             await new Promise(r => setTimeout(r, waitMs));
           } else {
             logger.warn(`[router] ${providerId} exhausted, failing over to next provider: ${err.message}`);
+            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failover');
             yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failover' };
           }
         }

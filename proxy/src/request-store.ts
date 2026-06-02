@@ -72,8 +72,8 @@ class RequestStore extends EventEmitter {
     };
   }
 
-  getStats(): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number } {
-    return db.getStats();
+  getStats(todayOnly?: boolean): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number; total_cost: number; prompt_tokens: number; output_tokens: number; requests: number } {
+    return db.getStats(todayOnly);
   }
 
   clear(): void {

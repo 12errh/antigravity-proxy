@@ -154,17 +154,26 @@ export function getSessionContent(sessionId: string): any[] {
   return db.prepare('SELECT * FROM requests WHERE session_id = ? ORDER BY timestamp ASC').all(sessionId);
 }
 
+export function getRequestsByTimeRange(startTime: string, endTime?: string): any[] {
+  if (endTime) {
+    return db.prepare('SELECT * FROM requests WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp ASC').all(startTime, endTime);
+  }
+  return db.prepare('SELECT * FROM requests WHERE timestamp >= ? ORDER BY timestamp ASC').all(startTime);
+}
+
 export function deleteSession(sessionId: string): void {
   db.prepare('DELETE FROM requests WHERE session_id = ?').run(sessionId);
   db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
 }
 
-export function getCostAggregation(period: 'day' | 'model' | 'provider'): any[] {
+export function getCostAggregation(period: 'day' | 'model' | 'provider', todayOnly?: boolean): any[] {
   const groupBy = period === 'day' ? "substr(timestamp,1,10)" : period === 'model' ? 'model' : 'provider';
-  return db.prepare(`SELECT ${groupBy} as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost FROM requests WHERE cost IS NOT NULL GROUP BY ${groupBy} ORDER BY total_cost DESC`).all();
+  const dateFilter = todayOnly ? " AND date(timestamp) = date('now')" : '';
+  return db.prepare(`SELECT ${groupBy} as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost FROM requests WHERE cost IS NOT NULL${dateFilter} GROUP BY ${groupBy} ORDER BY total_cost DESC`).all();
 }
 
-export function getStats(): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number; total_cost: number; prompt_tokens: number; output_tokens: number; requests: number } {
+export function getStats(todayOnly?: boolean): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number; total_cost: number; prompt_tokens: number; output_tokens: number; requests: number } {
+  const dateFilter = todayOnly ? " WHERE date(timestamp) = date('now')" : '';
   const row = db.prepare(`
     SELECT COUNT(*) as totalRequests,
            COALESCE(SUM(prompt_tokens + output_tokens),0) as totalTokens,
@@ -173,7 +182,7 @@ export function getStats(): { totalRequests: number; totalTokens: number; totalT
            COALESCE(SUM(CASE WHEN tool_calls IS NOT NULL AND tool_calls != '' THEN 1 ELSE 0 END),0) as totalToolCalls,
            COALESCE(SUM(CASE WHEN type = 'error' THEN 1 ELSE 0 END),0) as errors,
            COALESCE(SUM(cost),0) as total_cost
-    FROM requests
+    FROM requests${dateFilter}
   `).get() as any;
   row.requests = row.totalRequests;
   return row;

@@ -448,6 +448,10 @@ tbody tr:hover{background:var(--surface2);}
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span>History</span>
     </div>
+    <div class="nav-item" data-tab="sessions">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      <span>Sessions</span>
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="proxy-status-indicator online" id="statusDot"></div>
@@ -549,6 +553,10 @@ tbody tr:hover{background:var(--surface2);}
     <!-- Requests -->
     <section class="section" id="sec-requests">
       <div class="filter-bar">
+        <div class="search-wrap" style="max-width:160px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="date" id="reqDate" onchange="renderRequests()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+        </div>
         <div class="search-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" id="reqFilter" placeholder="Search model, content..." oninput="renderRequests()">
@@ -597,41 +605,42 @@ tbody tr:hover{background:var(--surface2);}
       </div>
 
       <div class="form-section">
+        <form autocomplete="off" novalidate>
         <h3>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           API Keys
         </h3>
         <div class="form-group">
           <label><span style="display:inline-block;width:14px;height:14px;mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openrouter.svg);-webkit-mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openrouter.svg);mask-size:contain;-webkit-mask-size:contain;background:#84e;vertical-align:middle;margin-right:6px"></span>OpenRouter API Key <span id="orKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgOpenrouterKey" placeholder="sk-or-v1-...">
+          <input type="password" autocomplete="new-password" id="cfgOpenrouterKey" placeholder="sk-or-v1-...">
           <div class="hint">From <span style="color:var(--accent2)">openrouter.ai/keys</span></div>
         </div>
         <div class="form-group">
           <label><span style="display:inline-block;width:14px;height:14px;mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/nvidia.svg);-webkit-mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/nvidia.svg);mask-size:contain;-webkit-mask-size:contain;background:#4b8;vertical-align:middle;margin-right:6px"></span>NVIDIA API Key <span id="nvKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgNvidiaKey" placeholder="nvapi-...">
+          <input type="password" autocomplete="new-password" id="cfgNvidiaKey" placeholder="nvapi-...">
           <div class="hint">From <span style="color:var(--accent2)">build.nvidia.com</span></div>
         </div>
         <div class="form-group">
           <label><span style="display:inline-block;width:14px;height:14px;mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg);-webkit-mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg);mask-size:contain;-webkit-mask-size:contain;background:#090;vertical-align:middle;margin-right:6px"></span>OpenAI API Key <span id="oaiKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgOpenaiKey" placeholder="sk-...">
+          <input type="password" autocomplete="new-password" id="cfgOpenaiKey" placeholder="sk-...">
           <div class="hint">From <span style="color:var(--accent2)">platform.openai.com/api-keys</span></div>
         </div>
         <div class="form-group">
           <label><img src="https://www.groq.com/favicon.svg" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">Groq API Key <span id="groqKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgGroqKey" placeholder="gsk_...">
+          <input type="password" autocomplete="new-password" id="cfgGroqKey" placeholder="gsk_...">
           <div class="hint">From <span style="color:var(--accent2)">console.groq.com/keys</span></div>
         </div>
         <div class="form-group">
           <label><span style="display:inline-block;width:14px;height:14px;mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg);-webkit-mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg);mask-size:contain;-webkit-mask-size:contain;background:#e48;vertical-align:middle;margin-right:6px"></span>Anthropic API Key <span id="anthKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgAnthropicKey" placeholder="sk-ant-...">
+          <input type="password" autocomplete="new-password" id="cfgAnthropicKey" placeholder="sk-ant-...">
           <div class="hint">From <span style="color:var(--accent2)">console.anthropic.com/settings/keys</span></div>
         </div>
         <div class="form-group">
           <label><span style="display:inline-block;width:14px;height:14px;mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg);-webkit-mask-image:url(https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg);mask-size:contain;-webkit-mask-size:contain;background:#48e;vertical-align:middle;margin-right:6px"></span>Google API Key <span id="googleKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
-          <input type="password" id="cfgGoogleKey" placeholder="AIza...">
+          <input type="password" autocomplete="new-password" id="cfgGoogleKey" placeholder="AIza...">
           <div class="hint">From <span style="color:var(--accent2)">aistudio.google.com/apikey</span></div>
         </div>
-      </div>
+      </form></div>
 
       <div class="form-section">
         <h3>
@@ -744,6 +753,52 @@ tbody tr:hover{background:var(--surface2);}
         </div>
       </div>
 
+      <div class="form-section">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Dashboard Auth
+        </h3>
+        <form autocomplete="off" novalidate onsubmit="saveAuth();return false" style="display:contents">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <input type="text" id="authUsername" placeholder="Username" autocomplete="off" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;outline:none;min-width:160px;font-family:var(--mono)">
+            <input type="password" id="authPassword" placeholder="Password" autocomplete="new-password" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;outline:none;min-width:160px;font-family:var(--mono)">
+            <button class="btn btn-sm btn-primary" id="authSaveBtn">Save</button>
+            <button class="btn btn-sm" id="authDisableBtn" onclick="disableAuth()" type="button" style="color:var(--red)">Disable Auth</button>
+          </div>
+          <div id="dashboardAuthStatus" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;font-size:12px">
+            <span id="authStatusDot" style="width:8px;height:8px;border-radius:50%;display:inline-block"></span>
+            <span id="authStatusText">Checking...</span>
+          </div>
+          <p id="authWarning" style="font-size:11px;color:var(--red);display:none;margin-top:4px">After saving, you'll need to re-authenticate on the next page load.</p>
+        </form>
+      </div>
+
+      <div class="form-section">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          TLS Certificate
+        </h3>
+        <div id="certInfo" style="font-size:12px">
+          <p style="color:var(--text3)">Loading...</p>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Failover Webhook
+        </h3>
+        <form autocomplete="off" novalidate onsubmit="saveWebhook();return false" style="display:contents">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <input type="url" id="webhookUrlInput" placeholder="https://hooks.example.com/webhook" autocomplete="off" style="flex:1;min-width:250px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none;font-family:var(--mono)">
+            <button class="btn btn-sm btn-primary" id="webhookSaveBtn">Save</button>
+            <button class="btn btn-sm" id="webhookClearBtn" onclick="clearWebhook()" type="button" style="color:var(--text3)">Clear</button>
+            <button class="btn btn-sm" id="webhookTestBtn" onclick="testWebhook()" type="button">Test Webhook</button>
+            <span id="webhookTestResult" style="font-size:11px;color:var(--text3)"></span>
+          </div>
+        </form>
+      </div>
+
       <div style="display:flex;gap:10px">
         <button class="btn btn-primary" onclick="saveConfig()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -784,7 +839,7 @@ tbody tr:hover{background:var(--surface2);}
       </div>
       <form onsubmit="browseFetch();return false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <div id="browseProviderSelect" style="width:160px"></div>
-        <input type="password" id="browseApiKey" placeholder="API key (optional)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none;width:200px;font-family:var(--mono)">
+        <input type="password" autocomplete="new-password" id="browseApiKey" placeholder="API key (optional)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none;width:200px;font-family:var(--mono)">
         <button class="btn btn-sm" id="browseFetchBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Fetch</button>
         <span id="browseFetchStatus" style="font-size:11px;color:var(--text3)"></span>
       </form>
@@ -931,12 +986,7 @@ tbody tr:hover{background:var(--surface2);}
           <input type="date" id="historyDate" onchange="loadRequestsByDate()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
         <span class="count" id="historyCount">Select a date</span>
-        <span id="compareBtnWrap" style="display:flex;gap:6px;align-items:center;margin-left:auto">
-          <button class="btn btn-sm btn-ghost" id="compareBtn" onclick="compareSessions()" style="display:none;font-size:11px">Compare Selected</button>
-          <button class="btn btn-sm btn-ghost" onclick="clearCompare()" style="display:none;font-size:11px" id="clearCompareBtn">Clear</button>
-        </span>
         <div id="historyDateList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-        <div id="sessionList" style="display:none;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
         <span style="flex:1"></span>
         <div class="search-wrap" style="max-width:180px;position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -959,6 +1009,27 @@ tbody tr:hover{background:var(--surface2);}
       <div class="pagination" id="historyPagination" style="display:none;margin-top:12px"></div>
     </section>
 
+    <!-- Sessions -->
+    <section class="section" id="sec-sessions">
+      <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <p style="font-size:13px;color:var(--text2)">Session log files with DB-backed request counts. <strong>Select 2</strong> to compare side-by-side. Click a session to expand its requests.</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-primary" id="sessCompareBtn" onclick="sessCompare()" style="display:none">Compare Selected</button>
+          <button class="btn btn-sm btn-ghost" onclick="sessClearCompare()" style="display:none" id="sessClearBtn">Clear</button>
+          <button class="btn btn-sm" onclick="loadSessions()">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="sessionsContent">
+        <div class="empty-state">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+          <p>No sessions yet</p>
+          <p class="sub">Sessions appear here as requests are made through the proxy.</p>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -968,7 +1039,7 @@ tbody tr:hover{background:var(--surface2);}
 const API = '';
 let eventSource = null;
 const logBuf = [];
-const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',cost:'Cost tracking',log:'Real-time proxy log',history:'Browse by date'};
+const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',cost:'Cost tracking',log:'Real-time proxy log',history:'Browse by date',sessions:'Session compare'};
 const openDetails = new Set(); // tracks open detail rows by request.id
 const PER_PAGE = 25;
 
@@ -992,8 +1063,9 @@ function refreshTab(tab) {
   else if (tab === 'browse') { if (_browseProvider && window._fetchedModels[_browseProvider]) { document.getElementById('browseResultsPanel').style.display = 'block'; renderBrowseModels(); } }
   else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') { reloadAll(); }
-  else if (tab === 'config') { loadRateLimit(); loadBlocklist(); }
+  else if (tab === 'config') { loadRateLimit(); loadBlocklist(); loadCertInfo(); loadWebhook(); }
   else if (tab === 'history') { loadHistoryDates(); }
+  else if (tab === 'sessions') { loadSessions(); }
   else if (tab === 'log') { scrollLogToBottom(); }
 }
 
@@ -1052,6 +1124,14 @@ async function reloadAll() {
     document.getElementById('cfgRateGlobal').value = s.rateLimitGlobal ?? 60;
     document.getElementById('cfgRateProvider').value = s.rateLimitProvider ?? 30;
     document.getElementById('cfgRateWindow').value = s.rateLimitWindow ?? 60000;
+    // Webhook URL
+    const whUrl = s.failoverWebhookUrl || '';
+    const whEl = document.getElementById('webhookUrlInput');
+    if (whEl) whEl.value = whUrl;
+    const whDisplay = document.getElementById('webhookUrlDisplay');
+    if (whDisplay) { whDisplay.textContent = whUrl || 'Not configured'; whDisplay.style.color = whUrl ? 'var(--text)' : 'var(--text3)'; }
+    // Auth status
+    updateAuthStatus(s);
     document.getElementById('nvKeyStatus').textContent = s.env.NVIDIA_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('orKeyStatus').textContent = s.env.OPENROUTER_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('oaiKeyStatus').textContent = s.env.OPENAI_API_KEY ? '✓ configured' : '○ not set';
@@ -1124,13 +1204,15 @@ let _reqPage = 1, _reqList = [];
 
 async function renderRequests() {
   try {
-    _reqList = await api('GET', '/api/requests');
+    let date = document.getElementById('reqDate').value;
+    if (!date) { date = todayStr(); document.getElementById('reqDate').value = date; }
+    _reqList = await api('GET', '/api/requests/by-date?date='+encodeURIComponent(date));
     const filter = (document.getElementById('reqFilter').value||'').toLowerCase();
     const tf = document.getElementById('reqTypeFilter').value;
     if (filter) _reqList = _reqList.filter(r => (r.model||'').toLowerCase().includes(filter)||(r.content||'').toLowerCase().includes(filter));
     if (tf !== 'all') _reqList = _reqList.filter(r => r.type === tf);
     if (_reqPage > Math.ceil(_reqList.length/PER_PAGE)) _reqPage = 1;
-    document.getElementById('reqCount').textContent = _reqList.length + ' request' + (_reqList.length!==1?'s':'');
+    document.getElementById('reqCount').textContent = _reqList.length + ' request' + (_reqList.length!==1?'s':'') + ' on ' + date;
     const c = document.getElementById('requestsContent');
     if (_reqList.length === 0) {
       c.innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><p>No matching requests</p></div>';
@@ -1143,7 +1225,10 @@ async function renderRequests() {
 }
 function goReqPage(p) { _reqPage = p; renderRequests(); }
 
-async function clearRequests() { await api('DELETE','/api/requests'); openDetails.clear(); _reqPage = 1; renderRequests(); reloadAll(); toast('Requests cleared'); }
+async function clearRequests() {
+  const date = document.getElementById('reqDate').value || todayStr();
+  await api('DELETE','/api/requests'); openDetails.clear(); _reqPage = 1; renderRequests(); reloadAll(); toast('Requests cleared');
+}
 
 // ---- History tab (SQLite-based) ----
 let _histDate = '';
@@ -1164,26 +1249,8 @@ async function loadHistoryDates() {
       document.getElementById('historyDate').value = dates[0].date;
     }
     loadRequestsByDate();
-    // Also load sessions for compare
-    loadSessionList();
+    // Also load dates for the selected date
   } catch (e) {}
-}
-
-async function loadSessionList() {
-  const date = document.getElementById('historyDate').value;
-  if (!date) return;
-  try {
-    const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(date));
-    const container = document.getElementById('sessionList');
-    if (!sessions || sessions.length === 0) { if (container) container.style.display = 'none'; return; }
-    if (container) {
-      container.style.display = 'flex';
-      container.innerHTML = sessions.map(s => {
-        const checked = _compareSessions.has(s.file) ? 'checked' : '';
-        return `<label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);padding:3px 8px;background:var(--surface2);border-radius:4px;cursor:pointer"><input type="checkbox" ${checked} onchange="toggleCompareSession('${s.file}')" style="accent-color:var(--accent)"> ${esc(s.file.slice(0,30))}</label>`;
-      }).join('') || '';
-    }
-  } catch {}
 }
 
 function pickHistoryDate(date) {
@@ -1317,8 +1384,12 @@ function renderHistoryTable() {
         <p style="font-size:11px;color:var(--text3)">Tokens: ${((r.prompt_tokens||0)+(r.output_tokens||0)).toLocaleString()} (${r.prompt_tokens||0} prompt + ${r.output_tokens||0} output) · Cost: ${costStr} · Duration: ${durStr}</p>
         ${r.attempts && r.attempts > 1 ? '<p style="font-size:11px;color:var(--yellow)">Attempts: '+r.attempts+'</p>' : ''}
         ${renderFailoverTimeline(r.failover_events ? (typeof r.failover_events==='string' ? safeJsonParse(r.failover_events) : r.failover_events) : null)}
-        <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
-          <button class="btn btn-sm" id="replay-${rid}" data-model="${esc(r.resolved_model||r.model||'')}" data-prompt="${esc((r.content||'').slice(0,200))}" onclick="replayRequest('${rid}')">↻ Replay</button>
+        <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-sm" id="replay-${rid}" onclick="replayRequest('${rid}')">↻ Replay</button>
+          <select id="rmodel-${rid}" style="padding:4px 6px;border-radius:4px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:11px;font-family:var(--mono);outline:none;max-width:200px">
+            <option value="${esc(r.model||'')}">${esc(r.model||'')} (original)</option>
+            ${_allModelNames.filter(m => m !== r.model).map(m => '<option value="'+esc(m)+'">'+esc(m)+'</option>').join('')}
+          </select>
           <span class="replay-result" id="rr-${rid}" style="display:none;font-size:11px;color:var(--text2);max-height:100px;overflow-y:auto;padding:4px 8px;background:var(--surface2);border-radius:4px"></span>
         </div>
       </div></td></tr>`;
@@ -1593,20 +1664,146 @@ const PROVIDER_OPTIONS = [
   { value: 'lmstudio', label: 'LM Studio', logo: PROVIDER_META.lmstudio.logo },
 ];
 
+// ---- Cert, Auth, Webhook ----
+async function loadCertInfo() {
+  const el = document.getElementById('certInfo');
+  if (!el) return;
+  try {
+    const c = await api('GET', '/api/cert');
+    if (c.status === 'missing') { el.innerHTML = '<p style="color:var(--text3)">No TLS certificate found. Generate with <code style="background:var(--surface2);padding:2px 5px;border-radius:3px">node scripts/gen-certs.mjs</code></p>'; return; }
+    if (c.status === 'error') { el.innerHTML = '<p style="color:var(--red)">Error reading cert: '+esc(c.error)+'</p>'; return; }
+    const expiring = c.daysRemaining < 30;
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:11px">
+      <tr><td style="padding:4px 8px;color:var(--text3)">Subject</td><td style="padding:4px 8px;font-family:var(--mono)">${esc(c.subject||'—')}</td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Issuer</td><td style="padding:4px 8px;font-family:var(--mono)">${esc(c.issuer||'—')}</td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Valid From</td><td style="padding:4px 8px">${c.validFrom||'—'}</td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Valid To</td><td style="padding:4px 8px">${c.validTo||'—'} <span style="color:${expiring?'var(--red)':'var(--green)'};font-weight:600">(${c.daysRemaining} days${expiring?' — EXPIRING SOON':''})</span></td></tr>
+      <tr><td style="padding:4px 8px;color:var(--text3)">Fingerprint</td><td style="padding:4px 8px;font-family:var(--mono);font-size:10px">${esc(c.fingerprint||'—')}</td></tr>
+    </table>`;
+  } catch { el.innerHTML = '<p style="color:var(--text3)">Failed to load cert info</p>'; }
+}
+
+// Also update auth status from /api/status
+// This is called from reloadAll() which already fetches status
+function updateAuthStatus(s) {
+  const dot = document.getElementById('authStatusDot');
+  const text = document.getElementById('authStatusText');
+  const warn = document.getElementById('authWarning');
+  const uname = document.getElementById('authUsername');
+  if (!dot || !text) return;
+  if (s.dashboardAuth) {
+    dot.style.background = 'var(--green)';
+    text.textContent = 'Basic auth is enabled';
+    text.style.color = 'var(--green)';
+    if (warn) warn.style.display = 'none';
+    if (uname) uname.placeholder = 'Update username (leave empty to keep current)';
+  } else {
+    dot.style.background = 'var(--text3)';
+    text.textContent = 'Auth not configured — dashboard is publicly accessible';
+    text.style.color = 'var(--text3)';
+    if (uname) uname.placeholder = 'Username';
+  }
+}
+
+async function saveAuth() {
+  const uname = document.getElementById('authUsername');
+  const pass = document.getElementById('authPassword');
+  const btn = document.getElementById('authSaveBtn');
+  const warn = document.getElementById('authWarning');
+  if (!uname || !pass || !btn) return;
+  const username = uname.value.trim();
+  const password = pass.value;
+  if (!username || !password) { toast('Username and password are required', true); return; }
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const r = await api('POST', '/api/auth/configure', { username, password });
+    if (r.ok) {
+      toast('Auth credentials saved. Re-authenticate on next page load.');
+      if (warn) warn.style.display = 'block';
+      pass.value = '';
+      uname.value = '';
+      reloadAll();
+    } else toast('Save failed: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Save failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function disableAuth() {
+  if (!confirm('Remove dashboard authentication? The dashboard will become publicly accessible.')) return;
+  const btn = document.getElementById('authDisableBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Disabling...'; }
+  try {
+    const r = await api('POST', '/api/auth/disable');
+    if (r.ok) { toast('Auth disabled'); reloadAll(); }
+    else toast('Failed to disable auth: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Failed to disable auth: ' + e.message, true); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Disable Auth'; }
+}
+
+// ---- Webhook ----
+function loadWebhook() {
+  const input = document.getElementById('webhookUrlInput');
+  if (!input) return;
+  api('GET', '/api/status').then(s => {
+    input.value = s.failoverWebhookUrl || '';
+  }).catch(() => {});
+}
+
+async function saveWebhook() {
+  const input = document.getElementById('webhookUrlInput');
+  const btn = document.getElementById('webhookSaveBtn');
+  if (!input || !btn) return;
+  const url = input.value.trim();
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const r = await api('POST', '/api/webhook/configure', { url });
+    if (r.ok) { toast('Webhook URL saved'); reloadAll(); }
+    else toast('Save failed: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Save failed: ' + e.message, true); }
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+async function clearWebhook() {
+  if (!confirm('Remove the webhook URL?')) return;
+  try {
+    const r = await api('POST', '/api/webhook/configure', { url: '' });
+    if (r.ok) { toast('Webhook URL cleared'); reloadAll(); }
+    else toast('Failed to clear: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Failed to clear: ' + e.message, true); }
+}
+
+async function testWebhook() {
+  const btn = document.getElementById('webhookTestBtn');
+  const result = document.getElementById('webhookTestResult');
+  if (!btn || !result) return;
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try {
+    const r = await api('POST', '/api/webhook-test');
+    if (r.ok) { result.textContent = '✓ Sent (status '+r.status+')'; result.style.color = 'var(--green)'; }
+    else { result.textContent = '✕ Failed: '+(r.error||r.status); result.style.color = 'var(--red)'; }
+  } catch (e) { result.textContent = '✕ Error'; result.style.color = 'var(--red)'; }
+  btn.disabled = false; btn.textContent = 'Test Webhook';
+  setTimeout(() => { result.textContent = ''; }, 5000);
+}
+
 async function loadModels() {
   try {
     const m = await api('GET','/api/models');
+    _allModelNames = [];
     const tb = document.getElementById('modelsBody'); tb.innerHTML = '';
     const providerModels = m._provider_models || {};
     for (const [k, v] of Object.entries(m)) {
       if (k === '_provider_models') continue;
+      _allModelNames.push(k);
       addRow(k, v, '');
     }
     for (const [model, providers] of Object.entries(providerModels)) {
+      _allModelNames.push(model);
       for (const [prov, resolved] of Object.entries(providers)) {
         addRow(model, resolved, prov);
       }
     }
+    _allModelNames = [...new Set(_allModelNames)];
   } catch (e) {}
 }
 function addModelRow() { addRow('','',''); }
@@ -2083,6 +2280,7 @@ async function loadCostData() {
 
 // ---- Pricing Config Editor ----
 let _pricingData = null;
+let _allModelNames = [];
 
 async function loadPricingConfig() {
   const status = document.getElementById('pricingStatus');
@@ -2244,6 +2442,7 @@ function connectSSE() {
     if (tab === 'requests') renderRequests();
     if (tab === 'cost') loadCostData();
     if (tab === 'history') loadHistoryDates();
+    if (tab === 'sessions') loadSessions();
   });
   eventSource.addEventListener('log', e => {
     try { const d = JSON.parse(e.data); logBuf.push(d); if (logBuf.length>1000) logBuf.shift(); appendLog(d); } catch {}
@@ -2292,11 +2491,13 @@ function initShortcuts() {
 // ---- Request Replay ----
 async function replayRequest(id) {
   const btn = document.querySelector(`#replay-${id}`);
-  if (!btn) return;
-  const original = btn.dataset;
+  const sel = document.querySelector(`#rmodel-${id}`);
+  if (!btn || !sel) return;
+  const model = sel.value;
+  const promptText = btn.closest('.req-detail-inner')?.querySelector('pre')?.textContent?.slice(0, 500) || 'Repeat the last output';
   btn.disabled = true; btn.innerHTML = '...';
   try {
-    const r = await api('POST', '/api/replay', { model: original.model, messages: [{ role: 'user', content: original.prompt || 'Repeat the last output' }] });
+    const r = await api('POST', '/api/replay', { model, messages: [{ role: 'user', content: promptText }] });
     if (r.ok) {
       btn.disabled = false; btn.innerHTML = '✓ Replied';
       const detail = document.querySelector(`#hd-${id} .replay-result`);
@@ -2320,25 +2521,120 @@ function renderFailoverTimeline(events) {
 }
 
 // ---- Session Compare ----
-let _compareSessions = new Set();
-function toggleCompareSession(sessionId) {
-  if (_compareSessions.has(sessionId)) _compareSessions.delete(sessionId);
-  else if (_compareSessions.size < 2) _compareSessions.add(sessionId);
-  else { toast('Select at most 2 sessions to compare'); return; }
-  const show = _compareSessions.size === 2;
-  document.getElementById('compareBtn').style.display = show ? '' : 'none';
-  document.getElementById('clearCompareBtn').style.display = _compareSessions.size > 0 ? '' : 'none';
-}
-function clearCompare() { _compareSessions.clear(); document.getElementById('compareBtn').style.display = 'none'; document.getElementById('comparePanel')?.remove(); }
-async function compareSessions() {
-  if (_compareSessions.size !== 2) return;
-  const ids = Array.from(_compareSessions);
+let _sessCompare = new Set();
+
+async function loadSessions() {
   try {
-    const [a, b] = await Promise.all(ids.map(id => api('GET', '/api/sessions/content?file='+encodeURIComponent(id))));
-    let html = '<div id="comparePanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()"><div style="background:var(--surface);border-radius:12px;padding:20px;max-width:90vw;max-height:90vh;overflow:auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;min-width:700px"><div><h3 style="margin-bottom:8px">Session 1: '+esc(ids[0])+'</h3><pre style="font-size:11px;max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word">'+esc(a||'No data')+'</pre></div><div><h3 style="margin-bottom:8px">Session 2: '+esc(ids[1])+'</h3><pre style="font-size:11px;max-height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word">'+esc(b||'No data')+'</pre></div><button class="btn btn-sm btn-ghost" onclick="this.closest(\'#comparePanel\').remove()" style="position:absolute;top:12px;right:12px">✕</button></div></div>';
+    const dates = await api('GET', '/api/sessions');
+    if (!dates || dates.length === 0) {
+      document.getElementById('sessionsContent').innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg><p>No sessions yet</p><p class="sub">Sessions appear here as requests are made through the proxy.</p></div>';
+      return;
+    }
+    let html = '<div style="max-height:60vh;overflow-y:auto;border:1px solid var(--border2);border-radius:8px">';
+    for (const d of dates) {
+      const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(d.date));
+      if (!sessions || sessions.length === 0) continue;
+      html += `<div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--surface2)"><strong style="font-size:12px">${d.date} (${sessions.length} files)</strong></div>`;
+      for (const s of sessions) {
+        const checked = _sessCompare.has(s.file) ? 'checked' : '';
+        const reqCount = s.requestCount || 0;
+        html += `<div style="border-bottom:1px solid var(--border2);font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;transition:background 0.12s" onclick="toggleSessDetail('${esc(s.file)}')" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+            <input type="checkbox" ${checked} onclick="event.stopPropagation();toggleSessCompare('${esc(s.file)}')" style="accent-color:var(--accent)">
+            <span style="min-width:10px;color:var(--text3);font-size:10px" id="sessArrow-${esc(s.file)}">▶</span>
+            <span style="flex:1;font-weight:${reqCount>0?'600':'400'}">${esc(s.file)}</span>
+            <span style="color:var(--text3);font-size:11px;min-width:80px;text-align:right">${reqCount} req</span>
+            <span style="color:var(--text3);font-size:11px;min-width:70px;text-align:right">${s.duration||'—'}</span>
+            ${s.models && s.models.length ? '<span style="font-size:10px;color:var(--accent2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.models.join(', '))+'</span>' : ''}
+          </div>
+          <div id="sessDetail-${esc(s.file)}" style="display:none;padding:0 14px 12px 44px;font-size:11px;color:var(--text3)"></div>
+        </div>`;
+      }
+    }
+    html += '</div>';
+    document.getElementById('sessionsContent').innerHTML = html;
+    updateSessButtons();
+  } catch { /* no sessions */ }
+}
+
+async function toggleSessDetail(file) {
+  const detail = document.getElementById('sessDetail-'+file);
+  const arrow = document.getElementById('sessArrow-'+file);
+  if (!detail) return;
+  if (detail.style.display !== 'none') { detail.style.display = 'none'; if (arrow) arrow.textContent = '▶'; return; }
+  // Fetch and show requests for this session
+  try {
+    const reqs = await api('GET', '/api/sessions/requests?file='+encodeURIComponent(file));
+    if (!Array.isArray(reqs) || reqs.length === 0) {
+      detail.innerHTML = '<span style="color:var(--text3)">No requests found in DB for this session.</span>';
+    } else {
+      const fmtDur = ms => ms ? (ms >= 60000 ? Math.floor(ms/60000)+'m '+Math.floor((ms%60000)/1000)+'s' : Math.floor(ms/1000)+'.'+(ms%1000)+'s') : '—';
+      let tbl = '<table style="width:100%;border-collapse:collapse;font-size:10px"><tr style="color:var(--text3)"><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border2)">Time</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border2)">Model</th><th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border2)">Provider</th><th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border2)">Tokens</th><th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border2)">Cost</th><th style="text-align:right;padding:4px 6px;border-bottom:1px solid var(--border2)">Duration</th></tr>';
+      for (const r of reqs) {
+        tbl += `<tr><td style="padding:3px 6px;border-bottom:1px solid var(--border2)">${new Date(r.timestamp).toLocaleTimeString()}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border2)">${esc(r.model||'—')}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border2)">${esc(r.provider||'—')}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border2);text-align:right">${((r.prompt_tokens||0)+(r.output_tokens||0)).toLocaleString()}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border2);text-align:right">${r.cost ? '$'+Number(r.cost).toFixed(6) : '—'}</td><td style="padding:3px 6px;border-bottom:1px solid var(--border2);text-align:right">${fmtDur(r.duration_ms)}</td></tr>`;
+      }
+      tbl += '</table>';
+      detail.innerHTML = tbl;
+    }
+    detail.style.display = 'block';
+    if (arrow) arrow.textContent = '▼';
+  } catch { detail.innerHTML = '<span style="color:var(--red)">Error loading requests</span>'; detail.style.display = 'block'; }
+}
+
+function toggleSessCompare(file) {
+  if (_sessCompare.has(file)) _sessCompare.delete(file);
+  else if (_sessCompare.size < 2) _sessCompare.add(file);
+  else { toast('Select at most 2 sessions to compare'); return; }
+  updateSessButtons();
+  // Update checkbox visual
+  document.querySelectorAll('#sessionsContent input[type=checkbox]').forEach(cb => {
+    cb.checked = _sessCompare.has(cb.getAttribute('onchange')?.match(/'([^']+)'/)?.[1] || '');
+  });
+}
+
+function updateSessButtons() {
+  document.getElementById('sessCompareBtn').style.display = _sessCompare.size === 2 ? '' : 'none';
+  document.getElementById('sessClearBtn').style.display = _sessCompare.size > 0 ? '' : 'none';
+}
+
+function sessClearCompare() { _sessCompare.clear(); updateSessButtons(); loadSessions(); }
+
+async function sessCompare() {
+  if (_sessCompare.size !== 2) return;
+  const ids = Array.from(_sessCompare);
+  try {
+    const [ra, rb] = await Promise.all(ids.map(id => api('GET', '/api/sessions/requests?file='+encodeURIComponent(id))));
+    const aReqs = Array.isArray(ra) ? ra : [];
+    const bReqs = Array.isArray(rb) ? rb : [];
+    const maxLen = Math.max(aReqs.length, bReqs.length);
+    const fmtDur = ms => ms ? (ms >= 60000 ? Math.floor(ms/60000)+'m '+Math.floor((ms%60000)/1000)+'s' : Math.floor(ms/1000)+'.'+(ms%1000)+'s') : '—';
+    const fmtDate = ts => ts ? new Date(ts).toLocaleString() : '—';
+    const colH = '<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border2);font-size:10px;text-transform:uppercase;color:var(--text3)">';
+    const colD = '<td style="padding:3px 8px;border-bottom:1px solid var(--border2);font-size:11px">';
+    const rows = [];
+    for (let i = 0; i < maxLen; i++) {
+      const ar = aReqs[i] || {};
+      const br = bReqs[i] || {};
+      if (i === 0) {
+        rows.push(`<tr style="background:var(--surface2)"><td colspan="5" style="padding:6px 8px;font-size:11px;font-weight:600;border-bottom:2px solid var(--accent);text-align:center">${esc(ids[0])}</td><td style="padding:6px 8px;border-bottom:2px solid var(--border2)"></td><td colspan="5" style="padding:6px 8px;font-size:11px;font-weight:600;border-bottom:2px solid var(--accent2);text-align:center">${esc(ids[1])}</td></tr>`);
+      }
+      rows.push(`<tr>${colH}Time</th>${colD}${fmtDate(ar.timestamp)}</td>${colD}${esc(ar.model||'—')}</td>${colD}${((ar.prompt_tokens||0)+(ar.output_tokens||0)).toLocaleString()}</td>${colD}${ar.cost ? '$'+Number(ar.cost).toFixed(6) : '—'}</td><td style="padding:3px 8px;border-bottom:1px solid var(--border2);text-align:center;color:var(--text3);font-size:16px">⇄</td>${colH}Time</th>${colD}${fmtDate(br.timestamp)}</td>${colD}${esc(br.model||'—')}</td>${colD}${((br.prompt_tokens||0)+(br.output_tokens||0)).toLocaleString()}</td>${colD}${br.cost ? '$'+Number(br.cost).toFixed(6) : '—'}</td></tr>`);
+    }
+    if (maxLen === 0) {
+      document.getElementById('toast').textContent = 'No requests found for either session'; document.getElementById('toast').style.display = 'block'; setTimeout(() => document.getElementById('toast').style.display = 'none', 3000);
+      sessClearCompare(); return;
+    }
+    const headerCols = ['Time','Model','Tokens','Cost'];
+    const hcells = headerCols.map(c => `<th style="text-align:left;padding:4px 8px;border-bottom:1px solid var(--border2);font-size:10px;text-transform:uppercase;color:var(--text3)">${c}</th>`).join('');
+    const gutter = '<th style="padding:4px 8px;border-bottom:1px solid var(--border2);width:30px"></th>';
+    let html = '<div id="comparePanel" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center" onclick="if(event.target===this)this.remove()"><div style="position:relative;background:var(--surface);border-radius:12px;padding:20px;max-width:95vw;max-height:90vh;overflow:auto">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="font-size:14px">Compare Sessions</h3><span style="font-size:11px;color:var(--text3)">Row-by-row request comparison</span><button class="btn btn-sm btn-ghost" onclick="this.closest(\'#comparePanel\').remove()">✕</button></div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:600px"><thead><tr>'+hcells+gutter+hcells+'</tr></thead><tbody>';
+    for (const r of rows) html += r;
+    html += '</tbody></table></div><div style="margin-top:8px;font-size:10px;color:var(--text3);text-align:right">Showing ' + maxLen + ' request(s) per session</div></div></div>';
     document.body.insertAdjacentHTML('beforeend', html);
-    clearCompare();
-  } catch { toast('Compare failed', true); clearCompare(); }
+    sessClearCompare();
+  } catch (e) { toast('Compare failed', true); sessClearCompare(); }
 }
 
 // ---- Unified Search (across requests, sessions, logs) ----

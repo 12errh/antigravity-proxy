@@ -40,7 +40,7 @@ function parseEnvFile(): void {
   try {
     const raw = fs.readFileSync(ENV_PATH, 'utf-8');
     for (const line of raw.split('\n')) {
-      const m = line.match(/^([A-Z_]+)=(.+)/);
+      const m = line.match(/^([A-Z_]+)=(.*)/);
       if (m) process.env[m[1]] = m[2].trim();
     }
   } catch { /* ignore */ }
@@ -63,6 +63,9 @@ function createConfig() {
     rateLimitGlobal: parseInt(process.env.RATE_LIMIT_GLOBAL || '60', 10),
     rateLimitProvider: parseInt(process.env.RATE_LIMIT_PROVIDER || '30', 10),
     rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
+    dashboardUser: process.env.DASHBOARD_USER || '',
+    dashboardPassword: process.env.DASHBOARD_PASSWORD || '',
+    failoverWebhookUrl: process.env.FAILOVER_WEBHOOK_URL || '',
     providerPriority: parsePriority(),
     providers: buildProviders(parsePriority()),
     get localProviders(): ProviderConfig[] { return localProviders; },
@@ -104,6 +107,9 @@ function createConfig() {
       this.rateLimitGlobal = parseInt(process.env.RATE_LIMIT_GLOBAL || '60', 10);
       this.rateLimitProvider = parseInt(process.env.RATE_LIMIT_PROVIDER || '30', 10);
       this.rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
+      this.dashboardUser = process.env.DASHBOARD_USER || '';
+      this.dashboardPassword = process.env.DASHBOARD_PASSWORD || '';
+      this.failoverWebhookUrl = process.env.FAILOVER_WEBHOOK_URL || '';
       this.providerPriority = parsePriority();
       this.providers = buildProviders(this.providerPriority, localProviders);
     },

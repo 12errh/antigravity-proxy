@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
@@ -81,7 +82,28 @@ function getSessionsForDate(date: string): SessionSummary[] {
   try {
     const datePrefix = 'proxy_' + date.replace(/-/g, '');
     const files = fs.readdirSync(logDir).filter(f => f.startsWith(datePrefix) && f.endsWith('.log'));
-    return files.map(f => parseSessionFile(path.join(logDir, f))).filter((s): s is SessionSummary => s !== null);
+    const results = files.map(f => parseSessionFile(path.join(logDir, f))).filter((s): s is SessionSummary => s !== null);
+    for (const s of results) {
+      const m = s.file.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log/);
+      if (m) {
+        const [yr, mo, dy, hr, mi, sc] = [+m[1], +m[2], +m[3], +m[4], +m[5], +m[6]];
+        const sessionStart = new Date(yr, mo - 1, dy, hr, mi, sc);
+        const dbReqs = db.getRequestsByTimeRange(sessionStart.toISOString());
+        s.requestCount = dbReqs.length;
+        if (dbReqs.length > 0) {
+          const models = new Set<string>();
+          for (const r of dbReqs) { if (r.model) models.add(r.model); }
+          s.models = Array.from(models);
+          const firstTs = dbReqs[0].timestamp;
+          const lastTs = dbReqs[dbReqs.length - 1].timestamp;
+          const durMs = new Date(lastTs).getTime() - new Date(firstTs).getTime();
+          s.duration = durMs > 0
+            ? (durMs >= 3600000 ? `${(durMs / 3600000).toFixed(1)}h` : durMs >= 60000 ? `${Math.floor(durMs / 60000)}m ${Math.floor((durMs % 60000) / 1000)}s` : `${Math.floor(durMs / 1000)}s`)
+            : '—';
+        }
+      }
+    }
+    return results;
   } catch { return []; }
 }
 
@@ -174,6 +196,106 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const method = req.method || 'GET';
 
+    // Basic auth check (skip for health endpoint)
+    if (url.pathname !== '/api/health' && config.dashboardUser && config.dashboardPassword) {
+      const auth = req.headers.authorization || '';
+      const b64 = auth.startsWith('Basic ') ? auth.slice(6) : '';
+      let valid = false;
+      try {
+        const decoded = Buffer.from(b64, 'base64').toString();
+        const [user, pass] = decoded.split(':');
+        valid = user === config.dashboardUser && pass === config.dashboardPassword;
+      } catch {}
+      if (!valid) {
+        res.writeHead(401, { 'www-authenticate': 'Basic realm="Antigravity Proxy Dashboard"' });
+        res.end('Unauthorized');
+        return;
+      }
+    }
+
+    // Health endpoint (no auth required)
+    if (url.pathname === '/api/health' && method === 'GET') {
+      jsonResp(res, { status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+      return;
+    }
+
+    // Cert info endpoint
+    if (url.pathname === '/api/cert' && method === 'GET') {
+      const certPath = path.resolve(__dirname, '..', 'certs', 'cert.pem');
+      try {
+        if (!fs.existsSync(certPath)) { jsonResp(res, { status: 'missing' }); return; }
+        const pem = fs.readFileSync(certPath, 'utf-8');
+        const cert = new crypto.X509Certificate(pem);
+        jsonResp(res, {
+          status: 'ok',
+          subject: cert.subject,
+          issuer: cert.issuer,
+          validFrom: cert.validFrom,
+          validTo: cert.validTo,
+          fingerprint: cert.fingerprint,
+          serialNumber: cert.serialNumber,
+          daysRemaining: Math.floor((new Date(cert.validTo).getTime() - Date.now()) / 86400000),
+        });
+      } catch (e: any) { jsonResp(res, { status: 'error', error: e.message }); }
+      return;
+    }
+
+    // Auth configure endpoint
+    if (url.pathname === '/api/auth/configure' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const { username, password } = JSON.parse(body);
+          if (!username || !password) { jsonResp(res, { ok: false, error: 'Username and password are required' }, 400); return; }
+          if (writeEnv({ DASHBOARD_USER: username, DASHBOARD_PASSWORD: password })) {
+            config.reload();
+            logger.info('[dashboard] Auth credentials updated via dashboard');
+            jsonResp(res, { ok: true });
+          } else { jsonResp(res, { ok: false, error: 'Failed to write .env' }, 500); }
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
+      return;
+    }
+
+    // Auth disable endpoint
+    if (url.pathname === '/api/auth/disable' && method === 'POST') {
+      if (writeEnv({ DASHBOARD_USER: '', DASHBOARD_PASSWORD: '' })) {
+        config.reload();
+        logger.info('[dashboard] Auth disabled via dashboard');
+        jsonResp(res, { ok: true });
+      } else { jsonResp(res, { ok: false, error: 'Failed to write .env' }, 500); }
+      return;
+    }
+
+    // Webhook configure endpoint
+    if (url.pathname === '/api/webhook/configure' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const { url: webhookUrl } = JSON.parse(body);
+          if (writeEnv({ FAILOVER_WEBHOOK_URL: webhookUrl || '' })) {
+            config.reload();
+            logger.info('[dashboard] Webhook URL updated via dashboard');
+            jsonResp(res, { ok: true });
+          } else { jsonResp(res, { ok: false, error: 'Failed to write .env' }, 500); }
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
+      return;
+    }
+
+    // Webhook test endpoint
+    if (url.pathname === '/api/webhook-test' && method === 'POST') {
+      const webhookUrl = config.failoverWebhookUrl;
+      if (!webhookUrl) { jsonResp(res, { ok: false, error: 'No FAILOVER_WEBHOOK_URL configured' }); return; }
+      const body = JSON.stringify({ event: 'test', timestamp: new Date().toISOString(), message: 'Antigravity webhook test' });
+      fetch(webhookUrl, { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+        .then(r => r.text().then(t => jsonResp(res, { ok: r.ok, status: r.status, body: t })))
+        .catch((e: any) => jsonResp(res, { ok: false, error: e.message }));
+      return;
+    }
+
     // Serve dashboard SPA
     if (url.pathname === '/' && method === 'GET') {
       if (fs.existsSync(dashboardHtml)) {
@@ -190,7 +312,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     // API routes
     if (url.pathname === '/api/status' && method === 'GET') {
       const env = readEnv();
-      const stats = requestStore.getStats();
+      const stats = requestStore.getStats(true);
       jsonResp(res, {
         provider: config.provider,
         baseUrl: config.baseUrl,
@@ -203,6 +325,8 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
         rateLimitGlobal: config.rateLimitGlobal,
         rateLimitProvider: config.rateLimitProvider,
         rateLimitWindow: config.rateLimitWindow,
+        dashboardAuth: !!config.dashboardUser && !!config.dashboardPassword,
+        failoverWebhookUrl: config.failoverWebhookUrl || '',
         providerPriority: config.providerPriority,
         providers: config.providers.map(p => ({ id: p.id, priority: p.priority, hasKey: !!p.apiKey, enabled: p.enabled })),
         env: { PROVIDER: env.PROVIDER, LOG_LEVEL: env.LOG_LEVEL, PROXY_PORT: env.PROXY_PORT, API_PORT: env.API_PORT, PROVIDER_PRIORITY: env.PROVIDER_PRIORITY, PROXY_RETRIES: env.PROXY_RETRIES, PROXY_BACKOFF_MS: env.PROXY_BACKOFF_MS, NVIDIA_API_KEY: maskKey(env.NVIDIA_API_KEY), OPENROUTER_API_KEY: maskKey(env.OPENROUTER_API_KEY), ANTHROPIC_API_KEY: maskKey(env.ANTHROPIC_API_KEY), OPENAI_API_KEY: maskKey(env.OPENAI_API_KEY), GROQ_API_KEY: maskKey(env.GROQ_API_KEY), GOOGLE_API_KEY: maskKey(env.GOOGLE_API_KEY) },
@@ -364,6 +488,19 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
+    if (url.pathname === '/api/sessions/requests' && method === 'GET') {
+      const file = (url.searchParams.get('file') || '').trim();
+      if (!file) { jsonResp(res, { error: 'file param required' }, 400); return; }
+      const m = file.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log/);
+      if (!m) { jsonResp(res, { error: 'invalid file name' }, 400); return; }
+      const [yr, mo, dy, hr, mi, sc] = [+m[1], +m[2], +m[3], +m[4], +m[5], +m[6]];
+      const sessionStart = new Date(yr, mo - 1, dy, hr, mi, sc);
+      const startTime = sessionStart.toISOString();
+      const requests = db.getRequestsByTimeRange(startTime);
+      jsonResp(res, requests);
+      return;
+    }
+
     if (url.pathname === '/api/sessions' && method === 'DELETE') {
       const file = (url.searchParams.get('file') || '').trim();
       if (!file) { jsonResp(res, { error: 'file param required' }, 400); return; }
@@ -393,9 +530,9 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     if (url.pathname === '/api/cost' && method === 'GET') {
       jsonResp(res, {
         byDay: db.getCostAggregation('day'),
-        byModel: db.getCostAggregation('model'),
-        byProvider: db.getCostAggregation('provider'),
-        total: db.getStats(),
+        byModel: db.getCostAggregation('model', true),
+        byProvider: db.getCostAggregation('provider', true),
+        total: db.getStats(true),
       });
       return;
     }

@@ -329,40 +329,22 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     recordRequest(usedProvider);
 
     // Send final event with finishReason and metadata (no text — already streamed incrementally)
-    const hasToolCalls = toolCalls.length > 0;
-    if (hasToolCalls) {
-      const finalParts: any[] = [];
-      if (thoughtText) finalParts.push({ thought: true, text: thoughtText });
-      if (fullText) finalParts.push({ text: fullText });
-      for (const tc of toolCalls) finalParts.push({ functionCall: { name: tc.name, args: tc.args } });
-      const candidate: any = {
-        index: 0, content: { role: 'model', parts: finalParts },
-        safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
-        finishReason: 'STOP',
-      };
-      res.write(`data: ${JSON.stringify({
-        response: {
-          candidates: [candidate],
-          usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
-          modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
-          responseId,
-        }, traceId, metadata: {},
-      })}\n\n`, 'utf-8');
-    } else {
-      const candidate: any = {
-        index: 0, content: { role: 'model', parts: [] },
-        safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
-        finishReason: 'STOP',
-      };
-      res.write(`data: ${JSON.stringify({
-        response: {
-          candidates: [candidate],
-          usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
-          modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
-          responseId,
-        }, traceId, metadata: {},
-      })}\n\n`, 'utf-8');
-    }
+    const finalParts: any[] = [];
+    if (thoughtText) finalParts.push({ thought: true, text: thoughtText });
+    for (const tc of toolCalls) finalParts.push({ functionCall: { name: tc.name, args: tc.args } });
+    const candidate: any = {
+      index: 0, content: { role: 'model', parts: finalParts },
+      safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
+      finishReason: 'STOP',
+    };
+    res.write(`data: ${JSON.stringify({
+      response: {
+        candidates: [candidate],
+        usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
+        modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
+        responseId,
+      }, traceId, metadata: {},
+    })}\n\n`, 'utf-8');
     res.end();
 
     if (toolCalls.length > 0) {

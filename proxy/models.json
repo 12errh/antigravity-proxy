@@ -53,6 +53,9 @@
     },
     "gpt-oss-120b-medium": {
       "google": "gemma-4-31b-it"
+    },
+    "gemini-2.5-flash": {
+      "nvidia": "stepfun-ai/step-3.7-flash"
     }
   }
 }
