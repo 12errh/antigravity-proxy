@@ -128,11 +128,11 @@ export class AnthropicAdapter implements ModelAdapter {
       if (m.role === 'tool') {
         result.push({
           role: 'user',
-          content: [{ type: 'tool_result', tool_use_id: m.tool_call_id || '', content: m.content || '' }],
+          content: [{ type: 'tool_result', tool_use_id: m.tool_call_id || '', content: typeof m.content === 'string' ? m.content : '' }],
         });
       } else if (m.tool_calls && m.tool_calls.length > 0) {
         const content: any[] = [];
-        if (m.content) content.push({ type: 'text', text: m.content });
+        if (m.content) content.push({ type: 'text', text: typeof m.content === 'string' ? m.content : '' });
         for (const tc of m.tool_calls) {
           content.push({
             type: 'tool_use',
@@ -143,7 +143,24 @@ export class AnthropicAdapter implements ModelAdapter {
         }
         result.push({ role: 'assistant', content });
       } else {
-        result.push({ role: m.role as string, content: m.content || '' });
+        if (Array.isArray(m.content)) {
+          const blocks: any[] = [];
+          for (const p of m.content) {
+            if (p.type === 'image_url' && p.image_url?.url) {
+              const url = p.image_url.url;
+              const m2 = url.match(/^data:([^;]+);base64,(.+)$/);
+              if (m2) {
+                blocks.push({ type: 'image', source: { type: 'base64', media_type: m2[1], data: m2[2] } });
+              } else {
+                blocks.push({ type: 'image', source: { type: 'url', url } });
+              }
+            } else if (typeof p === 'string') {
+              blocks.push({ type: 'text', text: p });
+            }
+          }
+          if (blocks.length > 0) { result.push({ role: m.role as string, content: blocks }); continue; }
+        }
+        result.push({ role: m.role as string, content: typeof m.content === 'string' ? m.content : '' });
       }
     }
     return result;

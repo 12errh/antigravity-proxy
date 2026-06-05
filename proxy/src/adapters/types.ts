@@ -8,6 +8,7 @@ export interface StreamChunk {
   finishReason?: string;
   attempt?: number;
   status?: 'trying' | 'retrying' | 'failover' | 'failed';
+  fallback?: boolean;
 }
 
 export interface ModelAdapter {

@@ -6,11 +6,13 @@ export class OpenAICompatAdapter implements ModelAdapter {
   provider: string;
   private baseUrl: string;
   private apiKey: string;
+  private supportsImages: boolean;
 
   constructor(provider: string, baseUrl: string, apiKey: string) {
     this.provider = provider;
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.apiKey = apiKey;
+    this.supportsImages = true;
   }
 
   async *stream(
@@ -101,7 +103,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
   ): Record<string, unknown> {
-    const body: Record<string, unknown> = { model, messages, stream: true };
+    const body: Record<string, unknown> = { model, messages: this.serializeMessages(messages), stream: true };
     if (tools && Object.keys(tools).length > 0) {
       body.tools = Object.entries(tools).map(([name, tool]: [string, any]) => ({
         type: 'function',
@@ -118,6 +120,26 @@ export class OpenAICompatAdapter implements ModelAdapter {
       if (effort) body.reasoning_effort = effort;
     }
     return body;
+  }
+
+  private serializeMessages(messages: OpenAIMessage[]): any[] {
+    return messages.map(m => {
+      if (Array.isArray(m.content)) {
+        // Validate image parts — strip non-fetchable URLs that some providers reject
+        const cleaned = m.content.map((part: any) => {
+          if (part && part.type === 'image_url' && part.image_url && part.image_url.url) {
+            const u = part.image_url.url;
+            if (!/^(https?:|data:|file:)/i.test(u)) return null;
+          }
+          return part;
+        }).filter(Boolean);
+        if (cleaned.length === 0) {
+          return { role: m.role, content: '', tool_calls: m.tool_calls, tool_call_id: m.tool_call_id };
+        }
+        return { role: m.role, content: cleaned, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id };
+      }
+      return { role: m.role, content: m.content, tool_calls: m.tool_calls, tool_call_id: m.tool_call_id };
+    });
   }
 
   private async fetchWithRetry(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {

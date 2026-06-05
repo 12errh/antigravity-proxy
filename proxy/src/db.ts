@@ -172,6 +172,56 @@ export function getCostAggregation(period: 'day' | 'model' | 'provider', todayOn
   return db.prepare(`SELECT ${groupBy} as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost FROM requests WHERE cost IS NOT NULL${dateFilter} GROUP BY ${groupBy} ORDER BY total_cost DESC`).all();
 }
 
+export function getCostForDate(date: string): { requests: number; totalTokens: number; prompt_tokens: number; output_tokens: number; total_cost: number; errors: number } {
+  const start = date + 'T00:00:00';
+  const end = date + 'T23:59:59.999';
+  const row = db.prepare(`
+    SELECT COUNT(*) as requests,
+           COALESCE(SUM(prompt_tokens + output_tokens),0) as totalTokens,
+           COALESCE(SUM(prompt_tokens),0) as prompt_tokens,
+           COALESCE(SUM(output_tokens),0) as output_tokens,
+           COALESCE(SUM(CASE WHEN type = 'error' THEN 1 ELSE 0 END),0) as errors,
+           COALESCE(SUM(cost),0) as total_cost
+    FROM requests
+    WHERE timestamp >= ? AND timestamp <= ?
+  `).get(start, end) as any;
+  return row;
+}
+
+export function getCostByProviderForDate(date: string): any[] {
+  const start = date + 'T00:00:00';
+  const end = date + 'T23:59:59.999';
+  return db.prepare(`
+    SELECT provider as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost
+    FROM requests
+    WHERE timestamp >= ? AND timestamp <= ?
+    GROUP BY provider
+    ORDER BY total_cost DESC
+  `).all(start, end);
+}
+
+export function getCostByModelForDate(date: string): any[] {
+  const start = date + 'T00:00:00';
+  const end = date + 'T23:59:59.999';
+  return db.prepare(`
+    SELECT model as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost
+    FROM requests
+    WHERE timestamp >= ? AND timestamp <= ?
+    GROUP BY model
+    ORDER BY total_cost DESC
+  `).all(start, end);
+}
+
+export function getCostByDay(limit = 90): any[] {
+  return db.prepare(`
+    SELECT substr(timestamp,1,10) as key, COUNT(*) as requests, SUM(prompt_tokens) as prompt_tokens, SUM(output_tokens) as output_tokens, SUM(cost) as total_cost
+    FROM requests
+    GROUP BY key
+    ORDER BY key DESC
+    LIMIT ?
+  `).all(limit);
+}
+
 export function getStats(todayOnly?: boolean): { totalRequests: number; totalTokens: number; totalToolCalls: number; errors: number; total_cost: number; prompt_tokens: number; output_tokens: number; requests: number } {
   const dateFilter = todayOnly ? " WHERE date(timestamp) = date('now')" : '';
   const row = db.prepare(`

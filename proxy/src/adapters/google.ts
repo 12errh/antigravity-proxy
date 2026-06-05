@@ -103,12 +103,27 @@ export class GoogleAdapter implements ModelAdapter {
       if (m.role === 'tool') {
         result.push({
           role: 'function',
-          parts: [{ functionResponse: { name: m.tool_call_id || 'unknown', response: { content: m.content || '' } } }],
+          parts: [{ functionResponse: { name: m.tool_call_id || 'unknown', response: { content: typeof m.content === 'string' ? m.content : '' } } }],
         });
         continue;
       }
       const parts: any[] = [];
-      if (m.content) parts.push({ text: m.content });
+      if (typeof m.content === 'string' && m.content) parts.push({ text: m.content });
+      if (Array.isArray(m.content)) {
+        for (const p of m.content) {
+          if (p.type === 'image_url' && p.image_url?.url) {
+            const url = p.image_url.url;
+            const m2 = url.match(/^data:([^;]+);base64,(.+)$/);
+            if (m2) {
+              parts.push({ inlineData: { mimeType: m2[1], data: m2[2] } });
+            } else {
+              parts.push({ fileData: { fileUri: url, mimeType: 'image/jpeg' } });
+            }
+          } else if (typeof p === 'string') {
+            parts.push({ text: p });
+          }
+        }
+      }
       if (m.tool_calls) {
         for (const tc of m.tool_calls) {
           parts.push({

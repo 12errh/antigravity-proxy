@@ -64,6 +64,14 @@ export class ModelResolver {
     this.load();
   }
 
+  getDefaultModel(providerId?: string): string {
+    if (providerId) {
+      const fromProviderMap = this.providerMap['default']?.[providerId];
+      if (fromProviderMap) return fromProviderMap;
+    }
+    return this.flatMap['default'] || 'openai/gpt-oss-120b';
+  }
+
   resolve(model: string, providerId?: string): string {
     if (providerId && this.providerMap[model]?.[providerId]) {
       return this.providerMap[model][providerId];
@@ -72,9 +80,10 @@ export class ModelResolver {
     const short = model.replace(/^models\//, '');
     if (this.flatMap[short]) return this.flatMap[short];
     for (const key of Object.keys(this.flatMap)) {
+      if (key === 'default') continue;
       if (short.startsWith(key) || key.startsWith(short)) return this.flatMap[key];
     }
-    return this.flatMap['default'] || model;
+    return this.getDefaultModel(providerId);
   }
 
   getProvidersForModel(model: string): string[] | null {
@@ -86,6 +95,17 @@ export class ModelResolver {
       if (short.startsWith(key) || key.startsWith(short)) return Object.keys(this.providerMap[key]);
     }
     return null;
+  }
+
+  hasModel(model: string): boolean {
+    const short = model.replace(/^models\//, '');
+    if (this.providerMap[model] || this.providerMap[short]) return true;
+    if (this.flatMap[model] || this.flatMap[short]) return true;
+    for (const key of Object.keys(this.flatMap)) {
+      if (key === 'default') continue;
+      if (short.startsWith(key) || key.startsWith(short)) return true;
+    }
+    return false;
   }
 
   getFlatMap(): Record<string, string> {

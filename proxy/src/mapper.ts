@@ -2,9 +2,14 @@ import type { Content, Part, Tool, GenerationConfig } from './types.js';
 import { DEFAULT_MODEL_MAP, type ModelMap } from './types.js';
 import { logger } from './logger.js';
 
+export interface OpenAIImagePart {
+  type: 'image_url';
+  image_url: { url: string; detail?: 'auto' | 'low' | 'high' };
+}
+
 export interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
+  content: string | OpenAIImagePart[] | null;
   tool_calls?: Array<{
     id: string;
     type: 'function';
@@ -53,6 +58,35 @@ function callId(name: string, idx: number): string {
   return `call_${name}_${idx}`;
 }
 
+function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
+  if (!p) return null;
+  if (p.text) return p.text;
+  if (p.type === 'text' && p.text) return p.text;
+  if (p.type === 'image' || p.type === 'image_url') {
+    const url = p.image_url?.url || p.url;
+    if (typeof url === 'string') return { type: 'image_url', image_url: { url } };
+  }
+  if (p.inlineData?.data && p.inlineData?.mimeType) {
+    const mime = p.inlineData.mimeType || 'image/png';
+    return { type: 'image_url', image_url: { url: `data:${mime};base64,${p.inlineData.data}` } };
+  }
+  if (typeof p.image === 'string') {
+    return { type: 'image_url', image_url: { url: p.image.startsWith('data:') ? p.image : `data:image/png;base64,${p.image}` } };
+  }
+  if (p.fileData?.fileUri && p.fileData?.mimeType) {
+    const uri = p.fileData.fileUri;
+    // Only forward as URL if the provider can actually fetch it (http/https/data/file).
+    // Google-style `files/abc123` or `gs://` references are NOT fetchable by OpenAI-compat
+    // providers — drop them to avoid 400 errors like "URL must be HTTP, data or file URL".
+    if (/^(https?:|data:|file:)/i.test(uri)) {
+      return { type: 'image_url', image_url: { url: uri } };
+    }
+    // Drop silently — Gemini/Antigravity-specific file references don't translate
+    return null;
+  }
+  return null;
+}
+
 export function mapContentsToMessages(contents: Content[], systemInstruction?: string): MappedRequest {
   const messages: OpenAIMessage[] = [];
   let callIndex = 0;
@@ -71,6 +105,12 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
       .filter((p: any) => p.text || (p.type === 'text' && p.text))
       .map((p: any) => p.text || '')
       .join('');
+
+    const imageParts: OpenAIImagePart[] = [];
+    for (const p of parts) {
+      const ip = partToOpenAIPart(p);
+      if (ip && typeof ip === 'object') imageParts.push(ip);
+    }
 
     const googleToolCalls = parts.filter((p: any) => p.functionCall);
     const googleToolResults = parts.filter((p: any) => p.functionResponse);
@@ -94,10 +134,15 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
         const fr = p.functionResponse || {};
         const name = fr.name || p.toolName || 'unknown';
         const resultObj = fr.response || p.result || {};
-        const content = typeof resultObj === 'string' ? resultObj : JSON.stringify(parseJSONArgs(resultObj));
+        const contentStr = typeof resultObj === 'string' ? resultObj : JSON.stringify(parseJSONArgs(resultObj));
         const id = recentCallIds.get(name) || callId(name, callIndex++);
-        messages.push({ role: 'tool', tool_call_id: id, content });
+        messages.push({ role: 'tool', tool_call_id: id, content: contentStr });
       }
+    } else if (imageParts.length > 0) {
+      const content: OpenAIImagePart[] = textParts
+        ? [{ type: 'image_url' as const, image_url: { url: textParts } } as any, ...imageParts]
+        : imageParts;
+      messages.push({ role, content: content.length === 1 && content[0].image_url.url === textParts ? textParts : content });
     } else {
       messages.push({ role, content: textParts });
     }

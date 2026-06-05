@@ -837,10 +837,11 @@ tbody tr:hover{background:var(--surface2);}
       <div style="margin-bottom:16px">
         <p style="font-size:13px;color:var(--text2)">Fetch available models from any provider, toggle what you want, add them to your config.</p>
       </div>
-      <form onsubmit="browseFetch();return false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <form onsubmit="browseFetch(false);return false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
         <div id="browseProviderSelect" style="width:160px"></div>
         <input type="password" autocomplete="new-password" id="browseApiKey" placeholder="API key (optional)" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none;width:200px;font-family:var(--mono)">
         <button class="btn btn-sm" id="browseFetchBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Fetch</button>
+        <button class="btn btn-sm btn-ghost" id="browseRefreshBtn" type="button" onclick="browseFetch(true)" data-tooltip="Force-refresh from provider, bypass cache" title="Force-refresh from provider (bypass 10-min cache)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Refresh</button>
         <span id="browseFetchStatus" style="font-size:11px;color:var(--text3)"></span>
       </form>
       <div id="browseResultsPanel" style="display:none">
@@ -865,6 +866,18 @@ tbody tr:hover{background:var(--surface2);}
         <p style="font-size:13px;color:var(--text2)">Usage and cost tracking. Charts show token consumption (per 1M tokens in USD). Hover for details. Set prices in the Pricing Config editor below.</p>
       </div>
 
+      <div class="filter-bar" style="flex-wrap:wrap;margin-bottom:16px">
+        <div class="search-wrap" style="max-width:200px;position:relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="date" id="costDate" onchange="loadCostData()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
+        </div>
+        <button class="btn btn-sm" id="costTodayBtn" onclick="setCostToday()" style="padding:6px 12px">Today</button>
+        <button class="btn btn-sm btn-ghost" id="costAllBtn" onclick="setCostAll()" style="padding:6px 12px">All time</button>
+        <span class="count" id="costScopeLabel">all time</span>
+        <span style="flex:1"></span>
+        <span style="font-size:11px;color:var(--text3)">Clear date to view all time</span>
+      </div>
+
       <div class="cost-summary" id="costSummary">
         <div class="stat-card">
           <div class="icon-wrap purple">
@@ -872,7 +885,7 @@ tbody tr:hover{background:var(--surface2);}
           </div>
           <div class="s-label">Total Cost</div>
           <div class="s-value" id="costTotalVal">$0.00</div>
-          <div class="s-sub">all time</div>
+          <div class="s-sub" id="costTotalSub">all time</div>
         </div>
         <div class="stat-card">
           <div class="icon-wrap green">
@@ -880,7 +893,7 @@ tbody tr:hover{background:var(--surface2);}
           </div>
           <div class="s-label">Total Tokens</div>
           <div class="s-value" id="costTotalTokens">0</div>
-          <div class="s-sub">prompt + output</div>
+          <div class="s-sub" id="costTotalTokensSub">prompt + output</div>
         </div>
         <div class="stat-card">
           <div class="icon-wrap yellow">
@@ -888,7 +901,7 @@ tbody tr:hover{background:var(--surface2);}
           </div>
           <div class="s-label">Total Requests</div>
           <div class="s-value" id="costTotalReqs">0</div>
-          <div class="s-sub">routed through proxy</div>
+          <div class="s-sub" id="costTotalReqsSub">routed through proxy</div>
         </div>
         <div class="stat-card">
           <div class="icon-wrap red">
@@ -896,7 +909,7 @@ tbody tr:hover{background:var(--surface2);}
           </div>
           <div class="s-label">Avg Cost / Req</div>
           <div class="s-value" id="costAvgCost">$0.00</div>
-          <div class="s-sub">per request average</div>
+          <div class="s-sub" id="costAvgCostSub">per request average</div>
         </div>
       </div>
 
@@ -980,19 +993,19 @@ tbody tr:hover{background:var(--surface2);}
 
     <!-- History -->
     <section class="section" id="sec-history">
-      <div class="filter-bar">
+      <div class="filter-bar" style="flex-wrap:wrap">
         <div class="search-wrap" style="max-width:200px;position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           <input type="date" id="historyDate" onchange="loadRequestsByDate()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
         <span class="count" id="historyCount">Select a date</span>
-        <div id="historyDateList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         <span style="flex:1"></span>
         <div class="search-wrap" style="max-width:180px;position:relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text3)"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" id="historySearch" placeholder="Search by model/provider..." oninput="filterHistory()" style="width:100%;padding:7px 10px 7px 32px;border-radius:8px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--font);outline:none">
         </div>
       </div>
+      <div id="historyDateList" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px"></div>
       <div class="stat-grid" id="historyStats" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;display:none">
         <div class="stat-card"><div class="s-label">Requests</div><div class="s-value" id="hsReqs" style="font-size:22px">0</div></div>
         <div class="stat-card"><div class="s-label">Total Tokens</div><div class="s-value" id="hsTokens" style="font-size:22px">0</div></div>
@@ -1804,12 +1817,14 @@ async function loadModels() {
       }
     }
     _allModelNames = [...new Set(_allModelNames)];
+    // Prime resolver dropdowns with cached provider models
+    primeModelCache();
   } catch (e) {}
 }
 function addModelRow() { addRow('','',''); }
 
 // ---- Resolver Select Widget ----
-function createResolverSelect(models, value, onChange) {
+function createResolverSelect(models, value, onChange, providerMeta) {
   const wrapper = document.createElement('div');
   wrapper.className = 'rsel-wrap';
   wrapper.style.cssText = 'position:relative;width:100%';
@@ -1818,8 +1833,9 @@ function createResolverSelect(models, value, onChange) {
   wrapper.appendChild(hi);
   const trigger = document.createElement('div');
   trigger.className = 'rsel-trigger';
+  const triggerLogo = providerMeta ? logoHtml(providerMeta, 14) : '';
   trigger.style.cssText = 'display:flex;align-items:center;gap:4px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--mono);cursor:pointer;outline:none;user-select:none;min-height:34px';
-  trigger.innerHTML = '<span class="rsel-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(value?'var(--text)':'var(--text3)')+'">'+esc(value||'Select model...')+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
+  trigger.innerHTML = '<span class="rsel-logo" style="display:inline-flex;width:14px;height:14px;flex-shrink:0">'+triggerLogo+'</span><span class="rsel-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(value?'var(--text)':'var(--text3)')+'">'+esc(value||'Select model...')+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
   wrapper.appendChild(trigger);
   const menu = document.createElement('div');
   menu.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:200;display:none;max-height:280px;overflow:hidden;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
@@ -1834,9 +1850,11 @@ function createResolverSelect(models, value, onChange) {
     const filtered = filter ? models.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : models;
     list.innerHTML = filtered.map(m => {
       const sel = m === hi.value;
+      const itemLogo = providerMeta ? logoHtml(providerMeta, 12) : '<span style="width:12px;display:inline-block"></span>';
       return '<div class="rsel-item" data-model="'+esc(m)+'" style="display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;font-size:12px;font-family:var(--mono);color:'+(sel?'var(--accent)':'var(--text2)')+';transition:background 0.12s'+(sel?';background:var(--accentDim)':'')+'">' +
-        (sel?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>':'<span style="width:12px;flex-shrink:0"></span>') +
-        esc(m) +
+        '<span style="display:inline-flex;width:12px;height:12px;flex-shrink:0">'+itemLogo+'</span>' +
+        (sel?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>':'<span style="width:10px;flex-shrink:0"></span>') +
+        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis">'+esc(m)+'</span>' +
       '</div>';
     }).join('');
     list.querySelectorAll('.rsel-item').forEach(el => {
@@ -1844,8 +1862,9 @@ function createResolverSelect(models, value, onChange) {
         e.stopPropagation();
         const m = this.dataset.model;
         hi.value = m;
-        trigger.querySelector('.rsel-text').textContent = m;
-        trigger.querySelector('.rsel-text').style.color = 'var(--text)';
+        const t = trigger.querySelector('.rsel-text');
+        t.textContent = m;
+        t.style.color = 'var(--text)';
         menu.style.display = 'none';
         if (onChange) onChange(m);
       };
@@ -1864,7 +1883,15 @@ function createResolverSelect(models, value, onChange) {
     if (e.key === 'Escape') { menu.style.display = 'none'; }
     else if (e.key === 'Enter') { const fi = list.querySelector('.rsel-item'); if (fi) fi.click(); }
   };
-  wrapper.updateModels = function(newModels) { models = newModels || []; renderList(search.value); };
+  wrapper.updateModels = function(newModels, newProviderMeta) {
+    models = newModels || [];
+    if (newProviderMeta) {
+      const trigLogo = trigger.querySelector('.rsel-logo');
+      if (trigLogo) trigLogo.innerHTML = logoHtml(newProviderMeta, 14);
+      providerMeta = newProviderMeta;
+    }
+    renderList(search.value);
+  };
   return wrapper;
 }
 
@@ -1928,7 +1955,7 @@ function addRow(k, v, provider) {
 
   const td2 = document.createElement('td');
   td2.innerHTML = '<div style="display:flex;align-items:center;gap:4px"><span class="rlw" style="display:inline-flex;width:14px;height:14px;flex-shrink:0">'+resolverLogo+'</span></div>';
-  const rsel = createResolverSelect(toggled, v, function(val) {});
+  const rsel = createResolverSelect(toggled, v, function(val) {}, pMeta);
   td2.firstChild.appendChild(rsel);
 
   const td3 = document.createElement('td');
@@ -1936,9 +1963,31 @@ function addRow(k, v, provider) {
     const rl = td2.querySelector('.rlw');
     const nm = val ? PROVIDER_META[val] : null;
     if (rl) rl.innerHTML = nm ? logoHtml(nm, 14) : '';
-    if (rsel.updateModels) rsel.updateModels(window._toggledModels[val] || []);
+    const cached = window._toggledModels[val] || [];
+    if (rsel.updateModels) rsel.updateModels(cached, nm);
+    if (cached.length === 0 && val) {
+      // Try to lazy-fetch from cache endpoint
+      api('GET', '/api/provider-models?provider=' + encodeURIComponent(val)).then(r => {
+        if (r && r.models && r.models.length) {
+          window._fetchedModels[val] = r.models;
+          window._toggledModels[val] = [...r.models];
+          if (rsel.updateModels) rsel.updateModels(r.models, nm);
+        }
+      }).catch(() => {});
+    }
   });
   td3.appendChild(psel);
+
+  // For empty rows, also try a lazy-fetch in case the provider was just selected
+  if (provider && (window._toggledModels[provider] || []).length === 0) {
+    api('GET', '/api/provider-models?provider=' + encodeURIComponent(provider)).then(r => {
+      if (r && r.models && r.models.length) {
+        window._fetchedModels[provider] = r.models;
+        window._toggledModels[provider] = [...r.models];
+        if (rsel.updateModels) rsel.updateModels(r.models, pMeta);
+      }
+    }).catch(() => {});
+  }
 
   const td4 = document.createElement('td');
   td4.innerHTML = '<button class="btn-icon" onclick="this.closest(\'tr\').remove()" data-tooltip="Remove">✕</button>';
@@ -1977,24 +2026,46 @@ function browseInit() {
   container.innerHTML = '';
   const psel = createProviderSelect('', function(val) { _browseProvider = val; });
   container.appendChild(psel);
+  primeModelCache();
 }
 
-async function browseFetch() {
+async function primeModelCache() {
+  try {
+    const data = await api('GET', '/api/provider-models');
+    if (!data || !data.providers) return;
+    for (const p of data.providers) {
+      if (p.models && p.models.length && !window._fetchedModels[p.provider]) {
+        window._fetchedModels[p.provider] = p.models;
+        if (!window._toggledModels[p.provider]) window._toggledModels[p.provider] = [...p.models];
+      }
+    }
+  } catch {}
+}
+
+async function browseFetch(force) {
   const provider = _browseProvider;
   if (!provider) { toast('Select a provider first', true); return; }
   const status = document.getElementById('browseFetchStatus');
-  status.textContent = 'Fetching...';
+  status.textContent = force ? 'Force-refreshing...' : 'Fetching...';
   document.getElementById('browseResultsPanel').style.display = 'none';
   const apiKey = document.getElementById('browseApiKey').value.trim() || undefined;
   try {
-    const res = await api('POST', '/api/provider-models', { provider, apiKey });
+    if (force) {
+      // Clear server cache first so the next POST actually re-fetches
+      await api('DELETE', '/api/provider-models/cache?provider=' + encodeURIComponent(provider)).catch(() => {});
+    }
+    const res = await api('POST', '/api/provider-models', { provider, apiKey, force: !!force });
     if (res && res.models) {
       window._fetchedModels[provider] = res.models;
-      if (!window._toggledModels[provider]) window._toggledModels[provider] = [...res.models];
+      window._toggledModels[provider] = [...res.models];
       document.getElementById('browseResultsPanel').style.display = 'block';
       renderBrowseModels();
-      status.textContent = res.models.length + ' models loaded';
-    } else status.textContent = 'Failed';
+      status.textContent = res.models.length + ' models loaded' + (force ? ' (refreshed)' : '');
+    } else if (res && res.error) {
+      status.textContent = 'Failed: ' + res.error;
+    } else {
+      status.textContent = 'Failed';
+    }
   } catch (e) { status.textContent = 'Error: ' + e.message; }
 }
 
@@ -2118,15 +2189,68 @@ function buildCostTableHtml(rows, headers, keyCol, valCols) {
   return h + '</table>';
 }
 
+function setCostToday() {
+  document.getElementById('costDate').value = todayStr();
+  loadCostData();
+}
+
+function setCostAll() {
+  document.getElementById('costDate').value = '';
+  loadCostData();
+}
+
+// Track which canvases were replaced with a "no data" message so we can restore them
+const _costChartIds = ['costByProviderChart','costByModelChart','costByDayChart'];
+function restoreCostCanvases() {
+  for (const id of _costChartIds) {
+    if (document.getElementById(id)) continue;
+    // The canvas was replaced by a div inside the chart-wrap. Find the parent that USED to hold the canvas.
+    // We stored a hidden marker when showCostEmpty ran; if not, fall back to locating the parent card's chart-wrap.
+    const stale = document.getElementById(id + 'Stale');
+    if (stale && stale.parentElement) {
+      const wrap = stale.parentElement;
+      wrap.innerHTML = '<canvas id="'+id+'"></canvas>';
+    }
+  }
+}
+
+function showCostEmpty(canvasId, msg) {
+  const c = document.getElementById(canvasId);
+  if (!c || !c.parentElement) return;
+  const wrap = c.parentElement;
+  wrap.innerHTML = '<div id="'+canvasId+'Stale" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">'+esc(msg)+'</div>';
+}
+
 async function loadCostData() {
+  // First, ensure all canvases exist (they may have been replaced by "no data" overlays)
+  restoreCostCanvases();
   try {
-    const data = await api('GET', '/api/cost');
+    const date = (document.getElementById('costDate').value || '').trim();
+    const endpoint = date ? `/api/cost?date=${encodeURIComponent(date)}` : '/api/cost?all=1';
+    const data = await api('GET', endpoint);
     if (!data) return;
     const theme = chartTheme();
     destroyCostCharts();
 
-    // Summary stats
-    const total = data.total || {};
+    // Update scope label
+    const scopeEl = document.getElementById('costScopeLabel');
+    if (date) {
+      scopeEl.textContent = `for ${date}`;
+      document.getElementById('costTotalSub').textContent = `on ${date}`;
+    } else {
+      scopeEl.textContent = 'all time';
+      document.getElementById('costTotalSub').textContent = 'all time';
+    }
+    document.getElementById('costTotalTokensSub').textContent = date ? 'prompt + output on ' + date : 'prompt + output';
+    document.getElementById('costTotalReqsSub').textContent = date ? 'routed on ' + date : 'routed through proxy';
+    document.getElementById('costAvgCostSub').textContent = date ? 'per request on ' + date : 'per request average';
+
+    // Summary stats — derive from the returned data (day scope = single row)
+    let total = data.total || {};
+    if (data.scope === 'day' && data.byDay && data.byDay.length) {
+      const r = data.byDay[0];
+      total = { requests: r.requests, prompt_tokens: r.prompt_tokens, output_tokens: r.output_tokens, total_cost: r.total_cost };
+    }
     document.getElementById('costTotalVal').textContent = '$' + (Number(total.total_cost) || 0).toFixed(4);
     document.getElementById('costTotalTokens').textContent = ((total.prompt_tokens||0)+(total.output_tokens||0)).toLocaleString();
     document.getElementById('costTotalReqs').textContent = (total.requests||0).toLocaleString();
@@ -2202,7 +2326,7 @@ async function loadCostData() {
         },
       });
     } else {
-      document.getElementById('costByProviderChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No provider data yet</div>';
+      showCostEmpty('costByProviderChart', 'No provider data yet');
     }
     document.getElementById('costByProviderTable').innerHTML = buildCostTableHtml(data.byProvider, ['Provider','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
 
@@ -2227,7 +2351,7 @@ async function loadCostData() {
         plugins: { legend: { display: false } },
       });
     } else {
-      document.getElementById('costByModelChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No model data yet</div>';
+      showCostEmpty('costByModelChart', 'No model data yet');
     }
     document.getElementById('costByModelTable').innerHTML = buildCostTableHtml(data.byModel, ['Model','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
 
@@ -2264,7 +2388,7 @@ async function loadCostData() {
         },
       });
     } else {
-      document.getElementById('costByDayChart').parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px">No daily data yet</div>';
+      showCostEmpty('costByDayChart', 'No daily data yet');
     }
     document.getElementById('costByDayTable').innerHTML = buildCostTableHtml(data.byDay, ['Date','Requests','Tokens','Cost'], 'key', ['requests','tokens','cost']);
 
@@ -2273,7 +2397,13 @@ async function loadCostData() {
     const ids = ['costByProviderChart','costByModelChart','costByDayChart'];
     ids.forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-size:13px">Failed: '+esc(e.message)+'</div>';
+      if (el) {
+        if (el.parentElement) {
+          el.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-size:13px">Failed: '+esc(e.message)+'</div>';
+        }
+      } else {
+        showCostEmpty(id, 'Failed: ' + (e.message || 'unknown error'));
+      }
     });
   }
 }

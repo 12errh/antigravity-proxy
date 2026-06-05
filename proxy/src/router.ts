@@ -55,7 +55,7 @@ export class Router {
   ): AsyncGenerator<StreamChunk & { provider?: string; resolvedModel?: string }> {
     // Check if the model has explicit per-provider mappings
     const modelProviders = this.modelResolver.getProvidersForModel(model);
-    const candidates = modelProviders
+    let candidates = modelProviders
       ? providerIds.filter(id => modelProviders.includes(id))
       : providerIds;
 
@@ -67,7 +67,17 @@ export class Router {
 
     logger.info(`[router] Candidates: ${candidates.join(' → ')} → ${model}`);
 
+    // First pass: try the explicit/configured provider list.
+    // When multiple providers are candidates, cap per-provider retries low (2) so we
+    // don't burn 11 attempts × 50s backoff on a single broken provider when a
+    // working one is next in line.
+    const perProviderRetries = candidates.length > 1
+      ? Math.min(2, this.options.retries)
+      : this.options.retries;
+    const tried = new Set<string>();
+    let lastError: string | null = null;
     for (const providerId of candidates) {
+      tried.add(providerId);
       const adapter = this.adapters.get(providerId);
       if (!adapter) {
         logger.debug(`[router] Skipping disabled provider: ${providerId}`);
@@ -79,7 +89,7 @@ export class Router {
 
       let hasStreamedData = false;
 
-      for (let attempt = 0; attempt <= this.options.retries; attempt++) {
+      for (let attempt = 0; attempt <= perProviderRetries; attempt++) {
         yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying' };
         try {
           const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
@@ -101,15 +111,13 @@ export class Router {
             return;
           }
 
-          const isLastAttempt = attempt >= this.options.retries;
+          const isLastAttempt = attempt >= perProviderRetries;
           const isLastProvider = candidates.indexOf(providerId) === candidates.length - 1;
 
           if (isLastAttempt && isLastProvider) {
-            logger.error(`[router] All providers exhausted for ${model}`);
-            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failed');
-            yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failed' };
-            yield { type: 'error', content: `All providers failed: ${err.message}`, provider: providerId, resolvedModel };
-            return;
+            // First pass fully exhausted — fall through to global fallback below
+            lastError = err.message;
+            break;
           }
 
           if (!isLastAttempt) {
@@ -117,7 +125,7 @@ export class Router {
             const waitMs = isRateLimit
               ? Math.min(10000 * Math.pow(2, attempt), 60000)
               : this.options.backoffMs * Math.pow(2, attempt);
-            logger.warn(`[router] ${providerId} attempt ${attempt + 1}/${this.options.retries + 1} failed, retry in ${waitMs}ms: ${err.message}`);
+            logger.warn(`[router] ${providerId} attempt ${attempt + 1}/${perProviderRetries + 1} failed, retry in ${waitMs}ms: ${err.message}`);
             await new Promise(r => setTimeout(r, waitMs));
           } else {
             logger.warn(`[router] ${providerId} exhausted, failing over to next provider: ${err.message}`);
@@ -128,7 +136,57 @@ export class Router {
       }
     }
 
-    yield { type: 'error', content: 'No providers available' };
+    // Second pass: all explicit/candidate providers failed and nothing streamed.
+    // Fall back to the global provider priority (excluding ones we already tried)
+    // using the model resolver's default mapping for each provider.
+    const fallback = providerIds.filter(id => !tried.has(id) && this.adapters.has(id));
+    if (fallback.length > 0) {
+      logger.warn(`[router] All explicit providers failed for ${model} — falling back to: ${fallback.join(' → ')} (last error: ${lastError})`);
+      const fallbackRetries = Math.min(2, this.options.retries);
+      for (const providerId of fallback) {
+        tried.add(providerId);
+        const adapter = this.adapters.get(providerId);
+        if (!adapter) continue;
+        const resolvedModel = this.modelResolver.resolve(model, providerId);
+        logger.info(`[router] Fallback trying ${providerId} → ${resolvedModel} (from ${model})`);
+
+        for (let attempt = 0; attempt <= fallbackRetries; attempt++) {
+          yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying', fallback: true };
+          try {
+            const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
+            for await (const chunk of gen) {
+              if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
+              yield { ...chunk, provider: providerId, resolvedModel };
+            }
+            logger.info(`[router] ${providerId} succeeded (fallback)`);
+            return;
+          } catch (err: any) {
+            if (signal?.aborted) throw err;
+            const isLastAttempt = attempt >= fallbackRetries;
+            const isLastFallback = fallback.indexOf(providerId) === fallback.length - 1;
+            if (isLastAttempt && isLastFallback) {
+              logger.error(`[router] All providers (including fallback) exhausted for ${model}`);
+              fireFailoverWebhook(providerId, resolvedModel, err.message, 'failed');
+              yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failed', fallback: true };
+              yield { type: 'error', content: `All providers failed: ${err.message}`, provider: providerId, resolvedModel };
+              return;
+            }
+            if (!isLastAttempt) {
+              const isRateLimit = err.message.includes('429') || err.message.includes('rate_limit') || err.message.includes('413') || err.message.includes('Request too large');
+              const waitMs = isRateLimit ? Math.min(10000 * Math.pow(2, attempt), 60000) : this.options.backoffMs * Math.pow(2, attempt);
+              logger.warn(`[router] ${providerId} (fallback) attempt ${attempt + 1}/${fallbackRetries + 1} failed, retry in ${waitMs}ms: ${err.message}`);
+              await new Promise(r => setTimeout(r, waitMs));
+            } else {
+              logger.warn(`[router] ${providerId} (fallback) exhausted, trying next: ${err.message}`);
+              fireFailoverWebhook(providerId, resolvedModel, err.message, 'failover');
+              yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failover', fallback: true };
+            }
+          }
+        }
+      }
+    }
+
+    yield { type: 'error', content: `All providers failed: ${lastError || 'unknown'}` };
   }
 }
 

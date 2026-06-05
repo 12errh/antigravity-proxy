@@ -4,7 +4,7 @@ import http from 'http';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { logger, logBus, getRecentLogs, clearLogBuffer } from './logger.js';
+import { logger, logBus, getRecentLogs, clearLogBuffer, getLogStats } from './logger.js';
 import { poolFetch } from './http-pool.js';
 import { requestStore } from './request-store.js';
 import { reloadRouter, streamResponse } from './engine.js';
@@ -13,19 +13,13 @@ import { getAllPricing, savePricing, reload as reloadPricing } from './pricing.j
 import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLimits } from './rate-limiter.js';
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
 import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
+import { fetchProviderModels, getCachedProviderModels, clearProviderCache, warmProviderCache } from './provider-cache.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
 const logDir = path.resolve(__dirname, '..', 'logs');
 
-// ---- Session helpers ----
-function readLogFile(filepath: string): string {
-  const raw = fs.readFileSync(filepath);
-  if (raw.length >= 2 && raw[0] === 0xFF && raw[1] === 0xFE) {
-    return raw.toString('utf16le');
-  }
-  return raw.toString('utf-8');
-}
+// ---- Session helpers (DB-backed, no raw log reads) ----
 
 interface SessionSummary {
   file: string;
@@ -35,83 +29,114 @@ interface SessionSummary {
   duration: string | null;
   requestCount: number;
   models: string[];
+  sizeBytes: number;
 }
 
-function parseSessionFile(filepath: string): SessionSummary | null {
+interface SessionCacheEntry {
+  date: string;
+  count: number;
+  sessions: SessionSummary[];
+  cachedAt: number;
+}
+
+let sessionListCache: SessionCacheEntry[] = [];
+let sessionListCacheTime = 0;
+const SESSION_LIST_CACHE_TTL_MS = 30_000;
+
+function fileToSession(file: string, stat: fs.Stats): SessionSummary | null {
+  const m = file.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log$/);
+  if (!m) return null;
+  const [, yr, mo, dy, hr, mi, sc] = m;
+  const date = `${yr}-${mo}-${dy}`;
+  const startTime = `${date}T${hr}:${mi}:${sc}`;
+  return { file, date, startTime, endTime: null, duration: null, requestCount: 0, models: [], sizeBytes: stat.size };
+}
+
+function refreshSessionListCache(): SessionCacheEntry[] {
+  const now = Date.now();
+  if (now - sessionListCacheTime < SESSION_LIST_CACHE_TTL_MS && sessionListCache.length > 0) {
+    return sessionListCache;
+  }
   try {
-    const basename = path.basename(filepath);
-    const m = basename.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log/);
-    if (!m) return null;
-    const date = `${m[1]}-${m[2]}-${m[3]}`;
-    const startTime = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`;
-
-    const content = readLogFile(filepath);
-    const lines = content.split('\n').filter(l => l.trim());
-
-    let lastTs = startTime;
-    const models = new Set<string>();
-    let requestCount = 0;
-
-    for (const line of lines) {
-      const tsMatch = line.match(/^\[([^\]]+)\]/);
-      if (tsMatch) lastTs = tsMatch[1];
-
-      if (line.includes('INTERCEPTED:')) {
-        requestCount++;
-      }
-
-      const modelMatch = line.match(/model=([^\s&]+)/);
-      if (modelMatch && !modelMatch[1].includes('gemini')) {
-        models.add(modelMatch[1]);
-      }
+    if (!fs.existsSync(logDir)) { sessionListCache = []; sessionListCacheTime = now; return []; }
+    const files = fs.readdirSync(logDir).filter(f => f.startsWith('proxy_') && f.endsWith('.log'));
+    const byDate = new Map<string, SessionSummary[]>();
+    for (const f of files) {
+      try {
+        const st = fs.statSync(path.join(logDir, f));
+        const summary = fileToSession(f, st);
+        if (!summary) continue;
+        const list = byDate.get(summary.date) || [];
+        list.push(summary);
+        byDate.set(summary.date, list);
+      } catch { /* ignore */ }
     }
-
-    const endTime = lastTs;
-    const startMs = new Date(startTime).getTime();
-    const endMs = new Date(endTime).getTime();
-    const durMs = endMs - startMs;
-    const duration = durMs > 0
-      ? (durMs >= 3600000 ? `${(durMs / 3600000).toFixed(1)}h` : durMs >= 60000 ? `${Math.floor(durMs / 60000)}m ${Math.floor((durMs % 60000) / 1000)}s` : `${Math.floor(durMs / 1000)}s`)
-      : null;
-
-    return { file: basename, date, startTime, endTime, duration, requestCount, models: Array.from(models) };
-  } catch { return null; }
-}
-
-function getSessionsForDate(date: string): SessionSummary[] {
-  try {
-    const datePrefix = 'proxy_' + date.replace(/-/g, '');
-    const files = fs.readdirSync(logDir).filter(f => f.startsWith(datePrefix) && f.endsWith('.log'));
-    const results = files.map(f => parseSessionFile(path.join(logDir, f))).filter((s): s is SessionSummary => s !== null);
-    for (const s of results) {
-      const m = s.file.match(/proxy_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.log/);
-      if (m) {
-        const [yr, mo, dy, hr, mi, sc] = [+m[1], +m[2], +m[3], +m[4], +m[5], +m[6]];
-        const sessionStart = new Date(yr, mo - 1, dy, hr, mi, sc);
-        const dbReqs = db.getRequestsByTimeRange(sessionStart.toISOString());
-        s.requestCount = dbReqs.length;
-        if (dbReqs.length > 0) {
+    const entries: SessionCacheEntry[] = [];
+    for (const [date, sessions] of byDate) {
+      sessions.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      // Backfill request count from DB (cheap, indexed by timestamp)
+      for (const s of sessions) {
+        const sessionStart = new Date(s.startTime);
+        const reqs = db.getRequestsByTimeRange(sessionStart.toISOString());
+        s.requestCount = reqs.length;
+        if (reqs.length > 0) {
           const models = new Set<string>();
-          for (const r of dbReqs) { if (r.model) models.add(r.model); }
+          for (const r of reqs) { if (r.model) models.add(r.model); }
           s.models = Array.from(models);
-          const firstTs = dbReqs[0].timestamp;
-          const lastTs = dbReqs[dbReqs.length - 1].timestamp;
+          const firstTs = reqs[0].timestamp;
+          const lastTs = reqs[reqs.length - 1].timestamp;
+          s.endTime = lastTs;
           const durMs = new Date(lastTs).getTime() - new Date(firstTs).getTime();
           s.duration = durMs > 0
             ? (durMs >= 3600000 ? `${(durMs / 3600000).toFixed(1)}h` : durMs >= 60000 ? `${Math.floor(durMs / 60000)}m ${Math.floor((durMs % 60000) / 1000)}s` : `${Math.floor(durMs / 1000)}s`)
             : '—';
         }
       }
+      entries.push({ date, count: sessions.length, sessions, cachedAt: now });
     }
-    return results;
-  } catch { return []; }
+    entries.sort((a, b) => b.date.localeCompare(a.date));
+    sessionListCache = entries;
+    sessionListCacheTime = now;
+    return entries;
+  } catch (err: any) {
+    logger.warn('[dashboard] session list refresh failed', { error: err.message });
+    return sessionListCache;
+  }
 }
 
-function getSessionContent(filename: string): string | null {
+function invalidateSessionListCache(): void {
+  sessionListCacheTime = 0;
+}
+
+function getSessionDates(): { date: string; count: number; totalSizeBytes: number }[] {
+  return refreshSessionListCache().map(e => ({
+    date: e.date,
+    count: e.count,
+    totalSizeBytes: e.sessions.reduce((s, x) => s + x.sizeBytes, 0),
+  }));
+}
+
+function getSessionsForDate(date: string): SessionSummary[] {
+  const entry = refreshSessionListCache().find(e => e.date === date);
+  return entry ? entry.sessions : [];
+}
+
+function getSessionContent(filename: string, maxBytes = 2_000_000): { content: string; truncated: boolean; sizeBytes: number } | null {
   try {
     const filepath = path.join(logDir, path.basename(filename));
     if (!filepath.startsWith(logDir)) return null;
-    return readLogFile(filepath);
+    const stat = fs.statSync(filepath);
+    const fd = fs.openSync(filepath, 'r');
+    try {
+      const size = stat.size;
+      const readSize = Math.min(size, maxBytes);
+      const buf = Buffer.alloc(readSize);
+      fs.readSync(fd, buf, 0, readSize, size - readSize);
+      const text = (size >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) ? buf.toString('utf16le') : buf.toString('utf-8');
+      return { content: text, truncated: size > readSize, sizeBytes: size };
+    } finally {
+      fs.closeSync(fd);
+    }
   } catch { return null; }
 }
 
@@ -120,23 +145,9 @@ function deleteSessionFile(filename: string): boolean {
     const filepath = path.join(logDir, path.basename(filename));
     if (!filepath.startsWith(logDir)) return false;
     fs.unlinkSync(filepath);
+    invalidateSessionListCache();
     return true;
   } catch { return false; }
-}
-
-function getAllSessionDates(): { date: string; count: number }[] {
-  try {
-    const map = new Map<string, number>();
-    const files = fs.readdirSync(logDir).filter(f => f.startsWith('proxy_') && f.endsWith('.log'));
-    for (const f of files) {
-      const m = f.match(/proxy_(\d{4})(\d{2})(\d{2})_/);
-      if (m) {
-        const d = `${m[1]}-${m[2]}-${m[3]}`;
-        map.set(d, (map.get(d) || 0) + 1);
-      }
-    }
-    return Array.from(map.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => b.date.localeCompare(a.date));
-  } catch { return []; }
 }
 
 function jsonResp(res: http.ServerResponse, data: any, status = 200) {
@@ -387,52 +398,43 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
-    // Fetch models available on a provider
+    // Fetch models available on a provider (POST = fetch, GET = cached)
+    if (url.pathname === '/api/provider-models' && method === 'GET') {
+      const provider = (url.searchParams.get('provider') || '').trim();
+      if (!provider) {
+        const all = ['nvidia','openrouter','openai','groq','anthropic','google','ollama','vllm','lmstudio']
+          .map(p => ({ provider: p, ...(getCachedProviderModels(p) || { models: [], fetchedAt: 0, error: 'not fetched' }) }));
+        jsonResp(res, { providers: all });
+        return;
+      }
+      const cached = getCachedProviderModels(provider);
+      jsonResp(res, cached || { models: [], fetchedAt: 0, error: 'not fetched' });
+      return;
+    }
+
     if (url.pathname === '/api/provider-models' && method === 'POST') {
       let body = '';
       req.on('data', (c) => body += c);
       req.on('end', async () => {
         try {
-          const { provider, apiKey } = JSON.parse(body);
-
-          const defaults: Record<string, { baseUrl: string; envKey: string }> = {
-            nvidia:    { baseUrl: 'https://integrate.api.nvidia.com/v1',         envKey: 'NVIDIA_API_KEY' },
-            openrouter:{ baseUrl: 'https://openrouter.ai/api/v1',                envKey: 'OPENROUTER_API_KEY' },
-            openai:    { baseUrl: 'https://api.openai.com/v1',                   envKey: 'OPENAI_API_KEY' },
-            groq:      { baseUrl: 'https://api.groq.com/openai/v1',             envKey: 'GROQ_API_KEY' },
-            anthropic: { baseUrl: 'https://api.anthropic.com/v1',                envKey: 'ANTHROPIC_API_KEY' },
-            google:    { baseUrl: 'https://generativelanguage.googleapis.com',    envKey: 'GOOGLE_API_KEY' },
-            ollama:    { baseUrl: 'http://localhost:11434',                      envKey: '' },
-            vllm:      { baseUrl: 'http://localhost:8000',                       envKey: '' },
-            lmstudio:  { baseUrl: 'http://localhost:1234',                       envKey: '' },
-          };
-
-          const def = defaults[provider as string];
-          if (!def) { jsonResp(res, { error: 'Unknown provider' }, 400); return; }
-
-          const key = apiKey || (def.envKey ? (process.env[def.envKey] || '') : '');
-          let models: string[] = [];
-
-          if (provider === 'google') {
-            const u = `${def.baseUrl}/v1/models?key=${encodeURIComponent(key)}`;
-            const r = await poolFetch(u);
-            const d = await r.json();
-            models = (d.models || []).map((m: any) => m.name.replace(/^models\//, ''));
-          } else {
-            const h: Record<string, string> = {};
-            if (provider === 'anthropic') { h['x-api-key'] = key; h['anthropic-version'] = '2023-06-01'; }
-            else if (key) h['Authorization'] = `Bearer ${key}`;
-            const url = provider === 'ollama' ? `${def.baseUrl}/api/tags` : `${def.baseUrl}/models`;
-            const r = await poolFetch(url, { headers: h });
-            const d = await r.json();
-            if (provider === 'ollama') models = (d.models || []).map((m: any) => m.name);
-            else models = (d.data || []).map((m: any) => m.id);
-          }
-
-          models.sort();
-          jsonResp(res, { models });
+          const { provider, apiKey, force } = JSON.parse(body);
+          if (!provider) { jsonResp(res, { error: 'provider required' }, 400); return; }
+          const result = await fetchProviderModels(provider, apiKey, !!force);
+          jsonResp(res, result);
         } catch (e: any) { jsonResp(res, { error: e.message }, 500); }
       });
+      return;
+    }
+
+    if (url.pathname === '/api/provider-models/cache' && method === 'DELETE') {
+      const provider = (url.searchParams.get('provider') || '').trim() || undefined;
+      clearProviderCache(provider);
+      jsonResp(res, { ok: true });
+      return;
+    }
+
+    if (url.pathname === '/api/provider-models/warm' && method === 'POST') {
+      warmProviderCache().then(() => jsonResp(res, { ok: true }));
       return;
     }
 
@@ -468,14 +470,20 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
-    // Session history (legacy — kept for log view access)
+    // Session history (DB-backed; no raw log reads for stats)
     if (url.pathname === '/api/sessions' && method === 'GET') {
       const date = (url.searchParams.get('date') || '').trim();
       if (date) {
         jsonResp(res, getSessionsForDate(date));
       } else {
-        jsonResp(res, getAllSessionDates());
+        jsonResp(res, getSessionDates());
       }
+      return;
+    }
+
+    if (url.pathname === '/api/sessions/refresh' && method === 'POST') {
+      invalidateSessionListCache();
+      jsonResp(res, { ok: true });
       return;
     }
 
@@ -484,7 +492,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       if (!file) { jsonResp(res, { error: 'file param required' }, 400); return; }
       const content = getSessionContent(file);
       if (content === null) { jsonResp(res, { error: 'not found' }, 404); return; }
-      jsonResp(res, { file, content });
+      jsonResp(res, { file, content, truncated: content.truncated, sizeBytes: content.sizeBytes });
       return;
     }
 
@@ -526,13 +534,34 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
+    if (url.pathname === '/api/logs/stats' && method === 'GET') {
+      jsonResp(res, getLogStats());
+      return;
+    }
+
     // Cost & Pricing
     if (url.pathname === '/api/cost' && method === 'GET') {
+      const date = (url.searchParams.get('date') || '').trim();
+      const all = url.searchParams.get('all') === '1' || url.searchParams.get('all') === 'true';
+      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        const total = db.getCostForDate(date);
+        jsonResp(res, {
+          scope: 'day',
+          date,
+          total,
+          byDay: [{ key: date, requests: total.requests, prompt_tokens: total.prompt_tokens, output_tokens: total.output_tokens, total_cost: total.total_cost }],
+          byModel: db.getCostByModelForDate(date),
+          byProvider: db.getCostByProviderForDate(date),
+        });
+        return;
+      }
       jsonResp(res, {
-        byDay: db.getCostAggregation('day'),
-        byModel: db.getCostAggregation('model', true),
-        byProvider: db.getCostAggregation('provider', true),
-        total: db.getStats(true),
+        scope: all ? 'all' : 'today',
+        date: null,
+        byDay: db.getCostByDay(90),
+        byModel: db.getCostAggregation('model', !all),
+        byProvider: db.getCostAggregation('provider', !all),
+        total: db.getStats(!all),
       });
       return;
     }
@@ -692,3 +721,5 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
   };
   return handler;
 }
+
+warmProviderCache().catch(err => logger.warn('[dashboard] provider cache warm failed', { error: err.message }));
