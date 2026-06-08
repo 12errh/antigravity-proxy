@@ -304,11 +304,17 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   }
 
   // Strip massive inline context and inject agent-context.md reference
-  const contents = stripInlineContext(inner.contents || []);
-  // Wrap any tool result whose target file is the agent-context.md itself,
-  // so the LLM does not extract path/prose as authoritative runtime state.
-  wrapContextFileToolResults(contents, AGENT_CONTEXT_PATH);
-  const systemInstruction = stripSystemContext(inner.system_instruction?.parts?.[0]?.text || '');
+  // (unless passthrough mode is enabled — see Config tab > Context Strip Mode)
+  const contents = config.contextStripMode === 'passthrough'
+    ? (inner.contents || [])
+    : stripInlineContext(inner.contents || []);
+  // Wrap any tool result whose target file is the agent-context.md itself
+  if (config.contextStripMode !== 'passthrough') {
+    wrapContextFileToolResults(contents, AGENT_CONTEXT_PATH);
+  }
+  const systemInstruction = config.contextStripMode === 'passthrough'
+    ? (inner.system_instruction?.parts?.[0]?.text || '')
+    : stripSystemContext(inner.system_instruction?.parts?.[0]?.text || '');
 
   const bodyStr = body.toString('utf-8');
   logger.info(`>>> INTERCEPTED: ${req.url} model=${model}`, {
