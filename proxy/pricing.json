@@ -38,6 +38,12 @@
       "output": 5
     }
   },
+  "zen": {
+    "default": {
+      "input": 3,
+      "output": 15
+    }
+  },
   "ollama": {
     "default": {
       "input": 0,

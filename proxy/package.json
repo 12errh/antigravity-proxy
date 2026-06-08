@@ -1,17 +1,22 @@
 {
   "name": "antigravity-proxy",
   "version": "1.0.0",
-  "description": "Proxy translating Antigravity Google API calls to NVIDIA/OpenRouter via OpenAI-compatible API",
+  "description": "Proxy translating Antigravity Google API calls to any LLM provider",
   "type": "module",
   "main": "src/index.ts",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "tsx src/index.ts",
+    "start:prod": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx test/run.ts",
+    "gen-certs": "node scripts/gen-certs.mjs"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.14.4",
-    "@grpc/proto-loader": "^0.8.1",
     "ai": "^6.0.193",
     "better-sqlite3": "^12.10.0",
     "undici": "^7.7.0",
@@ -20,8 +25,8 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^25.9.1",
+    "@types/node": "^22.10.0",
     "tsx": "^4.22.3",
-    "typescript": "^6.0.3"
+    "typescript": "^5.7.0"
   }
 }

@@ -7,17 +7,17 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { validateApiKey } from './auth.js';
-import { streamResponse } from './engine.js';
+import { streamResponse, saveReasoning, injectReasoning, extractConvId } from './engine.js';
 import { reloadRouter } from './engine.js';
-import { mapContentsToMessages, mapTools, mapGenerationConfig, extractToolCalls } from './mapper.js';
+import { mapContentsToMessages, mapTools, mapGenerationConfig } from './mapper.js';
 import { requestStore } from './request-store.js';
 import { createDashboardHandler } from './dashboard.js';
 import * as db from './db.js';
 import { calculateCost } from './pricing.js';
 import { httpPool } from './http-pool.js';
-import { checkRateLimit, recordRequest, setRateLimitConfig, resetRateLimits } from './rate-limiter.js';
+import { checkRateLimit, recordRequest, setRateLimitConfig } from './rate-limiter.js';
 import { checkBlocked } from './blocklist.js';
-import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
+import { scanLocalProviders } from './local-discovery.js';
 import { getWorkspaceContextEnvelope, wrapToolResultForContextFile, isWorkspaceContextFile } from './workspace-context.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
@@ -31,7 +31,12 @@ const INTERCEPT_PATHS = new Set([
 ]);
 
 const AGENT_CONTEXT_PATH = process.env.AGENT_CONTEXT_PATH
-  || path.resolve(__dirname, '..', '..', 'agent-context.md');
+  || (() => {
+    // __dirname is .../proxy/src when running via tsx, and .../proxy/dist when compiled.
+    // agent-context.md lives at .../antigravity/agent-context.md (two levels up from proxy/).
+    const proxyDir = path.resolve(__dirname, '..');
+    return path.resolve(proxyDir, '..', 'agent-context.md');
+  })();
 
 function readAgentContextReference(): string {
   return getWorkspaceContextEnvelope(AGENT_CONTEXT_PATH);
@@ -51,15 +56,32 @@ const dashboardHandler = createDashboardHandler();
 
 // Shared handler for port 4000: dashboard paths or Google forward
 function port4000Handler(req: http.IncomingMessage, res: http.ServerResponse): void {
-  const pathname = req.url || '/';
-  if (pathname === '/' || pathname.startsWith('/api/')) {
+  // Parse the URL to get the pathname (without query string). The dashboard's
+  // own handler does the same, so we must match its routing exactly.
+  const parsed = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const pathname = parsed.pathname;
+  // Route dashboard pages, login, static files, and API calls to the dashboard handler.
+  // Anything else (e.g. /v1internal:*) is forwarded to Google's backend.
+  const isDashboardPath =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/login.html' ||
+    pathname === '/favicon.ico' ||
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/tabs/') ||
+    pathname.startsWith('/js/') ||
+    pathname.startsWith('/css/') ||
+    pathname.startsWith('/img/') ||
+    pathname.startsWith('/assets/') ||
+    pathname.startsWith('/static/');
+  if (isDashboardPath) {
     dashboardHandler(req, res);
     return;
   }
   const hostname = 'cloudcode-pa.googleapis.com';
   logger.debug('REST forward', { method: req.method, path: pathname });
   const proxyReq = https.request(
-    { hostname: backendIp, port: 443, path: pathname, method: req.method, servername: hostname, rejectUnauthorized: true, headers: { ...req.headers, host: hostname } },
+    { hostname: backendIp, port: 443, path: req.url, method: req.method, servername: hostname, rejectUnauthorized: true, headers: { ...req.headers, host: hostname } },
     (proxyRes) => { res.writeHead(proxyRes.statusCode || 200, proxyRes.headers); proxyRes.pipe(res); },
   );
   proxyReq.on('error', (err) => {
@@ -246,54 +268,6 @@ const SAFETY_RATINGS = [
 
 const GROUNDING_METADATA = { groundingChunks: [], groundingSupports: [] };
 
-interface BuildEventOpts {
-  modelVersion: string;
-  projectPath: string;
-  responseId: string;
-  traceId: string;
-  promptTokens: number;
-  finishReason?: string;
-  thoughtText?: string;
-  functionCalls?: { name: string; args: any }[];
-  text?: string;
-}
-
-function buildGoogleEvent(opts: BuildEventOpts): string {
-  const parts: any[] = [];
-  if (opts.thoughtText) parts.push({ thought: true, text: opts.thoughtText });
-  if (opts.functionCalls) {
-    for (const fc of opts.functionCalls) {
-      parts.push({ functionCall: { name: fc.name, args: fc.args } });
-    }
-  } else if (opts.text != null) {
-    parts.push({ text: opts.text });
-  }
-
-  const candidate: any = {
-    index: 0,
-    content: { role: 'model', parts },
-    safetyRatings: SAFETY_RATINGS,
-    groundingMetadata: GROUNDING_METADATA,
-  };
-  if (opts.finishReason) candidate.finishReason = opts.finishReason;
-
-  const outTokens = estTokens(opts.text || '');
-  return `data: ${JSON.stringify({
-    response: {
-      candidates: [candidate],
-      usageMetadata: {
-        promptTokenCount: opts.promptTokens,
-        candidatesTokenCount: outTokens,
-        totalTokenCount: opts.promptTokens + outTokens,
-      },
-      modelVersion: `${opts.projectPath}/publishers/${config.provider}/models/${opts.modelVersion}`,
-      responseId: opts.responseId,
-    },
-    traceId: opts.traceId,
-    metadata: {},
-  })}\n\n`;
-}
-
 // Handle SSE streaming generate content (model inference)
 async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Http2ServerResponse, body: Buffer): Promise<void> {
   let request: any;
@@ -339,13 +313,8 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   const bodyStr = body.toString('utf-8');
   logger.info(`>>> INTERCEPTED: ${req.url} model=${model}`, {
     model, contentCount: contents.length, hasTools: tools.length > 0,
-    bodySnippet: bodyStr.substring(0, 500),
+    bodySnippet: bodyStr.substring(0, 200),
   });
-  // DEBUG: log full body once to see Antigravity's tool format
-  if (!process.env._LOGGED_FULL_BODY) {
-    process.env._LOGGED_FULL_BODY = '1';
-    logger.info(`FULL BODY: ${bodyStr}`);
-  }
 
   // Estimate prompt tokens from input
   const promptText = JSON.stringify(request);
@@ -359,13 +328,21 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     mapped.tools = mappedTools;
   }
 
+  // Inject saved reasoning_content from previous round (client strips thought:true parts)
+  const convId = extractConvId(request.requestId);
+  injectReasoning(mapped.messages, convId);
+
   logger.info(`  Provider priority: ${config.providerPriority.join(', ')}`);
 
   const responseId = genGoogleId();
   const traceId = genTraceId();
 
+  // Incoming record: log the prompt + the user-requested model.
+  // resolvedModel is intentionally empty here — we don't know the resolved
+  // model until the router picks a provider. The "outgoing" record below
+  // sets the real resolvedModel.
   requestStore.push({
-    id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: model,
+    id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: '',
     direction: 'incoming', type: 'text', content: `Prompt: ${promptText.substring(0, 500)}${promptText.length > 500 ? '...' : ''}`,
     promptTokens,
   });
@@ -378,6 +355,10 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   });
 
   const genStart = Date.now();
+  // B12: declared outside the try so the catch handler can read it.
+  // The loop body assigns the most recently attempted provider from each
+  // 'attempt' chunk; on failure the catch uses it for rate-limit accounting.
+  let lastAttemptedProvider = '';
   try {
     const generator = streamResponse(mapped, model);
     let fullText = '';
@@ -391,6 +372,8 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     for await (const chunk of generator) {
       const ctype = (chunk as any).type as string;
       if (ctype === 'attempt') {
+        const ap = (chunk as any).provider as string;
+        if (ap) lastAttemptedProvider = ap;
         failoverEvents.push({ provider: (chunk as any).provider, model: (chunk as any).resolvedModel, attempt: (chunk as any).attempt, status: (chunk as any).status });
         continue;
       }
@@ -444,6 +427,9 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, promptTokens, outputTokens) : 0;
     recordRequest(usedProvider);
 
+    // Save reasoning_content for this conversation so it can be injected on the next request
+    if (thoughtText) saveReasoning(convId, thoughtText);
+
     // Send final event with finishReason and metadata (no text — already streamed incrementally)
     const finalParts: any[] = [];
     if (thoughtText) finalParts.push({ thought: true, text: thoughtText });
@@ -481,9 +467,13 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     }
   } catch (err: any) {
     logger.error(`<<< Error: ${req.url}`, { error: err.message });
+    // B12: account for the failed request in the rate limiter too. Without
+    // this, a flood of failing requests from the same provider would never
+    // trip the per-provider rate limit.
+    if (lastAttemptedProvider) recordRequest(lastAttemptedProvider);
     requestStore.push({
-        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: model,
-        direction: 'outgoing', type: 'error', content: '',
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: '',
+      direction: 'outgoing', type: 'error', content: '',
       error: err.message, duration: Date.now() - genStart,
     });
     const errResp = JSON.stringify({
@@ -598,7 +588,15 @@ async function main(): Promise<void> {
 
   // HTTP server on port 4000 (dashboard + language_server init calls)
   const restServer = http.createServer(port4000Handler);
-  restServer.on('error', (err) => logger.error('Port 4000 server error', { error: err.message }));
+  restServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      logger.error(`Port ${config.apiPort} already in use. Kill the old process or set API_PORT in .env`);
+    } else if (err.code === 'EACCES') {
+      logger.error(`Port ${config.apiPort} requires elevated privileges. Run with sudo (macOS/Linux) or as Administrator (Windows)`);
+    } else {
+      logger.error('Dashboard server error', { error: err.message });
+    }
+  });
   restServer.listen(config.apiPort, '0.0.0.0', () => {
     logger.info(`Port ${config.apiPort} (HTTP) → Dashboard + init calls`);
     logger.info(`Dashboard: http://localhost:${config.apiPort}`);
@@ -614,12 +612,22 @@ async function main(): Promise<void> {
       handleTlsRequest,
     );
     tlsServer.on('sessionError', (err) => logger.debug('TLS session error', { error: err.message }));
-    tlsServer.on('error', (err) => logger.error('TLS server error', { error: err.message }));
+    tlsServer.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        logger.error(`Port ${config.proxyPort} already in use. Kill the old process or set PROXY_PORT in .env`);
+      } else if (err.code === 'EACCES') {
+        logger.error(`Port ${config.proxyPort} requires elevated privileges.`);
+        logger.error('  macOS/Linux: run with sudo, or use authbind, or set PROXY_PORT=8443 in .env');
+        logger.error('  Windows: run PowerShell as Administrator');
+      } else {
+        logger.error('TLS server error', { error: err.message });
+      }
+    });
     tlsServer.listen(config.proxyPort, '0.0.0.0', () => {
       logger.info(`Port ${config.proxyPort} (HTTPS) → Intercept: [${Array.from(INTERCEPT_PATHS).join(', ')}]`);
     });
   } else {
-    logger.warn('TLS certs missing - run: node scripts/gen-certs.mjs');
+    logger.warn('TLS certs missing — run: node scripts/gen-certs.mjs');
   }
 
   logger.info(`${config.provider}: ${config.baseUrl}`);

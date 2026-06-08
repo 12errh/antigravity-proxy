@@ -6,6 +6,12 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const certsDir = path.resolve(__dirname, '..', 'certs');
 
+// Create the certs directory if it doesn't exist (needed on first run on any OS)
+if (!fs.existsSync(certsDir)) {
+  fs.mkdirSync(certsDir, { recursive: true });
+  console.log(`Created directory: ${certsDir}`);
+}
+
 const keys = forge.pki.rsa.generateKeyPair(2048);
 
 const cert = forge.pki.createCertificate();

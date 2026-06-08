@@ -1,4 +1,4 @@
-# Proxy
+# ── Proxy runtime files ───────────────────────────────────────────────────────
 proxy/node_modules/
 proxy/.env
 proxy/certs/
@@ -6,20 +6,30 @@ proxy/dist/
 proxy/logs/
 proxy/data/
 
-# Antigravity binaries (installed by Antigravity setup)
-*.asar
-language_server.exe
-webm_encoder.exe
-app-asar-extracted/
-
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-*.log
+desktop.ini
 
-# IDE
+# ── Editors / IDEs ────────────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
-*.opencode
+
+# ── OpenCode / Antigravity internals ─────────────────────────────────────────
+.opencode
+*.asar
+language_server.exe
+language_server
+webm_encoder.exe
+app-asar-extracted/
+
+# ── Logs (any location) ───────────────────────────────────────────────────────
+*.log
+
+# ── npm / node ────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

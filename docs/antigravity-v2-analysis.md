@@ -102,13 +102,15 @@ Tool calls from parallel execution are grouped into a single `parts` array — o
 
 ## 4. Authentication
 
-Antigravity uses a standard Google Gemini API key (`AIza...`). The key is bundled with the desktop app installation. Every request passes the key as a query parameter:
+Antigravity uses a standard Google Gemini API key (`AIza...`). The key is bundled with the desktop app installation. Every request passes the key as a query parameter in the original app traffic:
 
 ```
 https://cloudcode-pa.googleapis.com/v1beta/models/{model}:streamGenerateContent?alt=sse&key=AIza...
 ```
 
 There is no OAuth, no token exchange, no session management. It's just a plain API key in the URL.
+
+> **Proxy note:** When the proxy forwards requests to Google (via the Google Gemini adapter), it sends the key in the `x-goog-api-key` header instead of the URL query param. This avoids leaking the key into logs, HTTP referrers, and intermediate proxies. The fix was applied in the proxy's `GoogleAdapter` and `provider-cache.ts`.
 
 ---
 
@@ -207,7 +209,7 @@ The model reads `agent-context.md` once via `view_file` on the first request, ca
 | Endpoints | 3 internal Cloud Code paths |
 | Context overhead | ~3500-5000 tokens per request |
 | Overhead after proxy | ~10 tokens (98% reduction) |
-| Supported providers | 12 (proxy), 1 (native) |
+| Supported providers | 10 (proxy), 1 (native) |
 | Auth mechanism | API key in URL query param |
 | Response format | SSE with strict metadata requirements |
 | Tool format | Google functionDeclarations + internal metadata |

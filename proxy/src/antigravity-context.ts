@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import { getWorkspaceContextEnvelope } from './workspace-context.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// __dirname is .../proxy/src when running via tsx, .../proxy/dist when compiled.
+// agent-context.md lives two levels up: .../antigravity/agent-context.md
 const DEFAULT_CONTEXT_PATH = process.env.AGENT_CONTEXT_PATH
   || path.resolve(__dirname, '..', '..', 'agent-context.md');
 

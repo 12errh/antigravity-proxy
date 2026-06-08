@@ -371,7 +371,14 @@ tbody tr:hover{background:var(--surface2);}
   border:1px solid var(--border2);z-index:100;pointer-events:none;
 }
 
-  /* Card component for cost charts */
+/* Matrix table */
+#matrixTable th,#matrixTable td{border-top:1px solid var(--border2)}
+#matrixTable thead tr th{background:var(--surface2)}
+#matrixTable tbody tr:hover td{background:rgba(255,255,255,0.02)}
+#matrixTable tbody tr:hover td:first-child{background:var(--surface)}
+.matrix-alias:focus,.matrix-cell:focus{z-index:10;position:relative}
+
+/* Card component for cost charts */
   .card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;transition:all var(--transition)}
   .card:hover{border-color:rgba(255,255,255,0.08)}
   .card-header{font-size:13px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:var(--text)}
@@ -451,6 +458,10 @@ tbody tr:hover{background:var(--surface2);}
     <div class="nav-item" data-tab="sessions">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
       <span>Sessions</span>
+    </div>
+    <div class="nav-item" data-tab="model-options">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Model Options</span>
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -640,6 +651,11 @@ tbody tr:hover{background:var(--surface2);}
           <input type="password" autocomplete="new-password" id="cfgGoogleKey" placeholder="AIza...">
           <div class="hint">From <span style="color:var(--accent2)">aistudio.google.com/apikey</span></div>
         </div>
+        <div class="form-group">
+          <label><img src="https://opencode.ai/favicon.ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">OpenCode Zen API Key <span id="zenKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <input type="password" autocomplete="new-password" id="cfgZenKey" placeholder="sk-...">
+          <div class="hint">From <span style="color:var(--accent2)">opencode.ai/auth</span> — curated gateway: Claude, GPT, Gemini, Grok, Kimi, GLM in one key</div>
+        </div>
       </form></div>
 
       <div class="form-section">
@@ -812,24 +828,37 @@ tbody tr:hover{background:var(--surface2);}
     <section class="section" id="sec-models">
       <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
-          <p style="font-size:13px;color:var(--text2)">Map model IDs to resolved provider models.</p>
-          <p style="font-size:12px;color:var(--text3);margin-top:2px">Changes saved to <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">models.json</code></p>
+          <p style="font-size:13px;color:var(--text2)">Per-provider model matrix. One row per model alias — set which real model each provider should use.</p>
+          <p style="font-size:12px;color:var(--text3);margin-top:2px">Double-click any cell to pick from the live catalog. Empty cell = use Default. Changes saved to <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">models.json</code></p>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm" onclick="addModelRow()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Model
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="matrixAddRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Row
           </button>
+          <button class="btn btn-sm" onclick="matrixAddQuickPreset('claude')">+ Claude</button>
+          <button class="btn btn-sm" onclick="matrixAddQuickPreset('gemini')">+ Gemini</button>
+          <button class="btn btn-sm" onclick="matrixAddQuickPreset('gpt')">+ GPT</button>
           <button class="btn btn-sm btn-primary" onclick="saveModels()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save
           </button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table><thead><tr><th style="width:30%">Model ID</th><th style="width:30%">Resolved Model</th><th style="width:20%">Provider</th><th style="width:20%"></th></tr></thead><tbody id="modelsBody"></tbody></table>
+
+      <!-- Column visibility toggles -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+        <span style="font-size:11px;color:var(--text3);white-space:nowrap">Show columns:</span>
+        <div id="matrixColToggles" style="display:flex;gap:4px;flex-wrap:wrap"></div>
       </div>
-      <p style="font-size:11px;color:var(--text3);margin-top:8px">Leave empty to delete rows. Set Provider to override per-provider. Empty Provider = default for all providers.</p>
+
+      <div style="overflow-x:auto">
+        <table id="matrixTable" style="width:100%;border-collapse:collapse;min-width:600px">
+          <thead id="matrixHead"></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:8px">Rows with an empty Model ID or all-empty cells are ignored on save. ✕ removes a row.</p>
     </section>
 
     <!-- Browse -->
@@ -1022,6 +1051,54 @@ tbody tr:hover{background:var(--surface2);}
       <div class="pagination" id="historyPagination" style="display:none;margin-top:12px"></div>
     </section>
 
+    <!-- Model Options (Reasoning Effort) -->
+    <section class="section" id="sec-model-options">
+      <div style="margin-bottom:20px">
+        <p style="font-size:13px;color:var(--text2)">Per-model inference options. The proxy auto-detects models that support <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">reasoning_effort</code> (DeepSeek R-series, NVIDIA stepfun, OpenAI o-series, etc.) and lets you pin a level for each.</p>
+        <p style="font-size:12px;color:var(--text3);margin-top:4px">Settings are applied to every request that resolves to that model name. Saved to <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">reasoning-effort.json</code></p>
+      </div>
+
+      <div class="form-section" style="margin-bottom:16px">
+        <h3>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          Reasoning Effort
+          <span style="flex:1"></span>
+          <button class="btn btn-sm btn-ghost" onclick="loadReasoningEffort()">↻ Refresh</button>
+        </h3>
+
+        <div id="reAutoDetected" style="margin-bottom:16px">
+          <div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Auto-detected from your model map</div>
+          <div id="reAutoList" style="display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:12px;color:var(--text3);padding:8px">Loading...</div>
+          </div>
+        </div>
+
+        <div id="reManual" style="margin-bottom:12px">
+          <div style="font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Manual overrides (any model)</div>
+          <div id="reManualList" style="display:flex;flex-direction:column;gap:6px"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <input id="reManualModel" placeholder="model name, e.g. deepseek/deepseek-r1" style="flex:1;max-width:320px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;font-family:var(--mono);outline:none">
+            <select id="reManualEffort" style="padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;outline:none">
+              <option value="low">low</option>
+              <option value="medium" selected>medium</option>
+              <option value="high">high</option>
+              <option value="max">max</option>
+            </select>
+            <button class="btn btn-sm btn-primary" onclick="reAddManual()">Add</button>
+          </div>
+        </div>
+
+        <div style="padding:12px;background:var(--surface2);border-radius:8px;font-size:12px;color:var(--text3);line-height:1.6">
+          <strong style="color:var(--text2)">Effort levels:</strong>
+          <span style="margin-left:8px"><strong style="color:var(--text)">default</strong> — let the model decide (no parameter sent)</span> ·
+          <strong style="color:var(--text)">low</strong> — minimal thinking, fastest ·
+          <strong style="color:var(--text)">medium</strong> — balanced ·
+          <strong style="color:var(--text)">high</strong> — deeper reasoning ·
+          <strong style="color:var(--text)">max</strong> — maximum thinking budget (slowest, most capable)
+        </div>
+      </div>
+    </section>
+
     <!-- Sessions -->
     <section class="section" id="sec-sessions">
       <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -1052,7 +1129,7 @@ tbody tr:hover{background:var(--surface2);}
 const API = '';
 let eventSource = null;
 const logBuf = [];
-const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',cost:'Cost tracking',log:'Real-time proxy log',history:'Browse by date',sessions:'Session compare'};
+const pages = {dashboard:'Overview & stats',requests:'Request history',config:'Settings & credentials',models:'Model mappings',browse:'Browse & add models',cost:'Cost tracking',log:'Real-time proxy log',history:'Browse by date',sessions:'Session compare','model-options':'Model inference options'};
 const openDetails = new Set(); // tracks open detail rows by request.id
 const PER_PAGE = 25;
 
@@ -1072,7 +1149,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
 
 function refreshTab(tab) {
   if (tab === 'requests') renderRequests();
-  else if (tab === 'models') loadModels();
+  else if (tab === 'models') { loadModels(); renderMatrixTable(); }
   else if (tab === 'browse') { if (_browseProvider && window._fetchedModels[_browseProvider]) { document.getElementById('browseResultsPanel').style.display = 'block'; renderBrowseModels(); } }
   else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') { reloadAll(); }
@@ -1080,6 +1157,7 @@ function refreshTab(tab) {
   else if (tab === 'history') { loadHistoryDates(); }
   else if (tab === 'sessions') { loadSessions(); }
   else if (tab === 'log') { scrollLogToBottom(); }
+  else if (tab === 'model-options') { loadReasoningEffort(); }
 }
 
 // Refresh button
@@ -1151,6 +1229,7 @@ async function reloadAll() {
     document.getElementById('groqKeyStatus').textContent = s.env.GROQ_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('anthKeyStatus').textContent = s.env.ANTHROPIC_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('googleKeyStatus').textContent = s.env.GOOGLE_API_KEY ? '✓ configured' : '○ not set';
+    document.getElementById('zenKeyStatus').textContent = s.env.OPENCODE_API_KEY ? '✓ configured' : '○ not set';
   } catch (e) {}
   loadLocalProviders();
 }
@@ -1441,6 +1520,7 @@ const PROVIDER_META = {
   groq:       { label: 'Groq',       color: '#e80', desc: 'Groq LPU inference', logo: 'https://www.groq.com/favicon.svg' },
   anthropic:  { label: 'Anthropic',  color: '#e48', desc: 'Claude models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg', logoMask: true },
   google:     { label: 'Google',     color: '#48e', desc: 'Gemini models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg', logoMask: true },
+  zen:        { label: 'Zen',        color: '#0af', desc: 'OpenCode Zen gateway', logo: 'https://opencode.ai/favicon.ico' },
   ollama:     { label: 'Ollama',     color: '#888', desc: 'Local: localhost:11434', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/ollama.svg', logoMask: true },
   vllm:       { label: 'vLLM',       color: '#888', desc: 'Local: localhost:8000', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/vllm.svg', logoMask: true },
   lmstudio:   { label: 'LM Studio',  color: '#888', desc: 'Local: localhost:1234', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/lmstudio.svg', logoMask: true },
@@ -1544,6 +1624,7 @@ async function saveConfig() {
     GROQ_API_KEY: document.getElementById('cfgGroqKey').value.trim(),
     ANTHROPIC_API_KEY: document.getElementById('cfgAnthropicKey').value.trim(),
     GOOGLE_API_KEY: document.getElementById('cfgGoogleKey').value.trim(),
+    OPENCODE_API_KEY: document.getElementById('cfgZenKey').value.trim(),
     PROXY_PORT: document.getElementById('cfgProxyPort').value,
     API_PORT: document.getElementById('cfgApiPort').value,
     LOG_LEVEL: document.getElementById('cfgLogLevel').value,
@@ -1672,6 +1753,7 @@ const PROVIDER_OPTIONS = [
   { value: 'groq', label: 'Groq', logo: PROVIDER_META.groq.logo },
   { value: 'anthropic', label: 'Anthropic', logo: PROVIDER_META.anthropic.logo },
   { value: 'google', label: 'Google', logo: PROVIDER_META.google.logo },
+  { value: 'zen', label: 'Zen', logo: PROVIDER_META.zen.logo },
   { value: 'ollama', label: 'Ollama', logo: PROVIDER_META.ollama.logo },
   { value: 'vllm', label: 'vLLM', logo: PROVIDER_META.vllm.logo },
   { value: 'lmstudio', label: 'LM Studio', logo: PROVIDER_META.lmstudio.logo },
@@ -1802,26 +1884,390 @@ async function testWebhook() {
 async function loadModels() {
   try {
     const m = await api('GET','/api/models');
+    window._matrixData = m;
     _allModelNames = [];
-    const tb = document.getElementById('modelsBody'); tb.innerHTML = '';
-    const providerModels = m._provider_models || {};
-    for (const [k, v] of Object.entries(m)) {
-      if (k === '_provider_models') continue;
-      _allModelNames.push(k);
-      addRow(k, v, '');
+    // collect all model names for replay selects
+    for (const [k] of Object.entries(m)) {
+      if (k !== '_provider_models') _allModelNames.push(k);
     }
-    for (const [model, providers] of Object.entries(providerModels)) {
-      _allModelNames.push(model);
-      for (const [prov, resolved] of Object.entries(providers)) {
-        addRow(model, resolved, prov);
-      }
-    }
+    const pm = m._provider_models || {};
+    for (const k of Object.keys(pm)) _allModelNames.push(k);
     _allModelNames = [...new Set(_allModelNames)];
-    // Prime resolver dropdowns with cached provider models
     primeModelCache();
+    renderMatrixTable();
   } catch (e) {}
 }
-function addModelRow() { addRow('','',''); }
+
+// ---- Provider Matrix ----
+// The ordered list of providers shown as columns (user can hide any)
+const MATRIX_PROVIDERS = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
+let _matrixVisibleProviders = null; // null = all visible
+
+function matrixGetVisible() {
+  if (!_matrixVisibleProviders) return MATRIX_PROVIDERS;
+  return MATRIX_PROVIDERS.filter(p => _matrixVisibleProviders.has(p));
+}
+
+function renderMatrixColToggles() {
+  const container = document.getElementById('matrixColToggles');
+  if (!container) return;
+  if (!_matrixVisibleProviders) _matrixVisibleProviders = new Set(MATRIX_PROVIDERS);
+  container.innerHTML = MATRIX_PROVIDERS.map(p => {
+    const meta = PROVIDER_META[p] || { label: p, color: '#888' };
+    const on = _matrixVisibleProviders.has(p);
+    return `<label style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:${on ? 'var(--accentDim)' : 'var(--surface2)'};color:${on ? 'var(--accent2)' : 'var(--text3)'};font-size:11px;cursor:pointer;user-select:none;transition:all 0.15s">
+      <input type="checkbox" ${on ? 'checked' : ''} data-provider="${p}" onchange="matrixToggleCol('${p}',this.checked)" style="display:none">
+      ${meta.logo ? logoHtml(meta, 12) : ''}
+      <span>${meta.label}</span>
+    </label>`;
+  }).join('');
+}
+
+function matrixToggleCol(provider, visible) {
+  if (!_matrixVisibleProviders) _matrixVisibleProviders = new Set(MATRIX_PROVIDERS);
+  if (visible) _matrixVisibleProviders.add(provider);
+  else _matrixVisibleProviders.delete(provider);
+  renderMatrixTable();
+}
+
+function renderMatrixTable() {
+  const data = window._matrixData || {};
+  const visible = matrixGetVisible();
+  renderMatrixColToggles();
+
+  // Build rows: collect ALL aliases from both flat keys AND _provider_models keys
+  const rows = {}; // modelAlias → { default, [provider]: '' ... }
+  // Pass 1: flat entries (have an explicit default value)
+  for (const [k, v] of Object.entries(data)) {
+    if (k === '_provider_models') continue;
+    if (!rows[k]) rows[k] = { default: '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
+    rows[k].default = typeof v === 'string' ? v : '';
+  }
+  // Pass 2: per-provider entries (may have NO flat entry — must still appear as a row)
+  const pm = (data._provider_models) || {};
+  for (const [model, providers] of Object.entries(pm)) {
+    if (!rows[model]) rows[model] = { default: '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
+    for (const [prov, val] of Object.entries(providers)) {
+      if (MATRIX_PROVIDERS.includes(prov)) rows[model][prov] = typeof val === 'string' ? val : '';
+    }
+  }
+
+  // Render header
+  const head = document.getElementById('matrixHead');
+  const body = document.getElementById('matrixBody');
+  if (!head || !body) return;
+
+  const thStyle = 'text-align:left;padding:8px 10px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;background:var(--surface2);border-bottom:1px solid var(--border2)';
+  let headHtml = '<tr>'
+    + '<th style="' + thStyle + ';width:180px;position:sticky;left:0;z-index:2">Model Alias</th>'
+    + '<th style="' + thStyle + ';width:200px">Default</th>';
+  for (const p of visible) {
+    const meta = PROVIDER_META[p] || { label: p, color: '#888' };
+    headHtml += '<th style="' + thStyle + ';width:180px">'
+      + (meta.logo ? logoHtml(meta, 13) : '')
+      + '<span style="margin-left:4px">' + meta.label + '</span></th>';
+  }
+  headHtml += '<th style="' + thStyle + ';width:36px"></th></tr>';
+  head.innerHTML = headHtml;
+
+  // Render body — IMPORTANT: never use single quotes inside onfocus/onblur HTML attributes
+  // because the attribute value itself is single-quoted by the HTML parser.
+  // We use data-attributes + a shared JS handler instead.
+  const tdBase = 'padding:5px 6px;border-top:1px solid var(--border2);vertical-align:middle';
+
+  let bodyHtml = '';
+  const rowKeys = Object.keys(rows);
+  if (rowKeys.length === 0) {
+    bodyHtml = '<tr><td colspan="' + (visible.length + 3) + '" style="padding:40px;text-align:center;color:var(--text3);font-size:13px">No models configured. Click <strong>Add Row</strong> to start.</td></tr>';
+  }
+
+  for (const alias of rowKeys) {
+    const row = rows[alias];
+    const km = alias.toLowerCase();
+    const aliasMeta = km.startsWith('claude') ? PROVIDER_META.anthropic
+      : km.startsWith('gemini') ? PROVIDER_META.google
+      : km.startsWith('gpt') ? PROVIDER_META.openai
+      : null;
+    const aliasLogo = aliasMeta ? logoHtml(aliasMeta, 13) : '';
+
+    bodyHtml += '<tr class="matrix-row" data-alias="' + esc(alias) + '">'
+      + '<td style="' + tdBase + ';background:var(--surface);position:sticky;left:0;z-index:1">'
+      + '<div style="display:flex;align-items:center;gap:4px">'
+      + aliasLogo
+      + '<input class="matrix-alias" data-col="alias" data-orig="' + esc(alias) + '" value="' + esc(alias) + '" placeholder="e.g. claude-sonnet-4-6"'
+      + ' style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer;font-weight:500"'
+      + ' onfocus="matrixInputFocus(this)" onblur="matrixInputBlur(this)">'
+      + '</div></td>'
+      + '<td style="' + tdBase + '">'
+      + '<input class="matrix-cell" data-col="default" value="' + esc(row.default) + '" placeholder="use default"'
+      + ' title="Default resolved model (used when no provider-specific cell is set)"'
+      + ' style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer"'
+      + ' onfocus="matrixInputFocus(this)" onblur="matrixCellBlur(this)">'
+      + '</td>';
+
+    for (const p of visible) {
+      const val = row[p] || '';
+      const meta = PROVIDER_META[p] || {};
+      const rgb = meta.color ? hexToRgb(meta.color) : '124,58,237';
+      const filledStyle = val
+        ? 'width:100%;padding:5px 8px;border-radius:5px;border:1px solid rgba(' + rgb + ',0.25);background:rgba(' + rgb + ',0.08);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer'
+        : 'width:100%;padding:5px 8px;border-radius:5px;border:1px dashed var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer';
+      bodyHtml += '<td style="' + tdBase + '">'
+        + '<div style="position:relative">'
+        + '<input class="matrix-cell" data-col="' + p + '" value="' + esc(val) + '" placeholder="use default"'
+        + ' style="' + filledStyle + '"'
+        + ' onfocus="matrixCellFocus(this,&quot;' + p + '&quot;)" onblur="matrixCellBlur(this)" ondblclick="matrixOpenPicker(this,&quot;' + p + '&quot;)">'
+        + (val ? '<span style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:inline-flex;pointer-events:none">' + logoHtml(meta, 10) + '</span>' : '')
+        + '</div></td>';
+    }
+
+    bodyHtml += '<td style="' + tdBase + ';text-align:center">'
+      + '<button onclick="this.closest(\'tr\').remove()" title="Remove row"'
+      + ' style="width:24px;height:24px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1"'
+      + ' onmouseenter="this.style.color=\'var(--red)\'" onmouseleave="this.style.color=\'var(--text3)\'">✕</button>'
+      + '</td></tr>';
+  }
+
+  body.innerHTML = bodyHtml;
+
+  // Wire up input events after DOM insertion
+  body.querySelectorAll('.matrix-cell,.matrix-alias').forEach(inp => {
+    inp.addEventListener('input', function() { matrixCellBlur(this); });
+  });
+}
+
+// Shared focus/blur handlers — no inline CSS string literals with quotes
+function matrixInputFocus(inp) {
+  inp.style.borderColor = 'var(--accent)';
+  inp.style.background = 'var(--surface2)';
+  inp.style.boxShadow = '0 0 0 2px var(--accentDim)';
+}
+
+function matrixInputBlur(inp) {
+  inp.style.borderColor = 'transparent';
+  inp.style.background = 'transparent';
+  inp.style.boxShadow = '';
+}
+
+function hexToRgb(hex) {
+  // handles short hex like #4b8 or full #4488bb
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex, 16);
+  return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
+}
+
+function matrixCellFocus(inp, provider) {
+  matrixInputFocus(inp);
+  // Show dropdown if cache populated
+  const models = window._toggledModels[provider] || [];
+  if (models.length > 0) matrixShowMiniPicker(inp, provider, models);
+}
+
+function matrixCellBlur(inp) {
+  const provider = inp.dataset.col;
+  if (!provider || provider === 'default' || provider === 'alias') {
+    matrixInputBlur(inp);
+    return;
+  }
+  const val = inp.value.trim();
+  const meta = PROVIDER_META[provider] || {};
+  const rgb = meta.color ? hexToRgb(meta.color) : '124,58,237';
+  inp.style.boxShadow = '';
+  if (val) {
+    inp.style.borderColor = 'rgba(' + rgb + ',0.25)';
+    inp.style.background = 'rgba(' + rgb + ',0.08)';
+    inp.style.borderStyle = 'solid';
+  } else {
+    inp.style.borderColor = 'var(--border2)';
+    inp.style.background = 'transparent';
+    inp.style.borderStyle = 'dashed';
+  }
+}
+
+let _matrixPickerTarget = null;
+
+function matrixShowMiniPicker(inp, provider, models) {
+  // Remove any existing picker
+  const existing = document.getElementById('_matrixMiniPicker');
+  if (existing) existing.remove();
+  if (models.length === 0) return;
+
+  const picker = document.createElement('div');
+  picker.id = '_matrixMiniPicker';
+  picker.style.cssText = 'position:fixed;z-index:1000;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);overflow:hidden;min-width:260px;max-width:360px';
+
+  const searchEl = document.createElement('input');
+  searchEl.placeholder = 'Search ' + (PROVIDER_META[provider]?.label || provider) + ' models...';
+  searchEl.style.cssText = 'width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none';
+  picker.appendChild(searchEl);
+
+  const list = document.createElement('div');
+  list.style.cssText = 'max-height:200px;overflow-y:auto';
+  picker.appendChild(list);
+
+  function renderPickerList(filter) {
+    const filtered = filter ? models.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : models.slice(0, 80);
+    list.innerHTML = filtered.map(m => {
+      const sel = m === inp.value;
+      return `<div class="_mpItem" data-model="${esc(m)}" style="padding:5px 10px;cursor:pointer;font-size:12px;font-family:var(--mono);color:${sel ? 'var(--accent2)' : 'var(--text2)'};${sel ? 'background:var(--accentDim)' : ''}transition:background 0.1s">${esc(m)}</div>`;
+    }).join('');
+    list.querySelectorAll('._mpItem').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        inp.value = el.dataset.model;
+        matrixCellBlur(inp);
+        picker.remove();
+      });
+      el.addEventListener('mouseenter', () => { el.style.background = 'var(--surface3)'; });
+      el.addEventListener('mouseleave', () => { el.style.background = el.dataset.model === inp.value ? 'var(--accentDim)' : ''; });
+    });
+  }
+
+  renderPickerList('');
+  searchEl.addEventListener('input', () => renderPickerList(searchEl.value));
+  searchEl.addEventListener('keydown', e => {
+    if (e.key === 'Escape') picker.remove();
+    if (e.key === 'Enter') { const first = list.querySelector('._mpItem'); if (first) first.dispatchEvent(new MouseEvent('mousedown')); }
+  });
+
+  document.body.appendChild(picker);
+  const rect = inp.getBoundingClientRect();
+  picker.style.left = rect.left + 'px';
+  picker.style.top = (rect.bottom + 4) + 'px';
+  if (rect.left + 360 > window.innerWidth) picker.style.left = (window.innerWidth - 370) + 'px';
+  setTimeout(() => searchEl.focus(), 30);
+
+  const close = (e) => { if (!picker.contains(e.target) && e.target !== inp) { picker.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 100);
+}
+
+function matrixOpenPicker(inp, provider) {
+  const models = window._toggledModels[provider] || window._fetchedModels[provider] || [];
+  if (models.length === 0) {
+    // Try lazy fetch
+    api('GET', '/api/provider-models?provider=' + encodeURIComponent(provider)).then(r => {
+      if (r && r.models && r.models.length) {
+        window._fetchedModels[provider] = r.models;
+        window._toggledModels[provider] = [...r.models];
+        matrixShowMiniPicker(inp, provider, r.models);
+      } else {
+        toast('No cached models for ' + provider + ' — use Browse tab to fetch', true);
+      }
+    }).catch(() => toast('Failed to load models', true));
+  } else {
+    matrixShowMiniPicker(inp, provider, models);
+  }
+}
+
+function matrixAddRow(alias, defaultVal, providerVals) {
+  const data = window._matrixData || {};
+  if (!data[alias || '']) data[alias || ''] = typeof defaultVal === 'string' ? defaultVal : '';
+  const newRow = { default: defaultVal || '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
+  if (providerVals) Object.assign(newRow, providerVals);
+  if (!window._matrixData) window._matrixData = {};
+  window._matrixData[alias || ''] = newRow.default;
+  if (alias && providerVals) {
+    if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
+    window._matrixData._provider_models[alias] = providerVals;
+  }
+  renderMatrixTable();
+  // focus the alias cell of the new row
+  setTimeout(() => {
+    const rows = document.querySelectorAll('#matrixBody .matrix-row');
+    const last = rows[rows.length - 1];
+    if (last) { const inp = last.querySelector('.matrix-alias'); if (inp) inp.focus(); }
+  }, 50);
+}
+
+function matrixAddQuickPreset(type) {
+  if (!window._matrixData) window._matrixData = {};
+  const presets = {
+    claude: { alias: 'claude-sonnet-4-6', defaultVal: 'claude-sonnet-4-6', providerVals: { anthropic: 'claude-sonnet-4-5', openrouter: 'anthropic/claude-sonnet-4-5', zen: 'claude-sonnet-4-5' } },
+    gemini: { alias: 'gemini-2.5-pro', defaultVal: 'gemini-2.5-pro', providerVals: { google: 'gemini-2.5-pro', openrouter: 'google/gemini-2.5-pro', zen: 'gemini-2.5-pro' } },
+    gpt: { alias: 'gpt-4o', defaultVal: 'gpt-4o', providerVals: { openai: 'gpt-4o', openrouter: 'openai/gpt-4o', zen: 'gpt-4o' } },
+  };
+  const p = presets[type]; if (!p) return;
+  window._matrixData[p.alias] = p.defaultVal;
+  if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
+  window._matrixData._provider_models[p.alias] = p.providerVals;
+  renderMatrixTable();
+}
+
+async function saveModels() {
+  // Read matrix table — collect all rows from the DOM
+  const flat = {};
+  const providerModels = {};
+  const rows = document.querySelectorAll('#matrixBody .matrix-row');
+  rows.forEach(row => {
+    const aliasInp = row.querySelector('.matrix-alias');
+    if (!aliasInp) return;
+    const alias = aliasInp.value.trim();
+    if (!alias) return;
+    const cells = row.querySelectorAll('.matrix-cell');
+    let defaultVal = '';
+    const perProvider = {};
+    cells.forEach(cell => {
+      const col = cell.dataset.col;
+      const val = cell.value.trim();
+      if (col === 'default') { defaultVal = val; }
+      else if (val) { perProvider[col] = val; }
+    });
+    // Save the row as long as it has EITHER a default OR at least one provider cell.
+    // A row with only provider cells is valid — the router uses per-provider values.
+    if (defaultVal) flat[alias] = defaultVal;
+    if (Object.keys(perProvider).length > 0) {
+      providerModels[alias] = perProvider;
+      // If there's no default, still register the alias so loadModels shows it
+      if (!defaultVal && !flat[alias]) flat[alias] = '';
+    }
+  });
+
+  // Build payload: flat keys (non-empty default values only in flat map),
+  // plus _provider_models for everything with per-provider overrides.
+  // We store alias→'' for alias-only rows so loadModels can enumerate them.
+  const payload = {};
+  for (const [k, v] of Object.entries(flat)) {
+    if (v !== '') payload[k] = v; // only write non-empty defaults
+    // alias-only rows (v==='') are represented solely via _provider_models
+  }
+  if (Object.keys(providerModels).length > 0) payload._provider_models = providerModels;
+
+  try {
+    const r = await api('POST', '/api/models', payload);
+    if (r.ok) {
+      // Rebuild _matrixData to match what we just saved so the renderer
+      // shows correctly without needing a round-trip that might lose alias-only rows
+      window._matrixData = { ...payload };
+      // Ensure alias-only rows (no flat default) are still tracked
+      for (const alias of Object.keys(providerModels)) {
+        if (!(alias in window._matrixData) && alias !== '_provider_models') {
+          // no-op — they're in _provider_models which is already in _matrixData
+        }
+      }
+      toast('Models saved and loaded');
+      // Re-render from our local copy first so there's no flicker,
+      // then sync with server in the background
+      renderMatrixTable();
+      loadModels();
+    } else toast('Save failed: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Save failed: ' + e.message, true); }
+}
+
+// Legacy compatibility — browseAddSelected still uses addRow internally
+function addModelRow() { matrixAddRow('', '', {}); }
+function addRow(k, v, provider) {
+  // called by browseAddSelected — merge into matrixData and re-render
+  if (!window._matrixData) window._matrixData = {};
+  if (provider) {
+    if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
+    if (!window._matrixData._provider_models[k]) window._matrixData._provider_models[k] = {};
+    window._matrixData._provider_models[k][provider] = v;
+  } else {
+    window._matrixData[k] = v;
+  }
+  renderMatrixTable();
+}
 
 // ---- Resolver Select Widget ----
 function createResolverSelect(models, value, onChange, providerMeta) {
@@ -1940,79 +2386,97 @@ function createProviderSelect(selected, onChange) {
   return wrapper;
 }
 
-// ---- Row Builder ----
-function addRow(k, v, provider) {
-  const tr = document.createElement('tr');
-  const td1 = document.createElement('td');
-  const km = k.toLowerCase();
-  const kMeta = km.startsWith('claude') ? PROVIDER_META.anthropic : km.startsWith('gemini') ? PROVIDER_META.google : km.startsWith('gpt') ? PROVIDER_META.openai : null;
-  const kLogo = kMeta ? logoHtml(kMeta, 14) : '';
-  td1.innerHTML = '<div style="display:flex;align-items:center;gap:4px">'+kLogo+'<input class="model-input" value="'+esc(k)+'" placeholder="e.g. gemini-2.5-pro"></div>';
+// ---- Row Builder (legacy shim — real logic is in matrix above) ----
+// browseAddSelected still calls addRow(); it now merges into _matrixData
 
-  const pMeta = provider ? PROVIDER_META[provider] : null;
-  const resolverLogo = pMeta ? logoHtml(pMeta, 14) : '';
-  const toggled = provider ? (window._toggledModels[provider] || []) : [];
+// old saveModels removed — replaced by matrix saveModels above
 
-  const td2 = document.createElement('td');
-  td2.innerHTML = '<div style="display:flex;align-items:center;gap:4px"><span class="rlw" style="display:inline-flex;width:14px;height:14px;flex-shrink:0">'+resolverLogo+'</span></div>';
-  const rsel = createResolverSelect(toggled, v, function(val) {}, pMeta);
-  td2.firstChild.appendChild(rsel);
+// ---- Reasoning Effort ----
+let _reData = null;
 
-  const td3 = document.createElement('td');
-  const psel = createProviderSelect(provider || '', function(val) {
-    const rl = td2.querySelector('.rlw');
-    const nm = val ? PROVIDER_META[val] : null;
-    if (rl) rl.innerHTML = nm ? logoHtml(nm, 14) : '';
-    const cached = window._toggledModels[val] || [];
-    if (rsel.updateModels) rsel.updateModels(cached, nm);
-    if (cached.length === 0 && val) {
-      // Try to lazy-fetch from cache endpoint
-      api('GET', '/api/provider-models?provider=' + encodeURIComponent(val)).then(r => {
-        if (r && r.models && r.models.length) {
-          window._fetchedModels[val] = r.models;
-          window._toggledModels[val] = [...r.models];
-          if (rsel.updateModels) rsel.updateModels(r.models, nm);
-        }
-      }).catch(() => {});
-    }
-  });
-  td3.appendChild(psel);
-
-  // For empty rows, also try a lazy-fetch in case the provider was just selected
-  if (provider && (window._toggledModels[provider] || []).length === 0) {
-    api('GET', '/api/provider-models?provider=' + encodeURIComponent(provider)).then(r => {
-      if (r && r.models && r.models.length) {
-        window._fetchedModels[provider] = r.models;
-        window._toggledModels[provider] = [...r.models];
-        if (rsel.updateModels) rsel.updateModels(r.models, pMeta);
-      }
-    }).catch(() => {});
+async function loadReasoningEffort() {
+  try {
+    _reData = await api('GET', '/api/reasoning-effort');
+    renderReasoningEffort();
+  } catch (e) {
+    const el = document.getElementById('reAutoList');
+    if (el) el.innerHTML = '<div style="font-size:12px;color:var(--red)">Failed to load: ' + esc(e.message) + '</div>';
   }
-
-  const td4 = document.createElement('td');
-  td4.innerHTML = '<button class="btn-icon" onclick="this.closest(\'tr\').remove()" data-tooltip="Remove">✕</button>';
-  tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
-  document.getElementById('modelsBody').appendChild(tr);
 }
 
-async function saveModels() {
-  const flat = {};
-  const providerModels = {};
-  document.querySelectorAll('#modelsBody tr').forEach(tr => {
-    const inp = tr.querySelectorAll('input');
-    const prov = tr.querySelector('.psel-wrap select');
-    const rv = tr.querySelector('.rsel-value');
-    const k = inp[0].value.trim(), v = rv ? rv.value.trim() : '';
-    const p = prov ? prov.value : '';
-    if (!k || !v) return;
-    if (p) {
-      if (!providerModels[k]) providerModels[k] = {};
-      providerModels[k][p] = v;
-    } else { flat[k] = v; }
-  });
-  const payload = { ...flat };
-  if (Object.keys(providerModels).length > 0) payload._provider_models = providerModels;
-  try { const r = await api('POST','/api/models',payload); if (r.ok) { toast('Models saved and loaded'); loadModels(); } else toast('Save failed', true); } catch (e) { toast('Save failed: '+e.message, true); }
+function renderReasoningEffort() {
+  if (!_reData) return;
+  const autoList = document.getElementById('reAutoList');
+  const manualList = document.getElementById('reManualList');
+  if (!autoList || !manualList) return;
+
+  const EFFORT_OPTIONS = ['default','low','medium','high','max'];
+  const allConfigured = _reData.config?.models || {};
+
+  // Auto-detected
+  if (_reData.autoDetected && _reData.autoDetected.length > 0) {
+    autoList.innerHTML = _reData.autoDetected.map(item => {
+      const current = allConfigured[item.model] || 'default';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:500;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.model)}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:1px">${esc(item.label || '')}</div>
+        </div>
+        <select onchange="reSetEffort('${esc(item.model)}',this.value)"
+          style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface3);color:var(--text);font-size:12px;outline:none;cursor:pointer">
+          ${EFFORT_OPTIONS.map(e => `<option value="${e}" ${e === current ? 'selected' : ''}>${e}</option>`).join('')}
+        </select>
+        <span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${current === 'default' ? 'var(--surface3)' : 'var(--accentDim)'};color:${current === 'default' ? 'var(--text3)' : 'var(--accent2)'}">
+          ${current === 'default' ? 'not set' : '✓ ' + current}
+        </span>
+      </div>`;
+    }).join('');
+  } else {
+    autoList.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:12px;background:var(--surface2);border-radius:8px">
+      No reasoning models detected in your current model map. Add DeepSeek R-series, NVIDIA stepfun, or OpenAI o-series models to the Models tab first.
+    </div>`;
+  }
+
+  // Manual overrides (anything in config that's not auto-detected)
+  const autoModels = new Set((_reData.autoDetected || []).map(x => x.model));
+  const manualEntries = Object.entries(allConfigured).filter(([m]) => !autoModels.has(m));
+  if (manualEntries.length === 0) {
+    manualList.innerHTML = '<div style="font-size:12px;color:var(--text3)">None.</div>';
+  } else {
+    manualList.innerHTML = manualEntries.map(([model, effort]) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px">
+        <span style="flex:1;font-size:12px;font-family:var(--mono)">${esc(model)}</span>
+        <select onchange="reSetEffort('${esc(model)}',this.value)"
+          style="padding:5px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface3);color:var(--text);font-size:12px;outline:none">
+          ${EFFORT_OPTIONS.map(e => `<option value="${e}" ${e === effort ? 'selected' : ''}>${e}</option>`).join('')}
+        </select>
+        <button onclick="reRemove('${esc(model)}')" title="Remove"
+          style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px"
+          onmouseenter="this.style.color='var(--red)'" onmouseleave="this.style.color='var(--text3)'">✕</button>
+      </div>`).join('');
+  }
+}
+
+async function reSetEffort(model, effort) {
+  try {
+    const r = await api('POST', '/api/reasoning-effort', { model, effort });
+    if (r.ok) {
+      toast('Effort set: ' + model + ' → ' + effort);
+      await loadReasoningEffort();
+    } else toast('Save failed: ' + (r.error || 'unknown'), true);
+  } catch (e) { toast('Error: ' + e.message, true); }
+}
+
+async function reRemove(model) {
+  await reSetEffort(model, 'default');
+}
+
+async function reAddManual() {
+  const model = document.getElementById('reManualModel').value.trim();
+  const effort = document.getElementById('reManualEffort').value;
+  if (!model) { toast('Enter a model name', true); return; }
+  await reSetEffort(model, effort);
+  document.getElementById('reManualModel').value = '';
 }
 
 // ---- Browse Tab ----
@@ -2081,16 +2545,19 @@ function renderBrowseModels() {
   count.textContent = models.length + ' model' + (models.length !== 1 ? 's' : '');
   list.innerHTML = models.map(m => {
     const checked = toggled.includes(m);
-    const existing = Array.from(document.querySelectorAll('#modelsBody tr')).some(tr => {
-      const inp = tr.querySelectorAll('input');
-      const rv = tr.querySelector('.rsel-value');
-      return inp[0]?.value === m || (rv && rv.value === m);
-    });
+    const existing = (() => {
+      const pm = (window._matrixData?._provider_models) || {};
+      const all = new Set(Object.keys(window._matrixData || {}).filter(k => k !== '_provider_models'));
+      for (const providers of Object.values(pm)) {
+        for (const v of Object.values(providers)) { if (v) all.add(String(v)); }
+      }
+      return all;
+    })();
     return '<label style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--text2);transition:background 0.12s" onmouseenter="this.style.background=\'var(--surface1)\'" onmouseleave="this.style.background=\'\'">' +
       '<input type="checkbox" class="browse-cb" '+(checked?'checked':'')+' data-model="'+esc(m)+'" style="accent-color:var(--accent)">' +
       (logo||'') +
       '<span style="flex:1;overflow:hidden;text-overflow:ellipsis">'+esc(m)+'</span>' +
-      (existing ? '<span style="font-size:10px;color:var(--green);white-space:nowrap">✓ in config</span>' : '') +
+      (existing.has(m) ? '<span style="font-size:10px;color:var(--green);white-space:nowrap">✓ in config</span>' : '') +
     '</label>';
   }).join('');
   list.querySelectorAll('.browse-cb').forEach(cb => {
@@ -2129,18 +2596,28 @@ async function browseAddSelected() {
   if (!provider) return;
   const toggled = window._toggledModels[provider] || [];
   if (toggled.length === 0) { toast('No models selected', true); return; }
-  const existing = new Set(Array.from(document.querySelectorAll('#modelsBody tr')).map(tr => {
-    const inp = tr.querySelectorAll('input');
-    const rv = tr.querySelector('.rsel-value');
-    return inp[0]?.value+'|'+(rv ? rv.value : '');
-  }));
+  // Check what's already in the matrix
+  const existing = new Set();
+  const pm = (window._matrixData?._provider_models) || {};
+  for (const [alias, providers] of Object.entries(pm)) {
+    for (const [p, v] of Object.entries(providers)) {
+      if (p === provider && v) existing.add(alias + '|' + v);
+    }
+  }
   let added = 0;
+  if (!window._matrixData) window._matrixData = {};
+  if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
   toggled.forEach(model => {
-    const key = model+'|'+model;
-    if (!existing.has(key)) { addRow(model, model, provider); existing.add(key); added++; }
+    const key = model + '|' + model;
+    if (!existing.has(key)) {
+      window._matrixData._provider_models[model] = window._matrixData._provider_models[model] || {};
+      window._matrixData._provider_models[model][provider] = model;
+      existing.add(key);
+      added++;
+    }
   });
   if (added === 0) { toast('Models already in config'); return; }
-  toast('Added '+added+' model'+(added!==1?'s':'')+', saving...');
+  toast('Added ' + added + ' model' + (added !== 1 ? 's' : '') + ', saving...');
   await saveModels();
   const modelsTab = document.querySelector('.nav-item[data-tab="models"]');
   if (modelsTab) modelsTab.click();
@@ -2428,7 +2905,7 @@ async function loadPricingConfig() {
 function renderPricingEditor(data) {
   const meta = data['$meta'] || {};
   document.getElementById('pricingAutoFree').checked = meta.autoFree !== false;
-  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','ollama','vllm','lmstudio'];
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
   let html = '';
   for (const pid of providerIds) {
     const pmeta = PROVIDER_META[pid] || { label: pid, color: '#888' };
@@ -2506,7 +2983,7 @@ function removePricingRow(btn) {
 function collectPricingFromEditor() {
   const data = { '$meta': _pricingData?.['$meta'] || { autoFree: true } };
   data['$meta'].autoFree = document.getElementById('pricingAutoFree').checked;
-  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','ollama','vllm','lmstudio'];
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
   for (const pid of providerIds) {
     const entries = {};
     const defIn = parseFloat(document.querySelector(`.pdef-in[data-provider="${pid}"]`)?.value) || 0;
@@ -2803,7 +3280,7 @@ document.addEventListener('click', function(e) {
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();
 initSidebar(); initShortcuts();
-reloadAll(); renderRequests(); loadModels(); connectSSE(); loadHistoryDates(); browseInit();
+reloadAll(); loadModels(); connectSSE(); loadHistoryDates(); browseInit(); loadReasoningEffort();
 api('GET','/api/logs').then(logs => { logs.forEach(e => { logBuf.push(e); appendLog(e, true); }); }).catch(()=>{});
 </script>
 </body>

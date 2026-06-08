@@ -1,5 +1,4 @@
 import type { Content, Part, Tool, GenerationConfig } from './types.js';
-import { DEFAULT_MODEL_MAP, type ModelMap } from './types.js';
 import { logger } from './logger.js';
 
 export interface OpenAIImagePart {
@@ -10,6 +9,7 @@ export interface OpenAIImagePart {
 export interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string | OpenAIImagePart[] | null;
+  reasoning_content?: string;
   tool_calls?: Array<{
     id: string;
     type: 'function';
@@ -44,18 +44,11 @@ export interface MappedConfig {
   providerOptions?: { openai?: { reasoningEffort?: string } };
 }
 
-export function mapModelName(model: string, modelMap: ModelMap = DEFAULT_MODEL_MAP): string {
-  if (modelMap[model]) return modelMap[model];
-  const short = model.replace(/^models\//, '');
-  if (modelMap[short]) return modelMap[short];
-  for (const key of Object.keys(modelMap)) {
-    if (short.startsWith(key) || key.startsWith(short)) return modelMap[key];
-  }
-  return modelMap['default'] || model;
-}
-
 function callId(name: string, idx: number): string {
-  return `call_${name}_${idx}`;
+  const safeName = (name || 'tool')
+    .replace(/[^A-Za-z0-9_-]/g, '_')
+    .slice(0, 48);
+  return `call_${safeName}_${idx}`;
 }
 
 function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
@@ -90,7 +83,7 @@ function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
 export function mapContentsToMessages(contents: Content[], systemInstruction?: string): MappedRequest {
   const messages: OpenAIMessage[] = [];
   let callIndex = 0;
-  const recentCallIds: Map<string, string> = new Map();
+  const recentCallIds: Map<string, string[]> = new Map();
 
   for (const content of contents) {
     const role = content.role === 'model' ? 'assistant' : content.role as OpenAIMessage['role'];
@@ -101,8 +94,15 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
       continue;
     }
 
+
+
+    const thoughtParts = parts
+      .filter((p: any) => p.thought && p.text)
+      .map((p: any) => p.text)
+      .join('');
+
     const textParts = parts
-      .filter((p: any) => p.text || (p.type === 'text' && p.text))
+      .filter((p: any) => (p.text || (p.type === 'text' && p.text)) && !p.thought)
       .map((p: any) => p.text || '')
       .join('');
 
@@ -114,7 +114,7 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
 
     const googleToolCalls = parts.filter((p: any) => p.functionCall);
     const googleToolResults = parts.filter((p: any) => p.functionResponse);
-    const sdkToolCalls = googleToolCalls.length === 0 ? parts.filter((p: any) => p.type === 'tool-call') : [];
+    const sdkToolCalls = googleToolResults.length === 0 ? parts.filter((p: any) => p.type === 'tool-call') : [];
     const sdkToolResults = googleToolResults.length === 0 ? parts.filter((p: any) => p.type === 'tool-result') : [];
 
     if (googleToolCalls.length > 0 || sdkToolCalls.length > 0) {
@@ -124,10 +124,12 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
         const name = fc.name || p.toolName || 'unknown';
         const args = parseJSONArgs(fc.args || p.args);
         const id = callId(name, callIndex++);
-        recentCallIds.set(name, id);
+        const ids = recentCallIds.get(name) || [];
+        ids.push(id);
+        recentCallIds.set(name, ids);
         return { id, type: 'function' as const, function: { name, arguments: JSON.stringify(args) } };
       });
-      messages.push({ role: 'assistant', content: textParts || null, tool_calls: toolCalls });
+      messages.push({ role: 'assistant', content: textParts || null, reasoning_content: thoughtParts || undefined, tool_calls: toolCalls });
     } else if (googleToolResults.length > 0 || sdkToolResults.length > 0) {
       const results = googleToolResults.length > 0 ? googleToolResults : sdkToolResults;
       for (const p of results) {
@@ -135,7 +137,8 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
         const name = fr.name || p.toolName || 'unknown';
         const resultObj = fr.response || p.result || {};
         const contentStr = typeof resultObj === 'string' ? resultObj : JSON.stringify(parseJSONArgs(resultObj));
-        const id = recentCallIds.get(name) || callId(name, callIndex++);
+        const ids = recentCallIds.get(name) || [];
+        const id = ids.shift() || callId(name, callIndex++);
         messages.push({ role: 'tool', tool_call_id: id, content: contentStr });
       }
     } else if (imageParts.length > 0) {
@@ -144,7 +147,7 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
         : imageParts;
       messages.push({ role, content: content.length === 1 && content[0].image_url.url === textParts ? textParts : content });
     } else {
-      messages.push({ role, content: textParts });
+      messages.push({ role, content: textParts, reasoning_content: thoughtParts || undefined });
     }
   }
 
@@ -226,51 +229,6 @@ export function mapGenerationConfig(config: GenerationConfig | null | undefined)
     };
   }
   return result;
-}
-
-export function extractToolCalls(text: string): { name: string; args: Record<string, unknown> }[] {
-  const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
-  if (!text) return toolCalls;
-
-  const invokeRegex = /<invoke\s+name="([^"]+)"?>([\s\S]*?)(?:<\/invoke>|<\/function_calls>|$)/gi;
-  let match;
-  while ((match = invokeRegex.exec(text)) !== null) {
-    const name = match[1].trim();
-    let body = match[2].trim();
-
-    try {
-      const args = JSON.parse(body);
-      toolCalls.push({ name, args });
-      continue;
-    } catch { /* not JSON */ }
-
-    const paramRegex = /<parameter\s+name="([^"]+)"?>([\s\S]*?)<\/parameter>/gi;
-    const args: Record<string, unknown> = {};
-    let pm;
-    while ((pm = paramRegex.exec(body)) !== null) {
-      args[pm[1]] = pm[2].trim();
-    }
-    if (Object.keys(args).length > 0) {
-      toolCalls.push({ name, args });
-    }
-  }
-
-  const funcRegex = /<function=(\w+)>([\s\S]*?)<\/function>/gi;
-  while ((match = funcRegex.exec(text)) !== null) {
-    const name = match[1];
-    if (toolCalls.some(tc => tc.name === name)) continue;
-    const paramRegex = /<parameter=(\w+)>([\s\S]*?)<\/parameter>/gi;
-    const args: Record<string, unknown> = {};
-    let pm;
-    while ((pm = paramRegex.exec(match[2])) !== null) {
-      args[pm[1]] = pm[2].trim();
-    }
-    if (Object.keys(args).length > 0) {
-      toolCalls.push({ name, args });
-    }
-  }
-
-  return toolCalls;
 }
 
 export function constructToolCallText(name: string, args: Record<string, unknown>): string {

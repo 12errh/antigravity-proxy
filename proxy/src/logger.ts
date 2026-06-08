@@ -6,7 +6,11 @@ import { config } from './config.js';
 import * as db from './db.js';
 
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
-const currentLevel = LOG_LEVELS[config.logLevel as keyof typeof LOG_LEVELS] ?? 1;
+
+// Read log level dynamically so config.reload() takes effect without restart.
+function getCurrentLevel(): number {
+  return LOG_LEVELS[config.logLevel as keyof typeof LOG_LEVELS] ?? 1;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logDir = path.resolve(__dirname, '..', 'logs');
@@ -127,15 +131,15 @@ function log(level: string, msg: string, meta?: Record<string, unknown>) {
 
 export const logger = {
   debug: (msg: string, meta?: Record<string, unknown>) => {
-    if (currentLevel <= 0) log('debug', msg, meta);
+    if (getCurrentLevel() <= 0) log('debug', msg, meta);
   },
   info: (msg: string, meta?: Record<string, unknown>) => {
-    if (currentLevel <= 1) log('info', msg, meta);
+    if (getCurrentLevel() <= 1) log('info', msg, meta);
   },
   warn: (msg: string, meta?: Record<string, unknown>) => {
-    if (currentLevel <= 2) log('warn', msg, meta);
+    if (getCurrentLevel() <= 2) log('warn', msg, meta);
   },
   error: (msg: string, meta?: Record<string, unknown>) => {
-    if (currentLevel <= 3) log('error', msg, meta);
+    if (getCurrentLevel() <= 3) log('error', msg, meta);
   },
 };

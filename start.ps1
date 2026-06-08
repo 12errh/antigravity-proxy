@@ -85,10 +85,17 @@ if (-not $alreadyTrusted) {
 }
 
 # -- Kill old proxy -----------------------------------------------------------
-$oldPid = (netstat -ano | Select-String ':4000 ' | ForEach-Object { ($_ -split '\s+')[-1] }) | Where-Object { $_ -ne '0' } | Select-Object -First 1
-if ($oldPid) {
-  Write-Step "Stopping old proxy (PID $oldPid)"
-  taskkill /F /PID $oldPid 2>$null
+# Use Get-NetTCPConnection (more reliable than netstat parsing).
+# Check BOTH ports: 443 (TLS proxy) AND 4000 (dashboard) so a half-dead
+# instance on either port is caught before we try to bind.
+$oldPids = @(Get-NetTCPConnection -State Listen -LocalPort 4000,443 -ErrorAction SilentlyContinue `
+              | Select-Object -ExpandProperty OwningProcess -Unique `
+              | Where-Object { $_ -ne 0 -and $_ -ne $PID })
+if ($oldPids.Count -gt 0) {
+  Write-Step "Stopping old proxy process(es) (PIDs: $($oldPids -join ', '))"
+  foreach ($p in $oldPids) {
+    taskkill /F /PID $p 2>$null
+  }
   Start-Sleep -Seconds 1
   Write-Ok "Old proxy stopped"
 }
@@ -100,8 +107,21 @@ if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Forc
 $logFile = Join-Path $logDir "proxy_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 $logArgs = @("-NoExit", "-Command", "cd '$ProxyDir'; tsx src/index.ts 2>&1 | Tee-Object -FilePath '$logFile'")
 
+# Only request UAC elevation if we're not already admin.
+# The old code always used -Verb RunAs, which triggers a SECOND UAC prompt
+# even when the user is already elevated, spawning a separate admin process
+# that loses the original env / cert store state.
+$startArgs = @{
+  FilePath     = 'powershell'
+  WindowStyle  = 'Normal'
+  ArgumentList = $logArgs
+  PassThru     = $true
+}
+if (-not $IsAdmin) {
+  $startArgs['Verb'] = 'RunAs'
+}
 try {
-  $proc = Start-Process powershell -Verb RunAs -WindowStyle Normal -ArgumentList $logArgs -PassThru
+  $proc = Start-Process @startArgs
   Write-Ok "Proxy starting (PID $($proc.Id)) - log: $logFile"
 } catch {
   Write-Err "Failed to start proxy: $_"
@@ -109,6 +129,24 @@ try {
 }
 
 Start-Sleep -Seconds 3
+
+# -- Open Dashboard in browser ------------------------------------------------
+$portOpen = $false
+for ($i = 0; $i -lt 10; $i++) {
+  $portOpen = ((netstat -ano | Select-String ':4000\s') -ne $null)
+  if ($portOpen) { break }
+  Start-Sleep -Milliseconds 500
+}
+if ($portOpen) {
+  try {
+    Start-Process "http://localhost:4000" | Out-Null
+    Write-Ok "Dashboard opened in your default browser."
+  } catch {
+    Write-Warn "Could not open browser automatically. Visit http://localhost:4000 manually."
+  }
+} else {
+  Write-Warn "Dashboard not yet ready. Visit http://localhost:4000 in a few seconds."
+}
 
 # -- Launch Antigravity -------------------------------------------------------
 Write-Step "Launching Antigravity"

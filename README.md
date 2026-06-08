@@ -4,24 +4,53 @@
 
 <h1 align="center">Antigravity Proxy</h1>
 
-<p align="center">Use <strong>any provider</strong> with <strong>Antigravity 2.0</strong> — NVIDIA, OpenRouter, OpenAI, Groq, Anthropic, Google Gemini, or local models (Ollama, vLLM, LM Studio).</p>
+<p align="center">Use <strong>any AI provider</strong> with <strong>Antigravity 2.0</strong> — NVIDIA, OpenRouter, OpenAI, Groq, Anthropic, Google Gemini, OpenCode Zen, or local models (Ollama, vLLM, LM Studio).</p>
 
-The proxy intercepts Antigravity's Google Gemini API calls and translates them to the target provider's format. Supports multi-provider failover with retry + exponential backoff, per-model provider routing, and real-time hot-reload of all config.
+The proxy intercepts Antigravity's Google Gemini API calls and translates them to the target provider's format. Supports multi-provider failover with retry + exponential backoff, per-model per-provider routing via a matrix UI, reasoning effort control, and real-time hot-reload of all config.
+
+---
+
+## Requirements
+
+- **Antigravity 2.0 Desktop** (Windows, macOS, or Linux)
+- **Node.js 18+**
+- **Administrator / root privileges** (for port 443 binding; lower to 8443 if preferred)
+- At least one API key from a supported cloud provider, or a local model server
+
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Windows 10/11 | ✅ Tested | `start.ps1` handles cert install, port binding, and Antigravity launch |
+| macOS | ⚠️ Untested | `start.sh` added with best-effort cert trust. **If you hit issues, [open an issue](../../issues).** |
+| Linux | ⚠️ Untested | `start.sh` added with best-effort cert trust. **If you hit issues, [open an issue](../../issues).** |
+
+> The proxy TypeScript code itself is fully cross-platform (Node.js 18+). Only the launcher scripts and TLS certificate trust steps are platform-specific. If you run into a problem on macOS or Linux, please open a GitHub issue with your OS version and the error message.
+
+---
 
 ## Quick Start
 
 ```powershell
-.\setup.ps1
-# Follow prompts to configure providers and API keys
+# Windows (PowerShell as Administrator)
+.\start.ps1
+
+# macOS / Linux
+sudo node proxy/dist/index.js
 ```
+
+Then open **http://localhost:4000** in your browser to configure providers, model mappings, and view live stats.
+
+---
 
 ## Feature Support
 
 | Feature | Status |
 |---------|--------|
 | Multi-provider failover (priority chain) | ✅ |
-| Per-model provider routing | ✅ |
+| Per-model, per-provider routing matrix | ✅ |
 | Retry + exponential backoff | ✅ |
+| Per-provider retry cap (max 2 when multiple candidates) | ✅ |
 | Hot-reload config & models (no restart) | ✅ |
 | Chat & code generation | ✅ |
 | Tool calling / function calling | ✅ |
@@ -30,7 +59,8 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 | Image generation | ✅ |
 | Vision / image understanding | ✅ |
 | Streaming responses | ✅ |
-| Thinking / reasoning (Gemini, Claude) | ✅ |
+| Thinking / reasoning (Gemini, Claude, DeepSeek) | ✅ |
+| Reasoning effort control (DeepSeek R, NVIDIA stepfun, OpenAI o-series) | ✅ |
 | Model switching | ✅ |
 | Provider switching (drag-and-drop priority) | ✅ |
 | Real-time dashboard | ✅ |
@@ -38,127 +68,262 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 | Config & model management UI | ✅ |
 | Session-based history browsing | ✅ |
 | Cost tracking & charts (per-day, per-model, per-provider) | ✅ |
+| Single-day cost view | ✅ |
 | SQLite persistence (survives restarts) | ✅ |
 | Local model discovery (Ollama, vLLM, LM Studio) | ✅ |
+| Provider model cache (10-min TTL, warm on startup) | ✅ |
 | Rate limiting (global + per-provider) | ✅ |
 | Blocklist (provider, model glob, content regex) | ✅ |
-| Full-text search across requests/sessions/logs | ✅ |
+| Full-text search across requests / sessions / logs | ✅ |
 | Keyboard shortcuts (`/` search, `r` refresh, `j`/`k` navigate) | ✅ |
 | Collapsible sidebar | ✅ |
 | Request replay with model selector | ✅ |
 | Session compare (side-by-side) | ✅ |
-| Dashboard basic auth (configurable from UI) | ✅ |
+| Dashboard basic auth (username + password, configurable from UI) | ✅ |
 | TLS certificate info & expiry warning | ✅ |
 | Failover webhook (configurable from UI) | ✅ |
 | Provider failover timeline visualization | ✅ |
+| Log rotation (size-based, configurable retention) | ✅ |
+| Workspace context hardening (anti-confusion envelope) | ✅ |
+
+---
 
 ## Supported Providers
 
-| Provider | Type | Auth |
-|----------|------|------|
-| **OpenRouter** | Cloud API | API key |
-| **NVIDIA NIM** | Cloud API | API key |
-| **OpenAI** | Cloud API | API key |
-| **Groq** | Cloud API | API key |
-| **Anthropic (Claude)** | Cloud API | API key |
-| **Google Gemini** | Cloud API | API key |
-| **Ollama** | Local | None |
-| **vLLM** | Local | None |
-| **LM Studio** | Local | None |
+| Provider | Type | Env Var | Notes |
+|----------|------|---------|-------|
+| **OpenRouter** | Cloud API | `OPENROUTER_API_KEY` | 300+ models in one key |
+| **NVIDIA NIM** | Cloud API | `NVIDIA_API_KEY` | Free credits on signup |
+| **OpenAI** | Cloud API | `OPENAI_API_KEY` | GPT-4o, o-series |
+| **Groq** | Cloud API | `GROQ_API_KEY` | Ultra-fast LPU inference |
+| **Anthropic** | Cloud API | `ANTHROPIC_API_KEY` | Claude 3.x / 4.x |
+| **Google Gemini** | Cloud API | `GOOGLE_API_KEY` | Gemini 2.5 Pro/Flash |
+| **OpenCode Zen** | Cloud gateway | `OPENCODE_API_KEY` | Claude, GPT, Gemini, Grok, Kimi, GLM — one key |
+| **Ollama** | Local | *(none)* | Auto-discovered on port 11434 |
+| **vLLM** | Local | *(none)* | Auto-discovered on port 8000 |
+| **LM Studio** | Local | *(none)* | Auto-discovered on port 1234 |
+
+---
 
 ## How It Works
 
 ```
-┌─────────────────┐     TLS (443)     ┌──────────────┐   Provider API   ┌──────────────────┐
-│  Antigravity    │ ────────────────▶ │    Proxy     │ ───────────────▶ │  OpenRouter      │
-│  2.0 Desktop    │                   │  (TypeScript) │   ┌───────────▶  │  NVIDIA           │
-│                 │ ◀──────────────── │              │   │              │  OpenAI           │
-└─────────────────┘                   └──────┬───────┘   │              │  Groq             │
-                                              │           │              │  Anthropic        │
-                                         HTTP (4000)      │              │  Google           │
-                                              │           │              │  Ollama / vLLM    │
-                                     ┌────────┘           │              │  LM Studio        │
-                                     │  Dashboard (SPA)   │              └──────────────────┘
-                                     │  - Live logs       │
-                                     │  - Request history │
-                                     │  - Config editor   │
-                                     │  - Model mapping   │
-                                     │  - Provider priority│
-                                     └────────────────────┘
+┌─────────────────┐   TLS (443)   ┌──────────────┐  Provider API  ┌──────────────────┐
+│  Antigravity    │ ────────────▶ │    Proxy     │ ─────────────▶ │  OpenRouter      │
+│  2.0 Desktop    │               │ (TypeScript) │  ┌──────────▶  │  NVIDIA NIM      │
+│                 │ ◀──────────── │              │  │             │  OpenAI          │
+└─────────────────┘               └──────┬───────┘  │             │  Groq            │
+                                          │          │             │  Anthropic       │
+                                     HTTP (4000)     │             │  Google Gemini   │
+                                          │          │             │  OpenCode Zen    │
+                                 ┌────────┘          │             │  Ollama / vLLM   │
+                                 │  Dashboard (SPA)  │             │  LM Studio       │
+                                 │  - Live logs      │             └──────────────────┘
+                                 │  - Request history│
+                                 │  - Config editor  │
+                                 │  - Model matrix   │
+                                 │  - Provider priority            
+                                 └───────────────────┘
 ```
 
-The proxy:
-1. Intercepts Antigravity's Gemini API calls on port 443 (TLS)
-2. Strips massive inline context and injects a reference to `agent-context.md`
-3. Routes the request through the **failover router**: iterates providers in priority order, with retry + exponential backoff
-4. Resolves the model name per-provider (flat map or `_provider_models` override)
-5. Translates to the target provider's API format and streams the response back
-6. Serves a real-time dashboard on port 4000 with live logs, config editor, model mapping, and provider priority management
+**What the proxy does on each request:**
 
-## Requirements
+1. Receives Antigravity's Gemini API call on port 443 (TLS)
+2. Strips massive inline context, injects a compact `agent-context.md` reference (hardened against context-confusion)
+3. Routes through the **failover router**: iterates providers in priority order, retry + exponential backoff, cap 2 retries per provider when multiple candidates exist
+4. Resolves the model name per provider using the **model matrix** (flat default + per-provider overrides)
+5. Applies **reasoning effort** if configured for the resolved model (`reasoning_effort` param)
+6. Translates to the target provider's API format and streams the response back
+7. Records the request to SQLite for cost tracking, history, and session browsing
 
-- **Windows** — Antigravity is Windows-only
-- **Node.js 18+**
-- **Administrator privileges** (for port 443 binding)
-- At least one API key from a supported provider
+---
+
+## Dashboard Tabs
+
+Open **http://localhost:4000** once the proxy is running:
+
+| Tab | What it does |
+|-----|--------------|
+| **Dashboard** | Live stats (requests, tokens, tool calls, errors), provider status, env overview |
+| **Requests** | Today's requests with expandable detail, replay with model selector, pagination |
+| **Config** | Drag-and-drop provider priority, API keys, ports, retry, rate limits, blocklist, auth, webhook |
+| **Models** | Per-provider model matrix — one row per alias, one column per provider. Double-click cell to pick from live catalog |
+| **Browse Models** | Fetch live model catalog from any provider, multi-select, bulk-add into Models tab. Force-refresh bypasses 10-min cache |
+| **Cost** | Per-day / per-model / per-provider cost charts + pricing editor. Filter by date or all-time |
+| **Live Log** | Real-time SSE log stream with level filter, auto-scroll |
+| **History** | Browse requests by date, full-text search across all requests |
+| **Sessions** | Session log files, session compare side-by-side, per-session request list |
+| **Model Options** | Reasoning effort per model — auto-detects DeepSeek R-series, NVIDIA stepfun, OpenAI o-series |
+
+---
+
+## Models Tab — Matrix Setup
+
+The Models tab shows a **matrix**: one row per Antigravity model alias, one column per provider.
+
+```
+┌──────────────────┬────────────────────┬─────────────────────┬────────────────────┐
+│ Model Alias      │ Default            │ OpenRouter          │ Zen                │
+├──────────────────┼────────────────────┼─────────────────────┼────────────────────┤
+│ claude-sonnet-4-6│ claude-sonnet-4-5  │ anthropic/claude... │ claude-sonnet-4-5  │
+│ gemini-2.5-flash │ gemini-2.5-flash   │ google/gemini-2...  │ deepseek-v4-flash  │
+│ gpt-4o           │ gpt-4o             │ openai/gpt-4o       │ gpt-4o             │
+└──────────────────┴────────────────────┴─────────────────────┴────────────────────┘
+```
+
+- **Model Alias** — what Antigravity sends (e.g. `claude-sonnet-4-6`)
+- **Default** — resolved model when no provider-specific cell is set
+- **Provider columns** — exact model name to send to that provider when it's selected by the router
+- **Empty cell** — use Default. Provider logo shows in filled cells.
+- **Double-click** any provider cell to open the live model picker (populated from provider cache)
+- **Column toggles** above the table let you hide providers you don't use
+- Quick-add buttons: `+ Claude`, `+ Gemini`, `+ GPT` pre-fill common rows
+
+---
+
+## Model Options Tab — Reasoning Effort
+
+Some models support a `reasoning_effort` parameter that controls how much thinking they do before answering:
+
+| Model family | Supported effort levels |
+|---|---|
+| DeepSeek R-series (`deepseek-r1`, `deepseek-r2`, etc.) | `low` `medium` `high` `max` |
+| NVIDIA stepfun (`stepfun`, `step-*`) | `low` `medium` `high` `max` |
+| OpenAI o-series (`o1`, `o3`, `o4-mini`, etc.) | `low` `medium` `high` |
+| Qwen Thinking, GLM Thinking, Kimi Thinking | `low` `medium` `high` |
+
+The **Model Options** tab auto-detects which of your currently-mapped models support this feature and lets you set the level per model. You can also add manual overrides for any resolved model name.
+
+Settings are persisted to `proxy/reasoning-effort.json` and applied to every request that resolves to that model — no restart needed.
+
+---
+
+## Config Tab — API Keys
+
+| Key | Provider |
+|-----|----------|
+| `OPENROUTER_API_KEY` | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| `NVIDIA_API_KEY` | [build.nvidia.com](https://build.nvidia.com) — free credits on signup |
+| `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| `GOOGLE_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `OPENCODE_API_KEY` | [opencode.ai/auth](https://opencode.ai/auth) — one key for Claude, GPT, Gemini, Grok, Kimi, GLM |
+
+All keys are saved to `.env` and hot-reloaded — the proxy picks up a new key on the next request, no restart required.
+
+---
 
 ## Architecture
 
 ```
 antigravity/
-├── agent-context.md          # Compact external-agent runtime identity (~150 lines)
-├── setup.ps1                 # Interactive installer and launcher
+├── agent-context.md              # Compact external-agent runtime identity
+├── start.ps1                     # Windows launcher (Administrator)
 ├── README.md
+├── CHANGELOG.md
 ├── docs/
-│   ├── SETUP.md              # Detailed setup guide
-│   ├── CONFIGURATION.md      # Model mapping and provider config
-│   └── v2-plan.md            # Multi-provider engineering spec
-├── proxy/
-│   ├── src/
-│   │   ├── adapters/         # Provider adapters (openai, anthropic, google)
-│   │   │   ├── openai.ts     #   OpenAI-compatible streaming (NVIDIA, OpenRouter, Groq, local)
-│   │   │   ├── anthropic.ts  #   Anthropic Messages API streaming
-│   │   │   ├── google.ts     #   Google Gemini streaming
-│   │   │   └── types.ts      #   Shared StreamChunk / ModelAdapter types
-│   │   ├── adapter.ts        # Provider → adapter registry with defaults
-│   │   ├── router.ts         # Failover orchestrator: retry → backoff → next provider
-│   │   ├── models.ts         # Per-provider model resolver with hot-reload
-│   │   ├── index.ts          # TLS handler, context stripping, Google event builder
-│   │   ├── engine.ts         # Delegates to router, exports streamResponse/generateResponse
-│   │   ├── mapper.ts         # Bidirectional Google ↔ OpenAI format mapping
-│   │   ├── config.ts         # Multi-provider config, priority list, hot-reload
-│   │   ├── antigravity-context.ts  # Compact system prompt injected for external models
-│   │   ├── auth.ts           # API key validation
-│   │   ├── logger.ts         # File + console logging + SSE event bus
-│   │   ├── dashboard.ts      # Dashboard REST API + SSE server + hot-reload endpoint
-│   │   ├── request-store.ts  # In-memory request history ring buffer
-│   │   └── types.ts          # Google-format type definitions
-│   ├── dashboard/
-│   │   └── index.html        # Dashboard SPA (0 build deps)
-│   ├── models.json           # Active model mapping (flat + per-provider overrides)
-│   ├── .env                  # Provider priority, API keys, ports, retry config
-│   ├── certs/                # Self-signed TLS certificates
-│   └── logs/                 # Timestamped log files
+│   ├── SETUP.md                  # Detailed setup guide
+│   ├── CONFIGURATION.md          # Env var + JSON file reference
+│   └── antigravity-v2-analysis.md# Reverse-engineered v2 network protocol
+└── proxy/
+    ├── src/
+    │   ├── adapters/             # Provider adapters
+    │   │   ├── openai.ts         #   OpenAI-compat (NVIDIA, OpenRouter, Groq, Zen, local)
+    │   │   ├── anthropic.ts      #   Anthropic Messages API
+    │   │   ├── google.ts         #   Google Gemini API
+    │   │   └── types.ts          #   StreamChunk / ModelAdapter interfaces
+    │   ├── adapter.ts            # Provider → adapter registry
+    │   ├── router.ts             # Failover orchestrator: retry → backoff → next provider
+    │   ├── models.ts             # Per-provider model resolver (hot-reload)
+    │   ├── index.ts              # TLS handler, context stripping, SSE event builder
+    │   ├── engine.ts             # Delegates to router, exports streamResponse
+    │   ├── mapper.ts             # Google ↔ OpenAI format mapping
+    │   ├── config.ts             # Multi-provider config, priority list, hot-reload
+    │   ├── provider-cache.ts     # 10-min TTL cache for provider model lists
+    │   ├── reasoning-effort.ts   # Per-model reasoning_effort config (auto-detect + persist)
+    │   ├── antigravity-context.ts# System prompt injected for external models
+    │   ├── workspace-context.ts  # Hardened context envelope (anti-hallucination)
+    │   ├── auth.ts               # API key validation
+    │   ├── auth-sessions.ts      # Dashboard session cookie auth
+    │   ├── logger.ts             # File + console logging + SSE bus + log rotation
+    │   ├── dashboard.ts          # Dashboard REST API + SSE server
+    │   ├── db.ts                 # SQLite: requests, cost, sessions, logs
+    │   ├── request-store.ts      # In-memory request ring buffer + search
+    │   ├── rate-limiter.ts       # Global + per-provider rate limiting
+    │   ├── blocklist.ts          # Provider / model / content blocklist
+    │   ├── local-discovery.ts    # Auto-discover Ollama / vLLM / LM Studio
+    │   ├── http-pool.ts          # HTTP keep-alive + connection pooling
+    │   ├── pricing.ts            # Per-model pricing config
+    │   └── types.ts              # Google-format type definitions
+    ├── dashboard/
+    │   ├── index.html            # Dashboard SPA (zero build deps)
+    │   └── login.html            # Auth login page
+    ├── models.json               # Active model matrix (flat + per-provider)
+    ├── pricing.json              # Per-model pricing ($/1M tokens)
+    ├── reasoning-effort.json     # Per-model reasoning effort settings
+    ├── blocklist.json            # Blocked providers / models / content patterns
+    ├── .env                      # API keys, ports, retry config (not committed)
+    ├── .env.example              # Template with all supported vars
+    ├── certs/                    # Self-signed TLS cert (generated by setup)
+    └── logs/                     # Timestamped log files (rotated by size)
 ```
 
-## Dashboard
+---
 
-Once the proxy is running, open **http://localhost:4000** in your browser:
+## Environment Variables
 
-- **Dashboard** — live stats (requests, tokens, tool calls, errors), provider info, environment overview
-- **Requests** — searchable request history with expandable detail view and pagination
-- **History** — browse requests by session/date with date picker and per-day counts
-- **Config** — drag-and-drop provider priority, API keys, ports, retry config, log level (hot-reloaded immediately)
-- **Models** — add/remove/edit model mappings with optional per-provider overrides (hot-reloaded immediately)
-- **Live Log** — real-time log stream with level filter and auto-scroll
+```env
+# Provider priority (first = primary, comma-separated)
+PROVIDER_PRIORITY=openrouter,nvidia,zen
 
-All data updates in real time via SSE — no page refresh needed.
+# API keys
+OPENROUTER_API_KEY=sk-or-v1-...
+NVIDIA_API_KEY=nvapi-...
+OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk_...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=AIza...
+OPENCODE_API_KEY=sk-...        # OpenCode Zen gateway
+
+# Ports
+PROXY_PORT=443                 # TLS port Antigravity connects to
+API_PORT=4000                  # Dashboard + REST API port
+
+# Retry & failover
+PROXY_RETRIES=3                # Attempts per provider before failover
+PROXY_BACKOFF_MS=100           # Initial backoff ms (doubles each retry)
+
+# Rate limiting (0 = unlimited)
+RATE_LIMIT_GLOBAL=0
+RATE_LIMIT_PROVIDER=0
+RATE_LIMIT_WINDOW_MS=60000
+
+# Logging
+LOG_LEVEL=info                 # debug | info | warn | error
+LOG_MAX_SIZE_MB=10             # Rotate log when this size is reached
+LOG_MAX_FILES=5                # Keep this many rotated files
+LOG_MAX_AGE_DAYS=30            # Delete files older than this
+
+# Dashboard auth (optional)
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=your_password
+
+# Failover webhook (optional)
+FAILOVER_WEBHOOK_URL=https://hooks.example.com/webhook
+
+# Workspace context hardening (optional)
+WORKSPACE_CONTEXT_ENVELOPE=strict   # off | loose | strict (default: strict)
+```
+
+---
 
 ## Quick Links
 
-- [Setup Guide](docs/SETUP.md) — step-by-step installation
-- [Configuration Guide](docs/CONFIGURATION.md) — model mapping, provider config
-- [agent-context.md](agent-context.md) — external model runtime identity
+- [Setup Guide](docs/SETUP.md)
+- [Configuration Reference](docs/CONFIGURATION.md)
+- [Antigravity v2 Protocol Analysis](docs/antigravity-v2-analysis.md)
+- [CHANGELOG](CHANGELOG.md)
 
 ## License
 

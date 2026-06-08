@@ -187,6 +187,7 @@ interface StreamChunk {
 | Groq           | openai.ts        | API key     | `https://api.groq.com/openai/v1`          | — |
 | Anthropic      | anthropic.ts     | API key     | `https://api.anthropic.com/v1`            | `type:"thinking"` |
 | Google Gemini  | google.ts        | API key     | `https://generativelanguage.googleapis.com`| `thought: true` |
+| OpenCode Zen   | openai.ts        | API key     | `https://opencode.ai/zen/v1`             | `reasoning_content` |
 | Ollama         | openai.ts        | none        | `http://localhost:11434`                  | — |
 | vLLM           | openai.ts        | none        | `http://localhost:8000`                   | — |
 | LM Studio      | openai.ts        | none        | `http://localhost:1234`                   | — |

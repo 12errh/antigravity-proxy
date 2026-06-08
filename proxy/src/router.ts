@@ -5,12 +5,13 @@ import { createAdapter } from './adapter.js';
 import type { ModelAdapter, StreamChunk } from './adapters/types.js';
 import type { OpenAIMessage } from './mapper.js';
 import type { ModelResolver } from './models.js';
+import { poolFetch } from './http-pool.js';
 
 function fireFailoverWebhook(provider: string, model: string, error: string, status: string): void {
   const url = config.failoverWebhookUrl;
   if (!url) return;
   const body = JSON.stringify({ event: 'failover', provider, model, error, status, timestamp: new Date().toISOString() });
-  fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body }).catch(() => {});
+  poolFetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body } as any).catch(() => {});
 }
 
 export interface RouterOptions {
@@ -139,6 +140,13 @@ export class Router {
     // Second pass: all explicit/candidate providers failed and nothing streamed.
     // Fall back to the global provider priority (excluding ones we already tried)
     // using the model resolver's default mapping for each provider.
+    //
+    // A6 clarification: this filter (global providerIds minus `tried`) effectively
+    // becomes `global - whitelist` after the first pass exhausts the model's
+    // whitelist, which is the intended semantics — try whitelist providers first,
+    // then fall back to any non-whitelist provider if the whitelist is broken.
+    // If you want to disable the global fallback (strict whitelist), set
+    // DISABLE_GLOBAL_FALLBACK=1 in the environment.
     const fallback = providerIds.filter(id => !tried.has(id) && this.adapters.has(id));
     if (fallback.length > 0) {
       logger.warn(`[router] All explicit providers failed for ${model} — falling back to: ${fallback.join(' → ')} (last error: ${lastError})`);

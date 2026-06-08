@@ -53,7 +53,3 @@ export async function scanLocalProviders(): Promise<LocalProviderInfo[]> {
 export function getCachedLocalProviders(): LocalProviderInfo[] {
   return cachedResults;
 }
-
-export function getOnlineLocalProviders(): LocalProviderInfo[] {
-  return cachedResults.filter(isProviderOnline);
-}

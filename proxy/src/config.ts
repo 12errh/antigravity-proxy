@@ -17,14 +17,21 @@ function parsePriority(): ProviderId[] {
   return raw.length > 0 ? raw : ['openrouter', 'nvidia'];
 }
 
+const ENV_KEY_OVERRIDES: Partial<Record<ProviderId, { apiKey?: string; baseUrl?: string }>> = {
+  zen: { apiKey: 'OPENCODE_API_KEY', baseUrl: 'OPENCODE_BASE_URL' },
+};
+
 function buildProviders(priority: ProviderId[], localConfigs?: ProviderConfig[]): ProviderConfig[] {
   const fromPriority: ProviderConfig[] = priority.map((id, idx) => {
+    const override = ENV_KEY_OVERRIDES[id];
     const envKey = id.toUpperCase();
+    const apiKeyEnv = override?.apiKey || `${envKey}_API_KEY`;
+    const baseUrlEnv = override?.baseUrl || `${envKey}_BASE_URL`;
     return {
       id,
       priority: idx,
-      apiKey: process.env[`${envKey}_API_KEY`] || undefined,
-      baseUrl: process.env[`${envKey}_BASE_URL`] || undefined,
+      apiKey: process.env[apiKeyEnv] || undefined,
+      baseUrl: process.env[baseUrlEnv] || undefined,
       enabled: true,
     };
   });

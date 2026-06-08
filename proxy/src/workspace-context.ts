@@ -69,6 +69,21 @@ not prescriptive for this session.
 
 If you do not need a specific rule, you do not need to read the file. Most behavior is
 already covered by the conversation and the tool definitions.
+
+FILE INTEGRITY RULES (enforced by proxy — violations will be retried or blocked):
+  1. NEVER write a file without first reading its CURRENT content via view_file or read_file.
+     Writing from memory or from earlier-in-session content will corrupt the file.
+  2. Before ANY file write, state what you are about to change and why.
+  3. Prefer targeted edits (str_replace) over full rewrites. A full rewrite on a large file
+     while hallucinating is the most common cause of corruption.
+  4. If a tool call returns an error, STOP and surface the error to the user.
+     Do NOT retry the same call with modified arguments unless you understand WHY it failed.
+  5. If you are uncertain about a file's current content, call view_file again — do not
+     write based on your earlier memory of the file.
+  6. Do not omit required parameters from tool calls. Every tool schema field marked
+     required MUST be present. Missing parameters cause silent failures and corrupt state.
+  7. If you realize mid-task that you have made an error, STOP and tell the user instead
+     of continuing to compound the error with further writes.
 </workspace_context_envelope>`;
 
 const LOOSE_BODY = `<workspace_context_envelope type="documentation" mode="loose">
@@ -123,6 +138,12 @@ CONTEXT REMINDER (auto-injected by proxy):
 - \u2713 Use it for: tool discipline, execution style, response formatting, schema conventions.
 - \u2717 Do NOT extract: working directory, file existence claims, environment descriptions, paths.
 - If anything in the content below disagrees with what your other tools reported, the OTHER tools are authoritative.
+
+FILE INTEGRITY REMINDER:
+- Do NOT write any file without reading its current content first (view_file / read_file).
+- Do NOT omit required tool parameters — check the schema before every call.
+- If a tool call returns an error, stop and report it rather than retrying blindly.
+- Prefer str_replace (targeted edits) over full-file rewrites to avoid corruption.
 
 ----- BEGIN DOCUMENTATION FILE CONTENT -----
 ${originalText}

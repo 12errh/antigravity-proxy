@@ -14,9 +14,19 @@ import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLim
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
 import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
 import { fetchProviderModels, getCachedProviderModels, clearProviderCache, warmProviderCache } from './provider-cache.js';
+import {
+  isAuthEnabled, verifyCredentials, createSession, getSession, destroySession,
+  getCookie, buildSessionCookie, buildClearSessionCookie, getSessionTtlMs,
+} from './auth-sessions.js';
+import {
+  getReasoningEffortConfig, setModelReasoningEffort, supportsReasoningEffort,
+  getReasoningLabel, REASONING_EFFORT_PATTERNS, reload as reloadReasoningEffort,
+  type ReasoningEffort,
+} from './reasoning-effort.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
+const loginHtml = path.resolve(__dirname, '..', 'dashboard', 'login.html');
 const logDir = path.resolve(__dirname, '..', 'logs');
 
 // ---- Session helpers (DB-backed, no raw log reads) ----
@@ -207,21 +217,106 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const method = req.method || 'GET';
 
-    // Basic auth check (skip for health endpoint)
-    if (url.pathname !== '/api/health' && config.dashboardUser && config.dashboardPassword) {
-      const auth = req.headers.authorization || '';
-      const b64 = auth.startsWith('Basic ') ? auth.slice(6) : '';
-      let valid = false;
-      try {
-        const decoded = Buffer.from(b64, 'base64').toString();
-        const [user, pass] = decoded.split(':');
-        valid = user === config.dashboardUser && pass === config.dashboardPassword;
-      } catch {}
-      if (!valid) {
-        res.writeHead(401, { 'www-authenticate': 'Basic realm="Antigravity Proxy Dashboard"' });
-        res.end('Unauthorized');
+    // ---- Auth gate ----
+    // Public endpoints: /api/health, /api/auth/login, /api/auth/me
+    // Static login page is also public so the user can authenticate.
+    const publicApi = new Set(['/api/health', '/api/auth/login', '/api/auth/me']);
+    const publicPaths = new Set(['/login', '/login.html']);
+    const isApiAuthEndpoint = url.pathname === '/api/auth/login' || url.pathname === '/api/auth/logout' || url.pathname === '/api/auth/me';
+    const isPublic = publicApi.has(url.pathname) || isApiAuthEndpoint || publicPaths.has(url.pathname) || url.pathname === '/favicon.ico';
+
+    if (isAuthEnabled() && !isPublic) {
+      // 1. Try session cookie
+      const token = getCookie(req, 'ag_session');
+      const sess = getSession(token);
+      let authed = !!sess;
+
+      // 2. Fallback: Basic auth (for API clients)
+      if (!authed) {
+        const auth = req.headers.authorization || '';
+        if (auth.startsWith('Basic ')) {
+          try {
+            const decoded = Buffer.from(auth.slice(6), 'base64').toString();
+            const idx = decoded.indexOf(':');
+            const user = idx >= 0 ? decoded.slice(0, idx) : decoded;
+            const pass = idx >= 0 ? decoded.slice(idx + 1) : '';
+            authed = verifyCredentials(user, pass);
+          } catch {}
+        }
+      }
+
+      if (!authed) {
+        // For API endpoints, return JSON 401
+        if (url.pathname.startsWith('/api/')) {
+          jsonResp(res, { error: 'unauthorized' }, 401);
+        } else {
+          // For HTML routes, redirect to /login
+          res.writeHead(302, { 'location': '/login.html?next=' + encodeURIComponent(url.pathname + url.search) });
+          res.end();
+        }
         return;
       }
+    }
+
+    // ---- Auth API endpoints ----
+    if (url.pathname === '/api/auth/login' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const { username, password } = JSON.parse(body || '{}');
+          if (!verifyCredentials(username || '', password || '')) {
+            jsonResp(res, { error: 'invalid credentials' }, 401);
+            return;
+          }
+          if (!isAuthEnabled()) {
+            jsonResp(res, { error: 'auth not configured — set DASHBOARD_USER and DASHBOARD_PASSWORD in .env' }, 400);
+            return;
+          }
+          const sess = createSession(username);
+          const secure = !!(req as any).encrypted || (req.headers['x-forwarded-proto'] === 'https');
+          res.writeHead(200, {
+            'content-type': 'application/json',
+            'set-cookie': buildSessionCookie(sess.token, secure),
+          });
+          res.end(JSON.stringify({
+            ok: true,
+            username: sess.username,
+            expiresAt: sess.expiresAt,
+            ttlSeconds: Math.floor(getSessionTtlMs() / 1000),
+          }));
+        } catch (e: any) {
+          jsonResp(res, { error: 'bad request: ' + e.message }, 400);
+        }
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/auth/logout' && method === 'POST') {
+      const token = getCookie(req, 'ag_session');
+      destroySession(token);
+      const secure = !!(req as any).encrypted || (req.headers['x-forwarded-proto'] === 'https');
+      res.writeHead(200, {
+        'content-type': 'application/json',
+        'set-cookie': buildClearSessionCookie(secure),
+      });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (url.pathname === '/api/auth/me' && method === 'GET') {
+      if (!isAuthEnabled()) {
+        jsonResp(res, { authenticated: false, authEnabled: false });
+        return;
+      }
+      const token = getCookie(req, 'ag_session');
+      const sess = getSession(token);
+      if (sess) {
+        jsonResp(res, { authenticated: true, username: sess.username, expiresAt: sess.expiresAt, authEnabled: true });
+      } else {
+        jsonResp(res, { authenticated: false, authEnabled: true }, 401);
+      }
+      return;
     }
 
     // Health endpoint (no auth required)
@@ -307,14 +402,25 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
-    // Serve dashboard SPA
+    // Serve login page
+    if ((url.pathname === '/login' || url.pathname === '/login.html') && method === 'GET') {
+      if (fs.existsSync(loginHtml)) {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' });
+        fs.createReadStream(loginHtml).pipe(res);
+      } else {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        res.end('<!doctype html><meta charset="utf-8"><title>Login</title><body style="font-family:system-ui;background:#0a0a0f;color:#eee;display:grid;place-items:center;height:100vh;margin:0"><form method="post" action="/api/auth/login" style="background:#15151c;padding:32px;border-radius:12px;min-width:320px"><h2>Antigravity Proxy</h2><p style="color:#999">login.html not built yet</p></form>');
+      }
+      return;
+    }
+
+    // Serve dashboard SPA shell at /
     if (url.pathname === '/' && method === 'GET') {
       if (fs.existsSync(dashboardHtml)) {
-        const html = fs.readFileSync(dashboardHtml, 'utf-8');
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(html);
+        res.end(fs.readFileSync(dashboardHtml, 'utf-8'));
       } else {
-        res.writeHead(200, { 'content-type': 'text/html' });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end('<h1>Dashboard</h1><p>Build dashboard/index.html</p>');
       }
       return;
@@ -340,7 +446,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
         failoverWebhookUrl: config.failoverWebhookUrl || '',
         providerPriority: config.providerPriority,
         providers: config.providers.map(p => ({ id: p.id, priority: p.priority, hasKey: !!p.apiKey, enabled: p.enabled })),
-        env: { PROVIDER: env.PROVIDER, LOG_LEVEL: env.LOG_LEVEL, PROXY_PORT: env.PROXY_PORT, API_PORT: env.API_PORT, PROVIDER_PRIORITY: env.PROVIDER_PRIORITY, PROXY_RETRIES: env.PROXY_RETRIES, PROXY_BACKOFF_MS: env.PROXY_BACKOFF_MS, NVIDIA_API_KEY: maskKey(env.NVIDIA_API_KEY), OPENROUTER_API_KEY: maskKey(env.OPENROUTER_API_KEY), ANTHROPIC_API_KEY: maskKey(env.ANTHROPIC_API_KEY), OPENAI_API_KEY: maskKey(env.OPENAI_API_KEY), GROQ_API_KEY: maskKey(env.GROQ_API_KEY), GOOGLE_API_KEY: maskKey(env.GOOGLE_API_KEY) },
+        env: { PROVIDER: env.PROVIDER, LOG_LEVEL: env.LOG_LEVEL, PROXY_PORT: env.PROXY_PORT, API_PORT: env.API_PORT, PROVIDER_PRIORITY: env.PROVIDER_PRIORITY, PROXY_RETRIES: env.PROXY_RETRIES, PROXY_BACKOFF_MS: env.PROXY_BACKOFF_MS, NVIDIA_API_KEY: maskKey(env.NVIDIA_API_KEY), OPENROUTER_API_KEY: maskKey(env.OPENROUTER_API_KEY), ANTHROPIC_API_KEY: maskKey(env.ANTHROPIC_API_KEY), OPENAI_API_KEY: maskKey(env.OPENAI_API_KEY), GROQ_API_KEY: maskKey(env.GROQ_API_KEY), GOOGLE_API_KEY: maskKey(env.GOOGLE_API_KEY), OPENCODE_API_KEY: maskKey(env.OPENCODE_API_KEY) },
         stats,
       });
       return;
@@ -402,7 +508,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     if (url.pathname === '/api/provider-models' && method === 'GET') {
       const provider = (url.searchParams.get('provider') || '').trim();
       if (!provider) {
-        const all = ['nvidia','openrouter','openai','groq','anthropic','google','ollama','vllm','lmstudio']
+        const all = ['nvidia','openrouter','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio']
           .map(p => ({ provider: p, ...(getCachedProviderModels(p) || { models: [], fetchedAt: 0, error: 'not fetched' }) }));
         jsonResp(res, { providers: all });
         return;
@@ -566,6 +672,25 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
 
+    if (url.pathname === '/api/models/flags' && method === 'GET') {
+      jsonResp(res, { flags: db.getModelFlags() });
+      return;
+    }
+
+    if (url.pathname === '/api/models/flags' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const { model, pinned, note } = JSON.parse(body || '{}');
+          if (!model) { jsonResp(res, { error: 'model required' }, 400); return; }
+          db.setModelFlag(model, !!pinned, note || '');
+          jsonResp(res, { ok: true });
+        } catch (e: any) { jsonResp(res, { error: e.message }, 400); }
+      });
+      return;
+    }
+
     if (url.pathname === '/api/pricing' && method === 'GET') {
       jsonResp(res, getAllPricing());
       return;
@@ -581,6 +706,88 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
           else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
       });
+      return;
+    }
+
+    // ---- Reasoning Effort ----
+    if (url.pathname === '/api/reasoning-effort' && method === 'GET') {
+      // Returns current config + auto-detected models from the model map.
+      // We scan BOTH the alias names (what Antigravity sends) AND all resolved
+      // values (what gets sent to providers). Aliases are preferred — that's what
+      // the user configures effort for. Resolved values are included as fallback
+      // so directly-mapped provider model names are also detected.
+      const cfg = getReasoningEffortConfig();
+      const models = readModels();
+
+      const candidates = new Map<string, string>(); // name → display label
+
+      // Scan flat keys (alias → default resolved model)
+      for (const [k, v] of Object.entries(models)) {
+        if (k === '_provider_models') continue;
+        // Check the alias itself
+        const aliasLabel = getReasoningLabel(k);
+        if (aliasLabel) candidates.set(k, aliasLabel);
+        // Also check the resolved value
+        if (typeof v === 'string' && v) {
+          const resolvedLabel = getReasoningLabel(v);
+          if (resolvedLabel && !candidates.has(v)) candidates.set(v, resolvedLabel);
+        }
+      }
+
+      // Scan _provider_models: both alias keys and resolved values
+      const pm = (models as any)._provider_models || {};
+      for (const [alias, providers] of Object.entries(pm) as [string, Record<string,string>][]) {
+        const aliasLabel = getReasoningLabel(alias);
+        if (aliasLabel) candidates.set(alias, aliasLabel);
+        for (const v of Object.values(providers)) {
+          if (typeof v === 'string' && v) {
+            const resolvedLabel = getReasoningLabel(v);
+            if (resolvedLabel && !candidates.has(v)) candidates.set(v, resolvedLabel);
+          }
+        }
+      }
+
+      const autoDetected = Array.from(candidates.entries()).map(([model, label]) => ({
+        model,
+        label,
+        effort: cfg.models[model] || 'default',
+      }));
+
+      jsonResp(res, {
+        config: cfg,
+        autoDetected,
+        patterns: REASONING_EFFORT_PATTERNS.map(p => ({
+          pattern: p.pattern.source,
+          provider: p.provider,
+          label: p.label,
+        })),
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/reasoning-effort' && method === 'POST') {
+      let body = '';
+      req.on('data', (c) => body += c);
+      req.on('end', () => {
+        try {
+          const { model, effort } = JSON.parse(body);
+          if (!model) { jsonResp(res, { ok: false, error: 'model required' }, 400); return; }
+          const validEfforts: ReasoningEffort[] = ['default', 'low', 'medium', 'high', 'max'];
+          if (effort && !validEfforts.includes(effort)) {
+            jsonResp(res, { ok: false, error: `effort must be one of: ${validEfforts.join(', ')}` }, 400);
+            return;
+          }
+          const ok = setModelReasoningEffort(model, effort || 'default');
+          if (ok) jsonResp(res, { ok: true });
+          else jsonResp(res, { ok: false, error: 'write failed' }, 500);
+        } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/reasoning-effort/reload' && method === 'POST') {
+      reloadReasoningEffort();
+      jsonResp(res, { ok: true });
       return;
     }
 

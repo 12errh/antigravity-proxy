@@ -1,61 +1,58 @@
 {
   "_provider_models": {
-    "default": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "claude-sonnet-4-6": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "claude-sonnet-4-6-thinking": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
     "claude-opus-4-6": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
+      "zen": "minimax-m3-free"
     },
     "claude-opus-4-6-thinking": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
+      "zen": "minimax-m3-free"
     },
-    "gemini-3.5-flash": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
+    "claude-sonnet-4-6": {
+      "zen": "minimax-m3-free"
     },
-    "gemini-3.5-flash-low": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.5-flash-medium": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.5-flash-high": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3-flash-agent": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.1-flash-lite": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.1-flash": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.1-pro": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.1-pro-low": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-3.1-pro-high": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gemini-pro-agent": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
-    },
-    "gpt-oss-120b": {
-      "google": "gemma-4-31b-it"
-    },
-    "gpt-oss-120b-medium": {
-      "google": "gemma-4-31b-it"
+    "claude-sonnet-4-6-thinking": {
+      "zen": "minimax-m3-free"
     },
     "gemini-2.5-flash": {
-      "nvidia": "stepfun-ai/step-3.7-flash"
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3-flash-agent": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.1-flash": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.1-flash-lite": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.1-pro": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.1-pro-high": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.1-pro-low": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.5-flash": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.5-flash-high": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.5-flash-low": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-3.5-flash-medium": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gemini-pro-agent": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gpt-oss-120b": {
+      "zen": "deepseek-v4-flash-free"
+    },
+    "gpt-oss-120b-medium": {
+      "zen": "deepseek-v4-flash-free"
     }
   }
 }

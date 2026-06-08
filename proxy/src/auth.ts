@@ -2,18 +2,6 @@ import { config } from './config.js';
 import { logger } from './logger.js';
 import { DEFAULT_PROVIDER_CONFIGS } from './adapter.js';
 
-export function getAuthHeaders(): Record<string, string> {
-  return {
-    'Authorization': `Bearer ${config.apiKey}`,
-    'Content-Type': 'application/json',
-  };
-}
-
-export function captureCredentials(metadata: Record<string, string>): void {
-  // Credential interception from incoming requests.
-  // Currently unused - proxy authenticates with its own API key from .env.
-}
-
 function getMissingApiKeyVars(): string[] {
   const missing: string[] = [];
   for (const [id, def] of Object.entries(DEFAULT_PROVIDER_CONFIGS)) {

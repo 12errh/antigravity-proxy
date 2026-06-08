@@ -26,11 +26,12 @@ export class AnthropicAdapter implements ModelAdapter {
     const reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let currentContent = '';
-    let toolName = '';
-    let toolArgs = '';
-    let hasToolUse = false;
     let isThinking = false;
+    // B10: track per-block state in a Map keyed by event.index so that
+    // multiple parallel tool_use blocks in the same response don't overwrite
+    // each other. Anthropic's SSE protocol assigns a unique `index` to each
+    // content_block_start/delta/stop triplet.
+    const toolBlocks = new Map<number, { name: string; args: string }>();
 
     try {
       while (true) {
@@ -55,10 +56,11 @@ export class AnthropicAdapter implements ModelAdapter {
                 yield { type: 'thought', content: event.content_block.thinking };
               }
             }
-            if (event.content_block?.type === 'tool_use') {
-              hasToolUse = true;
-              toolName = event.content_block.name || '';
-              toolArgs = '';
+            if (event.content_block?.type === 'tool_use' && typeof event.index === 'number') {
+              toolBlocks.set(event.index, {
+                name: event.content_block.name || '',
+                args: '',
+              });
             }
           }
           if (event.type === 'content_block_delta') {
@@ -66,22 +68,23 @@ export class AnthropicAdapter implements ModelAdapter {
               yield { type: 'thought', content: event.delta.thinking };
             }
             if (event.delta?.text) {
-              currentContent += event.delta.text;
               yield { type: 'text', content: event.delta.text };
             }
-            if (event.delta?.partial_json) {
-              toolArgs += event.delta.partial_json;
+            if (event.delta?.partial_json && typeof event.index === 'number') {
+              const block = toolBlocks.get(event.index);
+              if (block) block.args += event.delta.partial_json;
             }
           }
           if (event.type === 'content_block_stop') {
             if (isThinking) {
               isThinking = false;
             }
-            if (hasToolUse) {
-              yield { type: 'tool-call', name: toolName, args: this.parseToolArgs(toolArgs) };
-              hasToolUse = false;
-              toolName = '';
-              toolArgs = '';
+            if (typeof event.index === 'number') {
+              const block = toolBlocks.get(event.index);
+              if (block) {
+                yield { type: 'tool-call', name: block.name, args: this.parseToolArgs(block.args) };
+                toolBlocks.delete(event.index);
+              }
             }
           }
         }
@@ -119,6 +122,31 @@ export class AnthropicAdapter implements ModelAdapter {
     if (config?.temperature != null) body.temperature = config.temperature;
     if (config?.topP != null) body.top_p = config.topP;
     if ((config as any)?.stopSequences?.length) body.stop_sequences = (config as any).stopSequences;
+
+    // A3: translate OpenAI-style `reasoningEffort` to Anthropic's `thinking`.
+    // Antigravity sets providerOptions.openai.reasoningEffort = 'low'|'medium'|'high'
+    // when the user wants visible chain-of-thought. Anthropic uses a different
+    // shape: `thinking: { type: 'enabled', budget_tokens: N }`.
+    // We only set this when reasoning is requested (avoids changing behavior
+    // for non-reasoning requests).
+    const providerOptions = (config as any)?.providerOptions;
+    const reasoningEffort: string | undefined = providerOptions?.openai?.reasoningEffort;
+    if (reasoningEffort) {
+      // Approximate budget_tokens by effort level. Anthropic requires
+      // budget_tokens >= 1024, and <= max_tokens.
+      const maxTokens = (body.max_tokens as number) || 4096;
+      const budgetByLevel: Record<string, number> = {
+        low: Math.min(2048, maxTokens - 1),
+        medium: Math.min(8192, maxTokens - 1),
+        high: Math.min(16384, maxTokens - 1),
+      };
+      const budget = budgetByLevel[reasoningEffort]
+        ?? Math.min(8192, maxTokens - 1);
+      // Ensure we respect Anthropic's minimum (1024) and stay below max_tokens.
+      const safeBudget = Math.max(1024, budget);
+      (body as any).thinking = { type: 'enabled', budget_tokens: safeBudget };
+    }
+
     return body;
   }
 
