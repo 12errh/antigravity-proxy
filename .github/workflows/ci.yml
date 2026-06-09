@@ -15,7 +15,7 @@ jobs:
       fail-fast: false   # show all platform failures, not just the first
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node: ['18', '20', '22']
+        node: ['20', '22', '24']
 
     defaults:
       run:

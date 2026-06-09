@@ -10,7 +10,7 @@
   <a href="https://github.com/12errh/antigravity-proxy/actions/workflows/ci.yml">
     <img src="https://github.com/12errh/antigravity-proxy/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
-  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node >=18">
+  <img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node >=20">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
 </p>
@@ -22,7 +22,7 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 ## Requirements
 
 - **Antigravity 2.0 Desktop** (Windows, macOS, or Linux)
-- **Node.js 18+**
+- **Node.js 20+** (Node 18 is EOL — `undici@7` requires the `File` global added in Node 20)
 - **Administrator / root privileges** (for port 443 binding; lower to 8443 if preferred)
 - At least one API key from a supported cloud provider, or a local model server
 

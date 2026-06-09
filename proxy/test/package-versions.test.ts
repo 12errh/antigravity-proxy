@@ -42,13 +42,14 @@ test('A1: package.json has a valid @types/node devDependency (^20-^24.x)', () =>
   assert.match(types, /^\^2[0-4]\.\d+\.\d+/, `@types/node should be a ^20-^24.x range, got: ${types}`);
 });
 
-test('A1: package.json declares engines.node >= 18', () => {
+test('A1: package.json declares engines.node >= 20', () => {
   const nodeEngine = pkg.engines?.node;
   assert.ok(nodeEngine, 'engines.node should be specified');
   const m = nodeEngine.match(/>=(\d+)/);
   assert.ok(m, `engines.node should have a >= constraint, got: ${nodeEngine}`);
   const major = parseInt(m[1], 10);
-  assert.ok(major >= 18, `engines.node should require Node >= 18, got: ${nodeEngine}`);
+  // Node 18 is EOL (April 2025). undici@7 requires Node >= 20 (global File API).
+  assert.ok(major >= 20, `engines.node should require Node >= 20 (Node 18 is EOL and undici@7 requires >=20), got: ${nodeEngine}`);
   // Should not be over-permissive (no unbounded >=)
   assert.ok(/^>=\d+$/.test(nodeEngine), `engines.node should be a simple >= constraint, got: ${nodeEngine}`);
 });

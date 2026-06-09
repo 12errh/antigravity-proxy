@@ -5,7 +5,7 @@
   "type": "module",
   "main": "src/index.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "start": "tsx src/index.ts",
