@@ -104,12 +104,13 @@ export class Router {
         } catch (err: any) {
           if (signal?.aborted) throw err;
 
-          // If we already yielded data to the client, retrying would duplicate content
+          // If we already yielded data to the client, retrying the same provider
+          // would duplicate content. But we CAN still failover to the next provider.
           if (hasStreamedData) {
-            logger.error(`[router] ${providerId} failed mid-stream — cannot retry (would duplicate): ${err.message}`);
-            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failed');
-            yield { type: 'error', content: `Stream failed: ${err.message}`, provider: providerId, resolvedModel };
-            return;
+            logger.error(`[router] ${providerId} failed mid-stream — cannot retry same provider, failing over: ${err.message}`);
+            fireFailoverWebhook(providerId, resolvedModel, err.message, 'failover');
+            yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failover' };
+            break; // Break out of retry loop for this provider, try next candidate
           }
 
           const isLastAttempt = attempt >= perProviderRetries;
@@ -160,16 +161,25 @@ export class Router {
 
         for (let attempt = 0; attempt <= fallbackRetries; attempt++) {
           yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying', fallback: true };
+          let hasStreamedData = false;
           try {
             const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
             for await (const chunk of gen) {
               if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
+              hasStreamedData = true;
               yield { ...chunk, provider: providerId, resolvedModel };
             }
             logger.info(`[router] ${providerId} succeeded (fallback)`);
             return;
           } catch (err: any) {
             if (signal?.aborted) throw err;
+            // Mid-stream failure in fallback — can't retry same provider, try next
+            if (hasStreamedData) {
+              logger.error(`[router] ${providerId} (fallback) failed mid-stream — failing over: ${err.message}`);
+              fireFailoverWebhook(providerId, resolvedModel, err.message, 'failover');
+              yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: 'failover', fallback: true };
+              break;
+            }
             const isLastAttempt = attempt >= fallbackRetries;
             const isLastFallback = fallback.indexOf(providerId) === fallback.length - 1;
             if (isLastAttempt && isLastFallback) {

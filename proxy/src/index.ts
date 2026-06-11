@@ -397,13 +397,22 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     'x-goog-api-version': '2',
   });
 
+  // AbortController: when the client disconnects (stop button, tab close),
+  // the HTTP/2 stream fires 'close'/'aborted'. We propagate the abort signal
+  // through to every provider fetch so they cancel immediately.
+  const abortController = new AbortController();
+  req.on('close', () => abortController.abort());
+  req.on('aborted', () => abortController.abort());
+  // Also handle HTTP/1.1 close if the connection drops
+  res.on('close', () => abortController.abort());
+
   const genStart = Date.now();
   // B12: declared outside the try so the catch handler can read it.
   // The loop body assigns the most recently attempted provider from each
   // 'attempt' chunk; on failure the catch uses it for rate-limit accounting.
   let lastAttemptedProvider = '';
   try {
-    const generator = streamResponse(mapped, model);
+    const generator = streamResponse(mapped, model, abortController.signal);
     let fullText = '';
     let thoughtText = '';
     const toolCalls: { name: string; args: Record<string, unknown> }[] = [];
@@ -413,6 +422,8 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     const failoverEvents: any[] = [];
 
     for await (const chunk of generator) {
+      // If client disconnected mid-stream, stop iterating
+      if (abortController.signal.aborted) break;
       const ctype = (chunk as any).type as string;
       if (ctype === 'attempt') {
         const ap = (chunk as any).provider as string;
@@ -482,15 +493,19 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
       finishReason: 'STOP',
     };
-    res.write(`data: ${JSON.stringify({
-      response: {
-        candidates: [candidate],
-        usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
-        modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
-        responseId,
-      }, traceId, metadata: {},
-    })}\n\n`, 'utf-8');
-    res.end();
+    try {
+      res.write(`data: ${JSON.stringify({
+        response: {
+          candidates: [candidate],
+          usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
+          modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
+          responseId,
+        }, traceId, metadata: {},
+      })}\n\n`, 'utf-8');
+      res.end();
+    } catch {
+      // Stream already closed — nothing to do
+    }
 
     if (toolCalls.length > 0) {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, ${toolCalls.length} tool calls)`, { toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })) });
@@ -509,6 +524,19 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       });
     }
   } catch (err: any) {
+    // If the client disconnected (user clicked stop), abort the response silently.
+    // Do NOT send an error event — the UI already closed the connection.
+    if (abortController.signal.aborted || err.name === 'AbortError') {
+      logger.info(`<<< Aborted by client: ${req.url}`);
+      if (lastAttemptedProvider) recordRequest(lastAttemptedProvider);
+      requestStore.push({
+        id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: '',
+        direction: 'outgoing', type: 'error', content: 'Aborted by client',
+        error: 'client_abort', duration: Date.now() - genStart,
+      });
+      return; // Don't try to write to a closed stream
+    }
+
     logger.error(`<<< Error: ${req.url}`, { error: err.message });
     // B12: account for the failed request in the rate limiter too. Without
     // this, a flood of failing requests from the same provider would never
@@ -531,8 +559,12 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       traceId,
       error: { message: err.message, code: 503 },
     });
-    res.write(`data: ${errResp}\n\n`);
-    res.end();
+    try {
+      res.write(`data: ${errResp}\n\n`);
+      res.end();
+    } catch {
+      // Stream already closed — nothing to do
+    }
   }
 }
 

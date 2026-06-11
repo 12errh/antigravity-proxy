@@ -49,9 +49,13 @@
       "zen": "deepseek-v4-flash-free"
     },
     "gpt-oss-120b": {
+      "openrouter": "stepfun/step-3.7-flash",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "nemotron-3-ultra-free"
     },
     "gpt-oss-120b-medium": {
+      "openrouter": "stepfun/step-3.7-flash",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "nemotron-3-ultra-free"
     }
   }
