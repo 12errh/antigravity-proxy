@@ -83,7 +83,11 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 | Cost tracking & charts (per-day, per-model, per-provider) | ✅ |
 | Single-day cost view | ✅ |
 | SQLite persistence (survives restarts) | ✅ |
-| Local model discovery (Ollama, vLLM, LM Studio) | ✅ |
+| Local model discovery (Ollama, vLLM, LM Studio, llama.cpp, TabbyAPI, LocalAI, LiteLLM, Aphrodite, text-generation-webui) | ✅ |
+| Plugin architecture — dynamic provider registration | ✅ |
+| Universal tool translation (alias resolution, type coercion, default filling) | ✅ |
+| Model capability detection (auto-detect reasoning, vision, tool support from model name) | ✅ |
+| Provider-specific adapter optimizations (Groq, Zen, NVIDIA) | ✅ |
 | Provider model cache (10-min TTL, warm on startup) | ✅ |
 | Rate limiting (global + per-provider) | ✅ |
 | Blocklist (provider, model glob, content regex) | ✅ |
@@ -115,6 +119,12 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 | **Ollama** | Local | *(none)* | Auto-discovered on port 11434 |
 | **vLLM** | Local | *(none)* | Auto-discovered on port 8000 |
 | **LM Studio** | Local | *(none)* | Auto-discovered on port 1234 |
+| **llama.cpp** | Local | *(none)* | Auto-discovered on port 8080 |
+| **text-generation-webui** | Local | *(none)* | Auto-discovered on port 5000 |
+| **TabbyAPI** | Local | *(none)* | Auto-discovered on port 5000 |
+| **LocalAI** | Local | *(none)* | Auto-discovered on port 8080 |
+| **LiteLLM** | Local | *(none)* | Auto-discovered on port 4000 |
+| **Aphrodite Engine** | Local | *(none)* | Auto-discovered on port 8000 |
 
 ---
 
@@ -143,11 +153,13 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 
 1. Receives Antigravity's Gemini API call on port 443 (TLS)
 2. Strips massive inline context, injects a compact `agent-context.md` reference (hardened against context-confusion)
-3. Routes through the **failover router**: iterates providers in priority order, retry + exponential backoff, cap 2 retries per provider when multiple candidates exist
-4. Resolves the model name per provider using the **model matrix** (flat default + per-provider overrides)
-5. Applies **reasoning effort** if configured for the resolved model (`reasoning_effort` param)
-6. Translates to the target provider's API format and streams the response back
-7. Records the request to SQLite for cost tracking, history, and session browsing
+3. **Normalizes tool calls** — resolves aliases (`manageTask`→`manage_task`), coerces types (`"true"`→`true`), fills missing defaults
+4. Routes through the **failover router**: iterates providers in priority order, retry + exponential backoff, cap 2 retries per provider when multiple candidates exist
+5. Resolves the model name per provider using the **model matrix** (flat default + per-provider overrides)
+6. **Detects model capabilities** from model name patterns (reasoning, vision, tool support)
+7. Applies **reasoning effort** if configured for the resolved model (`reasoning_effort` param)
+8. Translates to the target provider's API format using the **plugin architecture** (provider-specific adapters for Groq, Zen, NVIDIA) and streams the response back
+9. Records the request to SQLite for cost tracking, history, and session browsing
 
 ---
 
@@ -245,8 +257,18 @@ antigravity/
     │   │   ├── openai.ts         #   OpenAI-compat (NVIDIA, OpenRouter, Groq, Zen, local)
     │   │   ├── anthropic.ts      #   Anthropic Messages API
     │   │   ├── google.ts         #   Google Gemini API
+    │   │   ├── groq.ts           #   Groq-optimized (image stripping)
+    │   │   ├── zen.ts            #   Zen-optimized (reasoning effort)
+    │   │   ├── nvidia.ts         #   NVIDIA-optimized (reasoning effort)
     │   │   └── types.ts          #   StreamChunk / ModelAdapter interfaces
-    │   ├── adapter.ts            # Provider → adapter registry
+    │   ├── adapter.ts            # Provider → adapter factory (plugin-aware)
+    │   ├── provider-plugin.ts    # IProviderPlugin interface + capabilities
+    │   ├── provider-registry.ts  # Central plugin registry (singleton)
+    │   ├── plugins/
+    │   │   └── builtin-plugins.ts# 10 built-in provider plugin definitions
+    │   ├── tool-capabilities.ts  # ToolCapabilityRegistry (schema + alias resolution)
+    │   ├── tool-normalizer.ts    # normalizeToolCall (alias → canonical, type coercion)
+    │   ├── model-capabilities.ts # Pattern-based model capability detection
     │   ├── router.ts             # Failover orchestrator: retry → backoff → next provider
     │   ├── models.ts             # Per-provider model resolver (hot-reload)
     │   ├── index.ts              # TLS handler, context stripping, SSE event builder
@@ -265,7 +287,7 @@ antigravity/
     │   ├── request-store.ts      # In-memory request ring buffer + search
     │   ├── rate-limiter.ts       # Global + per-provider rate limiting
     │   ├── blocklist.ts          # Provider / model / content blocklist
-    │   ├── local-discovery.ts    # Auto-discover Ollama / vLLM / LM Studio
+    │   ├── local-discovery.ts    # Auto-discover 9+ local inference solutions
     │   ├── http-pool.ts          # HTTP keep-alive + connection pooling
     │   ├── pricing.ts            # Per-model pricing config
     │   └── types.ts              # Google-format type definitions
