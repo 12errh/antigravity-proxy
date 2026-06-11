@@ -94,32 +94,46 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 ## 🚀 How It Works
 
 ```mermaid
-flowchart LR
-    A[Antigravity 2.0 Desktop] --> B[TLS 443]
-    B --> C[Proxy (TypeScript)]
-    C --> D[Provider API]
-    C --> E[Dashboard HTTP 4000]
-    D --> F[OpenRouter]
-    D --> G[NVIDIA NIM]
-    D --> H[OpenAI]
-    D --> I[Groq]
-    D --> J[Anthropic]
-    D --> K[Google Gemini]
-    D --> L[Zen]
-    D --> M[Ollama]
-    D --> N[vLLM]
-    D --> O[LM Studio]
-    D --> P[llama.cpp]
-    D --> Q[text-generation-webui]
-    D --> R[TabbyAPI]
-    D --> S[LocalAI]
-    D --> T[LiteLLM]
-    D --> U[Aphrodite]
-    E --> V[Live logs]
-    E --> W[Request history]
-    E --> X[Config editor]
-    E --> Y[Model matrix]
-    E --> Z[Provider priority]
+flowchart TB
+    subgraph Client["Antigravity 2.0 Desktop"]
+        AG[Antigravity App]
+    end
+    subgraph Proxy["Proxy (TypeScript)"]
+        TL[TLS 443<br/>Intercept]
+        CS[Context<br/>Stripping]
+        TN[Tool<br/>Normalization]
+        RO[Failover<br/>Router]
+        TR[Provider<br/>Translation]
+    end
+    subgraph Dashboard["Dashboard (HTTP 4000)"]
+        LL[Live Logs]
+        RH[Request History]
+        CE[Config Editor]
+        MM[Model Matrix]
+        PP[Provider Priority]
+    end
+    subgraph Cloud["Cloud APIs"]
+        OR[OpenRouter]
+        NV[NVIDIA]
+        OAI[OpenAI]
+        GQ[Groq]
+        AN[Anthropic]
+        GM[Gemini]
+        ZN[Zen]
+    end
+    subgraph Local["Local Inference"]
+        OL[Ollama]
+        VL[vLLM]
+        LMS[LM Studio]
+        LCP[llama.cpp]
+        OTH[Others...]
+    end
+    
+    AG -->|Gemini API| TL
+    TL --> CS --> TN --> RO --> TR
+    TR --> OR & NV & OAI & GQ & AN & GM & ZN
+    TR --> OL & VL & LMS & LCP & OTH
+    RO --> LL & RH & CE & MM & PP
 ```
 
 ### Per Request Pipeline
