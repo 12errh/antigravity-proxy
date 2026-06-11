@@ -76,14 +76,28 @@ export function reloadRouter(): void {
 }
 
 const ANTIGRAVITY_INTERNAL_PARAMS = new Set([
-  'toolAction', 'toolSummary', 'Summary', 'Action', 'ToolAction', 'ToolSummary',
-  'Action', 'Summary',
+  'toolAction', 'toolSummary', 'Summary', 'ToolAction', 'ToolSummary',
+]);
+
+/**
+ * Parameters that Antigravity injects into tool calls for its own routing.
+ * These are stripped before forwarding to the actual tool executor.
+ *
+ * WARNING: 'Action' is NOT included here because it is a legitimate parameter
+ * of the `manage_task` tool (Action: "list" | "kill" | "kill_all" | "status" | "send_input").
+ * Stripping it would cause manage_task to always fail with "Action required".
+ *
+ * 'Summary' is also excluded because some models use it as a legitimate param.
+ * Only strip known-internal params that have no meaning to any tool.
+ */
+const ANTIGRAVITY_INTERNAL_ONLY = new Set([
+  'toolAction', 'toolSummary', 'ToolAction', 'ToolSummary',
 ]);
 
 function stripUnknownArgs(args: Record<string, unknown>, _toolName: string, _tools: Record<string, any> | undefined): Record<string, unknown> {
   const cleaned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
-    if (!ANTIGRAVITY_INTERNAL_PARAMS.has(key)) cleaned[key] = value;
+    if (!ANTIGRAVITY_INTERNAL_ONLY.has(key)) cleaned[key] = value;
   }
   return Object.keys(cleaned).length > 0 ? cleaned : args;
 }
