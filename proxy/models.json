@@ -49,10 +49,10 @@
       "zen": "deepseek-v4-flash-free"
     },
     "gpt-oss-120b": {
-      "zen": "deepseek-v4-flash-free"
+      "zen": "nemotron-3-ultra-free"
     },
     "gpt-oss-120b-medium": {
-      "zen": "deepseek-v4-flash-free"
+      "zen": "nemotron-3-ultra-free"
     }
   }
 }

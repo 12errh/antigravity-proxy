@@ -3,8 +3,12 @@ import { logger } from './logger.js';
 import { Router } from './router.js';
 import { modelResolver } from './models.js';
 import { ANTIGRAVITY_CONTEXT } from './antigravity-context.js';
+import { registerBuiltinPlugins } from './plugins/builtin-plugins.js';
 import type { MappedRequest } from './mapper.js';
 import type { OpenAIMessage } from './mapper.js';
+
+// Ensure built-in plugins are registered at module load time
+registerBuiltinPlugins();
 
 export function extractConvId(requestId: string): string {
   const parts = requestId?.split('/') || [];
