@@ -22,20 +22,22 @@ export const ANTIGRAVITY_CONTEXT = {
 ### Critical: manage_task
 **Use this tool ONLY for background process management**
 
+**⚠️ Action parameter is ALWAYS required — never call manage_task without it**
+
 \`\`\`
 manage_task(
-  Action: "list" | "kill" | "kill_all" | "status" | "send_input",  ← REQUIRED
-  TaskId?: string,    // required for "kill", "status", "send_input" 
+  Action: "list" | "kill" | "kill_all" | "status" | "send_input",  ← REQUIRED — always include this
+  TaskId?: string,    // required for "kill", "status", "send_input"
   Input?: string       // for "send_input" — stdin to send to the running task
 )
 \`\`\`
 
-**Action Usage Examples:**
-- "list": Check all running background tasks (servers, processes)
-- "status": Get details of a specific running task (port, log file)
-- "kill": Stop a specific running process (server, database)
-- "kill_all": Stop ALL running processes
-- "send_input": Send input to a running task (restart, reload config)
+**CORRECT** — always include Action:
+- manage_task(Action="status", TaskId="...")  ✓
+- manage_task(Action="list")                   ✓
+
+**WRONG** — will fail:
+- manage_task(TaskId="...")                    ✗ missing Action!
 
 **NEVER use manage_task for:** TODO items, project management, task tracking
 
@@ -134,7 +136,7 @@ replace_file_content(
 
 | Error Message | Root Cause | Fix |
 |---|---|---|
-| "Action must be one of: list, kill, kill_all, status, send_input" | Wrong/missing Action parameter | Set Action correctly |
+| "Action must be one of: list, kill, kill_all, status, send_input" | **Called manage_task without Action** | **Always include Action= — this is required** |
 | PowerShell && error | Wrong shell syntax | Replace && with ; |
 | "Overwrite is false" | write_to_file without Overwrite:true | Set Overwrite: true |
 | "File not found" | Wrong path | Use list_dir to verify path |

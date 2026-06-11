@@ -348,6 +348,10 @@ The system will notify you when it completes. Do NOT poll the task.
 | `"kill_all"` | Terminate all running tasks | Cleanup at end of session | `manage_task(Action="kill_all")` |
 | `"send_input"` | Send stdin input to a running task | Interact with running process | `manage_task(Action="send_input", TaskId="task-uuid", Input="restart")` |
 
+**⚠️ Action is ALWAYS required.** These will FAIL:
+- `manage_task(TaskId="...")` — ✗ missing Action!
+- `manage_task("status", TaskId="...")` — ✗ wrong format!
+
 **Critical Usage Rules:**
 - Start background tasks with: `run_command(..., WaitMsBeforeAsync=200)`
 - ALWAYS check status after starting: `manage_task(Action="status", TaskId)`
@@ -844,7 +848,7 @@ write_to_file(
 | Error | Root Cause | Fix |
 |-------|-----------|-----|
 | PowerShell `&&` error | Wrong shell syntax | Replace `&&` with `;` |
-| "Action must be one of: list, kill, kill_all, status, send_input" | `manage_task` wrong Action | Set Action correctly |
+| "Action must be one of: list, kill, kill_all, status, send_input" | **Called manage_task without Action=** | **Always include Action= — this is required** |
 | "Overwrite is false" | `write_to_file` without Overwrite:true | Set Overwrite: true |
 | "File not found" | Wrong path | Use `list_dir` to verify path exists |
 | "Permission denied" | Missing permission | Use `ask_permission` to request access |
