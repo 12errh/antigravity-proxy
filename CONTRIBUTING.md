@@ -9,14 +9,16 @@ Thanks for wanting to contribute. This is a working proxy used in production —
 **Good contributions:**
 - Bug reports with reproduction steps and proxy logs
 - Fixes with a clear root cause explanation
-- New provider adapters (follow the pattern in `src/adapters/`)
+- New provider adapters (implement `IProviderPlugin`, register with `providerRegistry` — see [Developer Guide](docs/DEVELOPER.md))
+- Tool schemas for new well-known tools (add to `proxy/src/tool-capabilities.ts`)
+- Model capability patterns (add to `proxy/src/model-capabilities.ts`)
 - Dashboard UI improvements that don't break existing functionality
 - Documentation corrections (accuracy matters — no fluff)
 
 **Not accepted:**
 - Features that add dependencies without a strong justification
 - Refactors with no functional change and no test coverage
-- Anything that breaks the existing 49-test suite
+- Anything that breaks the existing test suite
 
 ---
 
@@ -25,6 +27,7 @@ Thanks for wanting to contribute. This is a working proxy used in production —
 1. Search existing issues and PRs — your idea may already be in progress
 2. For non-trivial changes, open an issue first and describe what you want to do
 3. For bug fixes, include the relevant proxy log lines
+4. Read the [Developer Guide](docs/DEVELOPER.md) for plugin architecture, tool normalization, and model capability detection
 
 ---
 
@@ -40,6 +43,8 @@ npm test
 ```
 
 Tests must all pass before you submit a PR.
+
+**Note:** The project has 126 tests across 11 test files. Run `npm test` to verify all pass.
 
 ---
 
@@ -76,7 +81,7 @@ The dashboard is a single `proxy/dashboard/index.html` file — zero build step.
 ## Pull Request Checklist
 
 - [ ] `npm run typecheck` passes with no errors
-- [ ] `npm test` passes (all 49 tests green)
+- [ ] `npm test` passes (all tests green — currently 126)
 - [ ] No `console.log` or debug code left in
 - [ ] No secrets or hardcoded credentials
 - [ ] PR description explains what changed and why

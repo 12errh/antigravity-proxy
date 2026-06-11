@@ -8,7 +8,7 @@
 #   Include your OS version, Node.js version, and the full error output.
 #
 # Usage: ./start.sh [--port 8443]
-# Requires: Node.js 18+, npm
+# Requires: Node.js 20+, npm
 # Port 443 requires root/sudo. Use --port 8443 to avoid it.
 set -euo pipefail
 
@@ -41,8 +41,8 @@ if ! command -v node &>/dev/null; then
 fi
 NODE_VER=$(node --version | sed 's/v//')
 NODE_MAJOR=$(echo "$NODE_VER" | cut -d. -f1)
-if [[ "$NODE_MAJOR" -lt 18 ]]; then
-  err "Node.js 18+ required (found v$NODE_VER)"
+if [[ "$NODE_MAJOR" -lt 20 ]]; then
+  err "Node.js 20+ required (found v$NODE_VER)"
   exit 1
 fi
 ok "Node.js v$NODE_VER"

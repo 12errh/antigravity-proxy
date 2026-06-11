@@ -6,6 +6,63 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [b45f803] — 2026-06-11
+
+### Added
+
+- **Plugin Architecture (Phase 1)** — complete provider plugin system:
+  - `IProviderPlugin` interface with `getAdapter()`, `getCapabilities()`, `validateConfig()` methods
+  - `ProviderRegistry` singleton for dynamic provider registration
+  - 10 built-in provider plugins (OpenAI, Anthropic, Google, NVIDIA, OpenRouter, Groq, Zen, Ollama, vLLM, LM Studio)
+  - `provider-cache.ts` with 10-minute TTL for model lists
+
+- **Universal Tool Normalization (Phase 2)** — resolves tool call issues from external LLMs:
+  - `ToolCapabilityRegistry` with 7 well-known tool schemas (`manage_task`, `run_command`, `write_to_file`, etc.)
+  - `normalizeToolCall()` — alias resolution (`manageTask`→`manage_task`), param aliases (`command`→`CommandLine`)
+  - Type coercion (`"true"`→`true`, `"123"`→`123`), default filling (`manage_task` missing `Action` → `"list"`)
+  - Unknown param stripping to prevent errors
+
+- **Enhanced Model Discovery (Phase 3)** — expanded local provider support:
+  - 9 local providers: Ollama, vLLM, LM Studio, llama.cpp, text-generation-webui, TabbyAPI, LocalAI, LiteLLM, Aphrodite
+  - `detectModelCapabilities()` — pattern-based detection for reasoning (R1, QwQ, o-series, etc.), vision, tool support
+  - `detectModelCapabilitiesWithProvider()` — merges provider capabilities with model patterns
+
+- **Provider-Specific Adapters (Phase 4)** — optimized adapters:
+  - `GroqAdapter` — strips images (Groq doesn't support vision)
+  - `ZenAdapter` — forwards `reasoning_effort` parameter to Zen/OpenCode gateway
+  - `NvidiaAdapter` — forwards `reasoning_effort` for NVIDIA stepfun models
+
+- **Universal Reasoning Extraction** — extracts thought content from any field name:
+  - Supports `reasoning_content`, `thinking`, `reasoning`, `reasoning_text`, `thinking_content`, etc.
+  - Automatically parses `<think>...</think>` tags in response text
+
+- **Developer Guide** (`docs/DEVELOPER.md`) — comprehensive documentation:
+  - Plugin architecture overview and usage examples
+  - Step-by-step guide for adding new providers
+  - Custom adapter creation patterns (image stripping, reasoning effort)
+  - Tool normalization system and how to add tool schemas
+  - Model capability detection and pattern matching
+  - Testing guidelines (running and writing tests)
+
+- **Comprehensive Test Suite** — 4 new test files (126 total tests):
+  - `plugin-architecture.test.ts` — ProviderRegistry, IProviderPlugin, adapter factory
+  - `tool-translation.test.ts` — ToolCapabilityRegistry, normalizeToolCall
+  - `model-discovery.test.ts` — Pattern-based capability detection, caching
+  - `provider-adapters.test.ts` — Groq, Zen, NVIDIA adapter behavior
+
+### Changed
+
+- **README rewritten** — modernized with mermaid diagrams, organized sections, comprehensive provider list
+- **Node.js minimum version bumped to 20+** — `undici@7` requires the `File` global added in Node 20
+
+### Fixed
+
+- **`manage_task` failures with DeepSeek/mimo** — models now correctly receive required `Action` parameter with default value
+- **Reasoning/thought content not displaying** — universal extraction from any field name and `<think>` tags
+- **Tool normalization** — external LLM tool calls are now properly normalized before forwarding
+
+---
+
 ## [adef7e7] — 2026-06-10
 
 ### Fixed

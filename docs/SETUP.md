@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Node.js 18+** — [nodejs.org](https://nodejs.org) or via a package manager
+- **Node.js 20+** — [nodejs.org](https://nodejs.org) or via a package manager (Node 18 is EOL)
 - **npm** (included with Node.js)
 - **Administrator / root privileges** — required to bind port 443 (can use port 8443 instead)
 - At least one API key from a supported provider (or a local model server)
