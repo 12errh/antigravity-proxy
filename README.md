@@ -360,6 +360,7 @@ CONTEXT_STRIP_MODE=strip            # strip (default) | passthrough
 
 - [Setup Guide](docs/SETUP.md)
 - [Configuration Reference](docs/CONFIGURATION.md)
+- [Developer Guide — Adding Providers](docs/DEVELOPER.md) ← **New contributors start here**
 - [Antigravity v2 Protocol Analysis](docs/antigravity-v2-analysis.md)
 - [CHANGELOG](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
