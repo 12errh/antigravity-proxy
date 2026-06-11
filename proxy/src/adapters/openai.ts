@@ -34,9 +34,9 @@ function extractReasoning(obj: Record<string, unknown> | null | undefined): stri
 
 export class OpenAICompatAdapter implements ModelAdapter {
   provider: string;
-  private baseUrl: string;
-  private apiKey: string;
-  private supportsImages: boolean;
+  protected baseUrl: string;
+  protected apiKey: string;
+  protected supportsImages: boolean;
 
   constructor(provider: string, baseUrl: string, apiKey: string) {
     this.provider = provider;
@@ -195,7 +195,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
   // (kept for potential future per-provider guards; effort is now driven by model config)
   private static REASONING_PROVIDERS = new Set(['openai', 'zen', 'nvidia', 'openrouter', 'groq']);
 
-  private buildRequest(
+  protected buildRequest(
     model: string,
     messages: OpenAIMessage[],
     tools?: Record<string, unknown>,
@@ -220,7 +220,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
     return body;
   }
 
-  private serializeMessages(messages: OpenAIMessage[]): any[] {
+  protected serializeMessages(messages: OpenAIMessage[]): any[] {
     return messages.map(m => {
       const out: any = { role: m.role };
       if (Array.isArray(m.content)) {
@@ -242,7 +242,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
     });
   }
 
-  private async fetchWithRetry(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
+  protected async fetchWithRetry(body: Record<string, unknown>, signal?: AbortSignal): Promise<Response> {
     const response = await poolFetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -259,12 +259,12 @@ export class OpenAICompatAdapter implements ModelAdapter {
     return response;
   }
 
-  private isStreaming(res: Response): boolean {
+  protected isStreaming(res: Response): boolean {
     const ct = (res.headers.get('content-type') || '').toLowerCase();
     return ct.includes('text/event-stream') || ct.includes('application/x-ndjson');
   }
 
-  private parseToolArgs(raw: string): Record<string, unknown> {
+  protected parseToolArgs(raw: string): Record<string, unknown> {
     try { return JSON.parse(raw); } catch { return {}; }
   }
 }

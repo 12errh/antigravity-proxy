@@ -16,6 +16,9 @@ import type { ModelAdapter } from '../adapters/types.js';
 import { OpenAICompatAdapter } from '../adapters/openai.js';
 import { AnthropicAdapter } from '../adapters/anthropic.js';
 import { GoogleAdapter } from '../adapters/google.js';
+import { GroqAdapter } from '../adapters/groq.js';
+import { ZenAdapter } from '../adapters/zen.js';
+import { NvidiaAdapter } from '../adapters/nvidia.js';
 import { DEFAULT_CAPABILITIES } from '../provider-plugin.js';
 
 // ─── Provider definitions ──────────────────────────────────────────────
@@ -115,6 +118,15 @@ const BUILTIN_PROVIDERS: ProviderDef[] = [
 // ─── Plugin factory ────────────────────────────────────────────────────
 
 function createAdapterForType(type: 'openai' | 'anthropic' | 'google', cfg: ProviderConfig): ModelAdapter {
+  // Use provider-specific adapters for optimized behavior
+  switch (cfg.id) {
+    case 'groq':
+      return new GroqAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
+    case 'zen':
+      return new ZenAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
+    case 'nvidia':
+      return new NvidiaAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
+  }
   switch (type) {
     case 'openai':
       return new OpenAICompatAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');

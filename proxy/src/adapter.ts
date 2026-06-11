@@ -1,5 +1,8 @@
 import type { ModelAdapter, StreamChunk } from './adapters/types.js';
 import { OpenAICompatAdapter } from './adapters/openai.js';
+import { GroqAdapter } from './adapters/groq.js';
+import { ZenAdapter } from './adapters/zen.js';
+import { NvidiaAdapter } from './adapters/nvidia.js';
 import { AnthropicAdapter } from './adapters/anthropic.js';
 import { GoogleAdapter } from './adapters/google.js';
 import { providerRegistry } from './provider-registry.js';
@@ -58,6 +61,15 @@ export function createAdapter(cfg: ProviderConfig): ModelAdapter {
   }
   const baseUrl = cfg.baseUrl || defaults.baseUrl;
   const apiKey = cfg.apiKey || '';
+  // Use provider-specific adapters when available
+  switch (cfg.id) {
+    case 'groq':
+      return new GroqAdapter(cfg.id, baseUrl, apiKey);
+    case 'zen':
+      return new ZenAdapter(cfg.id, baseUrl, apiKey);
+    case 'nvidia':
+      return new NvidiaAdapter(cfg.id, baseUrl, apiKey);
+  }
   switch (defaults.adapterType) {
     case 'openai':
       return new OpenAICompatAdapter(cfg.id, baseUrl, apiKey);
