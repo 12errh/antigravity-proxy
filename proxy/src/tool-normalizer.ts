@@ -47,15 +47,18 @@ function coerceValue(value: unknown, targetType: string): unknown {
       }
       return value;
     }
-    default:
-      if (typeof value === 'object') {
-        try {
-          return typeof value === 'string' ? value : JSON.stringify(value);
-        } catch {
-          return String(value);
-        }
+    case 'array':
+      // Arrays should pass through as-is — don't JSON.stringify them
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        try { return JSON.parse(value); } catch { return [value]; }
       }
-      return String(value);
+      return value;
+    default:
+      // For object types that aren't arrays, pass through unchanged
+      if (typeof value === 'object' && !Array.isArray(value)) return value;
+      // For string-like types, convert to string
+      return typeof value === 'string' ? value : String(value);
   }
 }
 

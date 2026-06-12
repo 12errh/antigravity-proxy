@@ -47,11 +47,17 @@ test('T1: ToolCapabilityRegistry passes through unknown names', () => {
   assert.equal(registry.resolveName('completely_unknown_tool'), 'completely_unknown_tool');
 });
 
-test('T1: ToolCapabilityRegistry fuzzy matches aliases', () => {
+test('T1: ToolCapabilityRegistry does not over-match short substrings', () => {
   const registry = new ToolCapabilityRegistry();
-  // "manage" is contained in "manage_task" alias "manageTask" → should resolve
+  // "manage" is only 6 chars and is a substring of "manage_subagents" too,
+  // so the strict fuzzy matcher should NOT resolve it to avoid ambiguity
   const resolved = registry.resolveName('manage');
-  assert.equal(resolved, 'manage_task', 'fuzzy match should resolve "manage" to manage_task');
+  assert.equal(resolved, 'manage', 'short substring "manage" should NOT fuzzy match to avoid over-matching');
+
+  // But full alias names still resolve correctly
+  assert.equal(registry.resolveName('manageTask'), 'manage_task', 'camelCase alias should resolve');
+  assert.equal(registry.resolveName('manage-tasks'), 'manage_task', 'kebab alias should resolve');
+  assert.equal(registry.resolveName('manage_subagents'), 'manage_subagents', 'distinct tool name should not be confused');
 });
 
 test('T1: ToolCapabilityRegistry getSchema returns tool schema', () => {
@@ -256,4 +262,122 @@ test('T2: normalizeToolCalls handles array of tool calls', () => {
 test('T2: normalizeToolCalls handles empty array', () => {
   const results = normalizeToolCalls([]);
   assert.deepEqual(results, [], 'should return empty array');
+});
+
+// ─── Schedule tool tests ────────────────────────────────────────────────
+
+test('T2: schedule accepts DurationSeconds as string (Go backend expects string)', () => {
+  const result = normalizeToolCall('schedule', {
+    prompt: 'Run this later',
+    DurationSeconds: '60',
+  });
+  assert.equal(result.name, 'schedule');
+  assert.equal(result.args.Prompt, 'Run this later');
+  assert.equal(result.args.DurationSeconds, '60', 'should keep string as string');
+});
+
+test('T2: schedule coerces DurationSeconds number to string', () => {
+  const result = normalizeToolCall('schedule', {
+    prompt: 'Run this later',
+    DurationSeconds: 60,
+  });
+  assert.equal(result.name, 'schedule');
+  assert.equal(result.args.DurationSeconds, '60', 'should coerce number 60 to string "60"');
+});
+
+test('T2: schedule accepts CronExpression', () => {
+  const result = normalizeToolCall('schedule', {
+    Prompt: 'Daily check',
+    CronExpression: '0 9 * * *',
+  });
+  assert.equal(result.args.Prompt, 'Daily check');
+  assert.equal(result.args.CronExpression, '0 9 * * *');
+});
+
+test('T2: schedule resolves alias duration_seconds', () => {
+  const result = normalizeToolCall('schedule', {
+    Prompt: 'Remind me',
+    duration_seconds: '120',
+  });
+  assert.equal(result.args.DurationSeconds, '120', 'should resolve duration_seconds → DurationSeconds');
+});
+
+// ─── ask_question tool tests ────────────────────────────────────────────
+
+test('T2: ask_question passes questions array (Go backend expects array)', () => {
+  const result = normalizeToolCall('ask_question', {
+    questions: [{ text: 'Which port?', options: [3000, 4000, 8080] }],
+  });
+  assert.equal(result.name, 'ask_question');
+  assert.ok(Array.isArray(result.args.questions), 'questions should be an array');
+  assert.equal(result.args.questions[0].text, 'Which port?');
+});
+
+test('T2: ask_question resolves alias question (singular) to questions', () => {
+  const result = normalizeToolCall('ask_question', {
+    question: 'Continue?',
+    options: ['yes', 'no'],
+  });
+  assert.equal(result.name, 'ask_question');
+  // question alias maps to questions, but the value is a string not an array
+  // so it gets wrapped in an array by coercion
+  assert.ok(result.args.questions, 'should resolve question → questions');
+});
+
+test('T2: ask_question resolves aliases', () => {
+  const result = normalizeToolCall('askQuestion', {
+    q: 'Pick one',
+    items: [{ text: 'A' }, { text: 'B' }],
+  });
+  assert.equal(result.name, 'ask_question');
+  assert.ok(Array.isArray(result.args.questions), 'q alias should resolve to questions');
+});
+
+// ─── manage_subagents tool tests ────────────────────────────────────────
+
+test('T2: manage_subagents kill with ConversationIds array', () => {
+  const result = normalizeToolCall('manage_subagents', {
+    action: 'kill',
+    ConversationIds: ['conv-1', 'conv-2'],
+  });
+  assert.equal(result.name, 'manage_subagents');
+  assert.equal(result.args.Action, 'kill');
+  assert.ok(Array.isArray(result.args.ConversationIds), 'ConversationIds should be an array');
+  assert.deepEqual(result.args.ConversationIds, ['conv-1', 'conv-2']);
+});
+
+test('T2: manage_subagents resolves alias conversation_ids', () => {
+  const result = normalizeToolCall('manage_subagents', {
+    Action: 'kill',
+    conversation_ids: ['conv-1'],
+  });
+  assert.equal(result.args.ConversationIds[0], 'conv-1', 'should resolve conversation_ids → ConversationIds');
+});
+
+test('T2: manage_subagents list works without ConversationIds', () => {
+  const result = normalizeToolCall('manage_subagents', { action: 'list' });
+  assert.equal(result.args.Action, 'list');
+  assert.equal(result.args.ConversationIds, undefined, 'no ConversationIds for list action');
+});
+
+// ─── ask_permission tool tests ──────────────────────────────────────────
+
+test('T2: ask_permission accepts Action and Target (Go backend expects these)', () => {
+  const result = normalizeToolCall('ask_permission', {
+    Action: 'file_write',
+    Target: '/tmp/test.txt',
+  });
+  assert.equal(result.name, 'ask_permission');
+  assert.equal(result.args.Action, 'file_write');
+  assert.equal(result.args.Target, '/tmp/test.txt');
+});
+
+test('T2: ask_permission resolves aliases permission/reason → Action/Target', () => {
+  const result = normalizeToolCall('askPermission', {
+    permission: 'network',
+    reason: 'Need to fetch data',
+  });
+  assert.equal(result.name, 'ask_permission');
+  assert.equal(result.args.Action, 'network', 'permission alias should resolve to Action');
+  assert.equal(result.args.Target, 'Need to fetch data', 'reason alias should resolve to Target');
 });

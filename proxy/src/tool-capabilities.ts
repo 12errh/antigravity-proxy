@@ -177,8 +177,14 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
       AbsolutePath: {
         type: 'string',
         required: false,
-        description: 'Directory path to list',
-        aliases: ['path', 'dir', 'directory', 'Dir', 'DirectoryPath'],
+        description: 'Directory path to list (absolute)',
+        aliases: ['path', 'file_path', 'filepath'],
+      },
+      DirectoryPath: {
+        type: 'string',
+        required: false,
+        description: 'Directory path to list (alternative name)',
+        aliases: ['dir', 'directory', 'Dir', 'folder'],
       },
     },
   },
@@ -220,6 +226,246 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
       },
     },
   },
+  // ─── Agent Orchestration Tools ────────────────────────────────────────
+  {
+    name: 'invoke_subagent',
+    aliases: ['invokeSubagent', 'invoke-subagent', 'spawn_agent', 'spawnAgent'],
+    description: 'Spawn a specialist subagent for complex/parallel tasks',
+    params: {
+      Subagents: {
+        type: 'array',
+        required: true,
+        description: 'Array of subagent configs with TypeName, Role, and Prompt',
+        aliases: ['subagents', 'agents', 'tasks'],
+      },
+    },
+  },
+  {
+    name: 'define_subagent',
+    aliases: ['defineSubagent', 'define-subagent', 'register_agent', 'registerAgent'],
+    description: 'Register a custom subagent type for reuse',
+    params: {
+      name: {
+        type: 'string',
+        required: true,
+        description: 'Unique name for the subagent type',
+        aliases: ['agent_name', 'agentName', 'type'],
+      },
+      description: {
+        type: 'string',
+        required: true,
+        description: 'Description of what this subagent does',
+        aliases: ['desc', 'summary'],
+      },
+      system_prompt: {
+        type: 'string',
+        required: true,
+        description: 'System prompt that defines the subagent behavior',
+        aliases: ['systemPrompt', 'prompt', 'instructions'],
+      },
+    },
+  },
+  {
+    name: 'manage_subagents',
+    aliases: ['manageSubagents', 'manage-subagents', 'subagent_control'],
+    description: 'List or kill running subagents. For kill action you MUST provide ConversationIds array.',
+    params: {
+      Action: {
+        type: 'string',
+        required: true,
+        description: 'Action: list, kill, kill_all',
+        default: 'list',
+        aliases: ['action', 'cmd'],
+      },
+      ConversationIds: {
+        type: 'array',
+        required: false,
+        description: 'REQUIRED for kill action. Array of conversation ID strings to kill (e.g. ["conv-id-1", "conv-id-2"]). Get these from manage_subagents(Action="list") first.',
+        aliases: ['conversation_ids', 'conversationIds', 'ids', 'subagent_ids', 'subagent_id', 'id', 'conv_ids', 'convId', 'conversationID', 'conversation_id'],
+      },
+    },
+  },
+  {
+    name: 'send_message',
+    aliases: ['sendMessage', 'send-message', 'message_agent', 'msg'],
+    description: 'Send a message to a running subagent',
+    params: {
+      Recipient: {
+        type: 'string',
+        required: true,
+        description: 'Conversation ID of the recipient subagent',
+        aliases: ['recipient', 'conv_id', 'convId', 'target', 'to'],
+      },
+      Message: {
+        type: 'string',
+        required: true,
+        description: 'Message content to send',
+        aliases: ['message', 'content', 'text', 'msg'],
+      },
+    },
+  },
+  // ─── Research & Browser Tools ─────────────────────────────────────────
+  {
+    name: 'search_web',
+    aliases: ['searchWeb', 'search-web', 'web_search', 'webSearch', 'search'],
+    description: 'Search the web for information',
+    params: {
+      query: {
+        type: 'string',
+        required: true,
+        description: 'Search query string',
+        aliases: ['q', 'search', 'keyword', 'keywords'],
+      },
+      domain: {
+        type: 'string',
+        required: false,
+        description: 'Limit search to a specific domain',
+        aliases: ['site', 'source'],
+      },
+    },
+  },
+  {
+    name: 'read_url_content',
+    aliases: ['readUrlContent', 'read-url-content', 'fetch_url', 'fetchUrl', 'read_url'],
+    description: 'Fetch and read content from a URL',
+    params: {
+      Url: {
+        type: 'string',
+        required: true,
+        description: 'The URL to fetch content from',
+        aliases: ['url', 'uri', 'link', 'href'],
+      },
+    },
+  },
+  {
+    name: 'browser_action',
+    aliases: ['browserAction', 'browser-action', 'browser'],
+    description: 'Control a browser session (navigate, click, type, screenshot, etc.)',
+    params: {
+      action: {
+        type: 'string',
+        required: true,
+        description: 'Action: navigate, click, type, screenshot, scroll, wait, close, get_html, get_text',
+        aliases: ['Action', 'cmd', 'command'],
+      },
+      url: {
+        type: 'string',
+        required: false,
+        description: 'URL for navigate action',
+        aliases: ['Url', 'uri'],
+      },
+      selector: {
+        type: 'string',
+        required: false,
+        description: 'CSS selector for click/type actions',
+        aliases: ['sel', 'element', 'css'],
+      },
+      text: {
+        type: 'string',
+        required: false,
+        description: 'Text for type action',
+        aliases: ['value', 'input'],
+      },
+    },
+  },
+  {
+    name: 'start_browser_session',
+    aliases: ['startBrowserSession', 'start-browser-session', 'browser_session', 'open_browser'],
+    description: 'Start a new browser session',
+    params: {
+      url: {
+        type: 'string',
+        required: false,
+        description: 'Optional URL to navigate to on start',
+        aliases: ['Url', 'start_url', 'startUrl'],
+      },
+    },
+  },
+  // ─── Interaction & Utility Tools ──────────────────────────────────────
+  {
+    name: 'ask_permission',
+    aliases: ['askPermission', 'ask-permission', 'request_permission', 'requestPermission'],
+    description: 'Request a permission grant from the user',
+    params: {
+      Action: {
+        type: 'string',
+        required: true,
+        description: 'Action to request: e.g. file_write, network, command',
+        aliases: ['action', 'permission', 'perm', 'scope'],
+      },
+      Target: {
+        type: 'string',
+        required: true,
+        description: 'Target path or resource for the permission',
+        aliases: ['target', 'reason', 'why', 'purpose', 'path'],
+      },
+    },
+  },
+  {
+    name: 'ask_question',
+    aliases: ['askQuestion', 'ask-question', 'question', 'prompt_user'],
+    description: 'Ask the user a question with multiple choice options',
+    params: {
+      questions: {
+        type: 'array',
+        required: true,
+        description: 'Array of question objects, each with text and optional options',
+        aliases: ['question', 'q', 'items', 'entries'],
+      },
+    },
+  },
+  {
+    name: 'list_permissions',
+    aliases: ['listPermissions', 'list-permissions', 'permissions', 'show_permissions'],
+    description: 'List all granted and available permissions',
+    params: {
+      // No required params
+    },
+  },
+  {
+    name: 'generate_image',
+    aliases: ['generateImage', 'generate-image', 'create_image', 'createImage', 'draw'],
+    description: 'Generate an AI image',
+    params: {
+      Prompt: {
+        type: 'string',
+        required: true,
+        description: 'Description of the image to generate',
+        aliases: ['prompt', 'description', 'desc'],
+      },
+      ImageName: {
+        type: 'string',
+        required: true,
+        description: 'Filename to save the image as',
+        aliases: ['image_name', 'imageName', 'filename', 'name', 'file'],
+      },
+    },
+  },
+  {
+    name: 'schedule',
+    aliases: ['timer', 'cron', 'reminder', 'schedule_task'],
+    description: 'Schedule a prompt to run after a delay or on a cron schedule',
+    params: {
+      Prompt: {
+        type: 'string',
+        required: true,
+        description: 'The prompt to execute when the schedule fires',
+        aliases: ['prompt', 'task', 'message', 'msg'],
+      },
+      DurationSeconds: {
+        type: 'string',
+        required: false,
+        description: 'Delay in seconds for one-shot scheduling',
+        aliases: ['duration_seconds', 'duration', 'delay', 'seconds', 'timeout'],
+      },
+      CronExpression: {
+        type: 'string',
+        required: false,
+        description: 'Cron expression for recurring scheduling',
+        aliases: ['cron_expression', 'cron', 'schedule', 'interval'],
+      },
+    },
+  },
 ];
 
 // ─── Registry ──────────────────────────────────────────────────────────
@@ -254,6 +500,11 @@ export class ToolCapabilityRegistry {
   /**
    * Resolve a tool name to its canonical name.
    * Handles aliases and common naming variations.
+   *
+   * Fuzzy matching rules:
+   * - Only match on complete segments (word/snake/kebab boundaries)
+   * - Minimum 4 characters to avoid false positives
+   * - Prefer exact alias matches over fuzzy
    */
   resolveName(name: string): string {
     const lower = name.toLowerCase().trim();
@@ -262,17 +513,24 @@ export class ToolCapabilityRegistry {
     if (this.wellKnown.has(name)) return name;
     if (this.dynamicTools.has(name)) return name;
 
-    // Fuzzy match: check if any alias contains or is contained in the name
+    // Fuzzy match: check if any alias is a complete segment match
+    // e.g. "manage" in "manage_task" matches, but "manage" in "manage_subagents" does NOT
+    // because "manage_subagents" has its own canonical name.
+    const segments = lower.split(/[_-]/);
     for (const [alias, canonical] of this.aliasMap) {
-      if (lower.includes(alias) || alias.includes(lower)) {
-        return canonical;
-      }
+      if (alias.length < 4) continue; // Too short — skip to avoid noise
+      // Check if the alias appears as a complete segment
+      if (segments.some(s => s === alias)) return canonical;
     }
-    for (const [dynName] of this.dynamicTools) {
-      const dl = dynName.toLowerCase();
-      if (lower.includes(dl) || dl.includes(lower)) {
-        return dynName;
-      }
+    // Fallback: check if the entire name is contained in a canonical name or vice versa
+    // Only for names that don't match any existing canonical
+    for (const [canonicalName] of this.wellKnown) {
+      const cl = canonicalName.toLowerCase();
+      if (lower === cl) return canonicalName;
+    }
+    for (const [alias, canonical] of this.aliasMap) {
+      if (alias.length < 4) continue;
+      if (lower === alias) return canonical;
     }
 
     return name; // Unknown — pass through
