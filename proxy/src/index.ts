@@ -24,6 +24,12 @@ import type { Content, Tool, GenerationConfig } from './types.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let backendIp = '';
 
+// Set workspace root so antigravity-context.ts can inject it into the system prompt
+if (!process.env.WORKSPACE_ROOT) {
+  // __dirname is .../proxy/src or .../proxy/dist — go up two levels to get the repo root
+  process.env.WORKSPACE_ROOT = path.resolve(__dirname, '..', '..');
+}
+
 const INTERCEPT_PATHS = new Set([
   '/v1internal:streamGenerateContent',
   '/v1internal:cascadeGenerateContent',
