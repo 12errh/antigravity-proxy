@@ -46,6 +46,7 @@ if [[ "$NODE_MAJOR" -lt 20 ]]; then
   exit 1
 fi
 ok "Node.js v$NODE_VER"
+NODE_BIN="$(command -v node)"
 
 if ! command -v npm &>/dev/null; then
   err "npm not found."
@@ -53,6 +54,7 @@ if ! command -v npm &>/dev/null; then
 fi
 
 # ── npm install ───────────────────────────────────────────────────────────────
+mkdir -p "$PROXY_DIR"
 cd "$PROXY_DIR"
 step "Installing dependencies"
 if [[ ! -d node_modules ]]; then
@@ -179,7 +181,7 @@ LOG_FILE="$PROXY_DIR/logs/proxy_$(date +%Y%m%d_%H%M%S).log"
 # Run as root if we need port 443 and aren't already root
 if [[ -z "$PROXY_PORT" || "$PROXY_PORT" == "443" ]] && [[ $EUID -ne 0 ]]; then
   info "Attempting to start with sudo for port 443..."
-  nohup sudo node --import tsx/esm "$PROXY_DIR/src/index.ts" > "$LOG_FILE" 2>&1 &
+  nohup sudo "$NODE_BIN" --import tsx/esm "$PROXY_DIR/src/index.ts" > "$LOG_FILE" 2>&1 &
 else
   nohup node --import tsx/esm "$PROXY_DIR/src/index.ts" > "$LOG_FILE" 2>&1 &
 fi

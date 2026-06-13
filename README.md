@@ -29,6 +29,15 @@ The proxy intercepts Antigravity's Google Gemini API calls and translates them t
 
 ## Quick Start
 
+### Get the Repository
+
+```bash
+git clone https://github.com/12errh/antigravity-proxy.git
+cd antigravity-proxy
+```
+
+All launcher scripts and source code are inside the cloned directory.
+
 ### Prerequisites
 
 - **Antigravity 2.0 Desktop** (Windows, macOS, or Linux)

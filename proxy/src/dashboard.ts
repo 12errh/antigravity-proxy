@@ -171,16 +171,37 @@ function maskKey(key: string): string {
 }
 
 function readEnv(): Record<string, string> {
+  const result: Record<string, string> = {};
   try {
     const envPath = path.resolve(__dirname, '..', '.env');
     const raw = fs.readFileSync(envPath, 'utf-8');
-    const result: Record<string, string> = {};
     for (const line of raw.split('\n')) {
       const m = line.match(/^([A-Z_]+)=(.+)/);
       if (m) result[m[1]] = m[2].trim();
     }
-    return result;
-  } catch { return {}; }
+  } catch { /* .env may not exist */ }
+
+  // Overlay with process.env for known env vars so the dashboard shows what's
+  // actually loaded at runtime. System environment variables (exported in shell)
+  // take priority over .env file values — matching how config.ts resolves them.
+  const KNOWN_ENV_KEYS = [
+    'PROVIDER', 'LOG_LEVEL', 'PROXY_PORT', 'API_PORT',
+    'PROVIDER_PRIORITY', 'PROXY_RETRIES', 'PROXY_BACKOFF_MS',
+    'NVIDIA_API_KEY', 'OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY', 'GROQ_API_KEY', 'GOOGLE_API_KEY',
+    'OPENCODE_API_KEY', 'CONTEXT_STRIP_MODE',
+    'DASHBOARD_USER', 'DASHBOARD_PASSWORD', 'FAILOVER_WEBHOOK_URL',
+    'WORKSPACE_CONTEXT_ENVELOPE',
+    'RATE_LIMIT_GLOBAL', 'RATE_LIMIT_PROVIDER', 'RATE_LIMIT_WINDOW_MS',
+    'LOG_MAX_SIZE_MB', 'LOG_MAX_FILES', 'LOG_MAX_AGE_DAYS',
+  ];
+  for (const key of KNOWN_ENV_KEYS) {
+    if (process.env[key] !== undefined) {
+      result[key] = process.env[key]!;
+    }
+  }
+
+  return result;
 }
 
 function writeEnv(updates: Record<string, string>): boolean {
