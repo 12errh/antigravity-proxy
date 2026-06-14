@@ -32,7 +32,15 @@ jobs:
           cache: npm
           cache-dependency-path: proxy/package-lock.json
 
-      - name: Install dependencies
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          npm ci --ignore-scripts
+          npx --yes prebuild-install -r napi -d better-sqlite3 || npm rebuild better-sqlite3 || true
+
+      - name: Install dependencies (Linux/macOS)
+        if: runner.os != 'Windows'
         run: npm ci
 
       - name: Type-check
