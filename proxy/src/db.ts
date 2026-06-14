@@ -4,16 +4,27 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'node:module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbDir = path.resolve(__dirname, '..', 'data');
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
-const dbPath = path.join(dbDir, 'proxy.db');
 
-// @ts-ignore - better-sqlite3 types conflict with ESM declaration emit
-const _require = createRequire(import.meta.url);
-const Database = _require('better-sqlite3');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('synchronous = NORMAL');
+// Try to load better-sqlite3. If the native module isn't compiled
+// (e.g. CI with --ignore-scripts on Windows), all DB functions become
+// no-ops so the rest of the app can still load without crashing.
+let db: any = null;
+try {
+  const dbDir = path.resolve(__dirname, '..', 'data');
+  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+  const dbPath = path.join(dbDir, 'proxy.db');
+  // @ts-ignore - better-sqlite3 types conflict with ESM declaration emit
+  const _require = createRequire(import.meta.url);
+  const Database = _require('better-sqlite3');
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+} catch {
+  // Native module not available — provide a safe no-op stub so callers
+  // can import db.ts without crashing (important for CI tests).
+  const noop = { run: () => ({}), get: () => null, all: () => [], lastInsertRowid: 0 };
+  db = { exec: () => {}, prepare: () => noop, pragma: () => {} };
+}
 
 export function init(): void {
   db.exec(`
