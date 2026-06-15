@@ -51,8 +51,13 @@ export class OpenAICompatAdapter implements ModelAdapter {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
     signal?: AbortSignal,
+    system?: string,
   ): AsyncGenerator<StreamChunk> {
-    const body = this.buildRequest(model, messages, tools, config);
+    // If system instruction provided and no system message exists, prepend it
+    const finalMessages = system && !messages.some(m => m.role === 'system')
+      ? [{ role: 'system' as const, content: system }, ...messages]
+      : messages;
+    const body = this.buildRequest(model, finalMessages, tools, config);
     const response = await this.fetchWithRetry(body, signal);
 
     if (!this.isStreaming(response)) {

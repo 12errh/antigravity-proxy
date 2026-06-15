@@ -53,6 +53,7 @@ export class Router {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
     signal?: AbortSignal,
+    system?: string,
   ): AsyncGenerator<StreamChunk & { provider?: string; resolvedModel?: string }> {
     // Check if the model has explicit per-provider mappings
     const modelProviders = this.modelResolver.getProvidersForModel(model);
@@ -163,7 +164,7 @@ export class Router {
           yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying', fallback: true };
           let hasStreamedData = false;
           try {
-            const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
+          const gen = adapter.stream(resolvedModel, messages, tools, config, signal, system);
             for await (const chunk of gen) {
               if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
               hasStreamedData = true;

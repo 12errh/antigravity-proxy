@@ -39,8 +39,9 @@ export class GoogleAdapter implements ModelAdapter {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
     signal?: AbortSignal,
+    system?: string,
   ): AsyncGenerator<StreamChunk> {
-    const body = this.buildRequest(model, messages, tools, config);
+    const body = this.buildRequest(model, messages, tools, config, system);
     const url = this.buildStreamUrl(model);
     const response = await this.fetchResponse(url, body, this.buildAuthHeaders(), signal);
 
@@ -93,11 +94,16 @@ export class GoogleAdapter implements ModelAdapter {
     messages: OpenAIMessage[],
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
+    system?: string,
   ): Record<string, unknown> {
     const body: Record<string, unknown> = {
       contents: this.convertMessages(messages),
       generationConfig: {},
     };
+    // Include system instruction as native Gemini system_instruction field
+    if (system) {
+      (body as any).system_instruction = { parts: [{ text: system }] };
+    }
     if (tools && Object.keys(tools).length > 0) {
       (body as any).tools = [{
         functionDeclarations: Object.entries(tools).map(([name, tool]: [string, any]) => ({

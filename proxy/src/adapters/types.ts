@@ -19,5 +19,6 @@ export interface ModelAdapter {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
     signal?: AbortSignal,
+    system?: string,
   ): AsyncGenerator<StreamChunk>;
 }

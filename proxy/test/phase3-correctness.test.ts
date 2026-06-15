@@ -310,3 +310,35 @@ test('Passthrough: engine.ts generateResponse also checks contextStripMode', () 
     `engine.ts should have contextStripMode check in both streamResponse and generateResponse (found ${matches?.length ?? 0})`,
   );
 });
+
+// ---------------------------------------------------------------------------
+// System instruction passthrough: Google adapter must forward system_instruction
+// ---------------------------------------------------------------------------
+
+test('Passthrough: Google adapter includes system_instruction in request body', () => {
+  const google = src('adapters/google.ts');
+  assert.ok(
+    /system_instruction/.test(google),
+    'google.ts should reference system_instruction in buildRequest',
+  );
+  assert.ok(
+    /system\?\:\s*string/.test(google) || /system\s*\?\s*:\s*string/.test(google),
+    'google.ts stream method should accept system parameter',
+  );
+});
+
+test('Passthrough: ModelAdapter interface has system parameter', () => {
+  const types = src('adapters/types.ts');
+  assert.ok(
+    /system\?\:\s*string/.test(types) || /system\s*\?\s*:\s*string/.test(types),
+    'ModelAdapter interface should have optional system string parameter',
+  );
+});
+
+test('Passthrough: router.ts passes system to adapter', () => {
+  const router = src('router.ts');
+  assert.ok(
+    /adapter\.stream\([\s\S]*system/.test(router),
+    'router.ts execute should pass system instruction to adapter.stream()',
+  );
+});

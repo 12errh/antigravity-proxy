@@ -178,7 +178,7 @@ export async function* streamResponse(
       topP: mapped.topP,
       stopSequences: mapped.stopSequences,
       providerOptions: mapped.providerOptions,
-    }, abortSignal);
+    }, abortSignal, mapped.system);
 
     for await (const chunk of gen) {
       const prov = (chunk as any).provider;
@@ -264,7 +264,7 @@ export async function generateResponse(
       topP: mapped.topP,
       stopSequences: mapped.stopSequences,
       providerOptions: mapped.providerOptions,
-    });
+    }, undefined, mapped.system);
 
     let text = '';
     for await (const chunk of gen) {

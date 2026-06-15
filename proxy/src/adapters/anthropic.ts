@@ -19,8 +19,13 @@ export class AnthropicAdapter implements ModelAdapter {
     tools?: Record<string, unknown>,
     config?: Record<string, unknown>,
     signal?: AbortSignal,
+    system?: string,
   ): AsyncGenerator<StreamChunk> {
-    const body = this.buildRequest(model, messages, tools, config);
+    // If system instruction provided and no system message exists, prepend it
+    const finalMessages = system && !messages.some(m => m.role === 'system')
+      ? [{ role: 'system' as const, content: system }, ...messages]
+      : messages;
+    const body = this.buildRequest(model, finalMessages, tools, config);
     const response = await this.fetchResponse(body, signal);
 
     const reader = response.body!.getReader();
