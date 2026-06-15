@@ -34,7 +34,7 @@ function coerceValue(value: unknown, targetType: string): unknown {
         if (['false', '0', 'no', 'off'].includes(lower)) return false;
       }
       if (typeof value === 'number') return value !== 0;
-      return value; // Can't coerce, return as-is
+      return value;
     }
     case 'number':
     case 'integer': {
@@ -47,33 +47,62 @@ function coerceValue(value: unknown, targetType: string): unknown {
       }
       return value;
     }
-    case 'array':
-      // Arrays should pass through as-is — don't JSON.stringify them
+    case 'array': {
       if (Array.isArray(value)) return value;
       if (typeof value === 'string') {
-        try { return JSON.parse(value); } catch { return [value]; }
+        // Try JSON array parse first
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) return parsed;
+        } catch { /* not JSON */ }
+        // Comma-separated → split into array
+        if (value.includes(',')) {
+          return value.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        // Single value → wrap in array
+        return [value];
       }
       return value;
-    default:
-      // For object types that aren't arrays, pass through unchanged
+    }
+    case 'object': {
       if (typeof value === 'object' && !Array.isArray(value)) return value;
-      // For string-like types, convert to string
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return parsed;
+        } catch { /* not JSON */ }
+      }
+      return value;
+    }
+    case 'string': {
+      // Numbers → string (e.g. schedule DurationSeconds: 60 → "60")
+      if (typeof value === 'number') return String(value);
+      if (typeof value === 'boolean') return String(value);
+      return typeof value === 'string' ? value : String(value);
+    }
+    default:
       return typeof value === 'string' ? value : String(value);
   }
 }
 
 // ─── Param alias resolution ───────────────────────────────────────────
 
-/**
- * Map of common parameter aliases across all well-known tools.
- * Maps alias → canonical param name.
- */
-function buildAliasReverseMap(): Map<string, string> {
-  const map = new Map<string, string>();
-  const schema = toolCapabilityRegistry.getSchema;
-  // We can't iterate over all schemas easily, so use a static map
-  // Populated from known patterns
-  return map;
+/** Levenshtein edit distance — used for fuzzy param matching */
+function levenshtein(a: string, b: string): number {
+  const al = a.length;
+  const bl = b.length;
+  if (al === 0) return bl;
+  if (bl === 0) return al;
+  const dp: number[][] = Array.from({ length: al + 1 }, () => Array(bl + 1).fill(0));
+  for (let i = 0; i <= al; i++) dp[i][0] = i;
+  for (let j = 0; j <= bl; j++) dp[0][j] = j;
+  for (let i = 1; i <= al; i++) {
+    for (let j = 1; j <= bl; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[al][bl];
 }
 
 /**
@@ -114,6 +143,21 @@ function resolveParamName(toolName: string, paramName: string): string {
     if (lower.includes(cl) || cl.includes(lower)) return canonical;
   }
 
+  // Levenshtein fuzzy match — for close misspellings (max 2 edits, min 4 chars)
+  if (paramName.length >= 4) {
+    let bestMatch: string | null = null;
+    let bestDist = Infinity;
+    for (const canonical of Object.keys(schema.params)) {
+      if (canonical.length < 4) continue;
+      const dist = levenshtein(lower, canonical.toLowerCase());
+      if (dist <= 2 && dist < bestDist) {
+        bestDist = dist;
+        bestMatch = canonical;
+      }
+    }
+    if (bestMatch) return bestMatch;
+  }
+
   return paramName; // Unknown — pass through
 }
 
@@ -129,6 +173,11 @@ export function normalizeToolCall(
   name: string,
   args: Record<string, unknown>,
 ): NormalizedToolCall {
+  // Guard against null/undefined args (can happen with malformed LLM output)
+  if (!args || typeof args !== 'object') {
+    args = {};
+  }
+
   const warnings: string[] = [];
   let fixed = false;
 
@@ -161,6 +210,12 @@ export function normalizeToolCall(
       continue;
     }
 
+    // Track if param name was resolved via fuzzy/alias matching
+    if (canonicalKey !== rawKey) {
+      warnings.push(`Param "${rawKey}" → "${canonicalKey}"`);
+      fixed = true;
+    }
+
     // Type coercion
     const coerced = coerceValue(rawValue, paramDef.type);
     if (coerced !== rawValue) {
@@ -172,18 +227,18 @@ export function normalizeToolCall(
     seenParams.add(canonicalKey);
   }
 
-  // Step 3: Fill missing required params with defaults
+  // Step 3: Fill missing params with defaults (required AND optional with defaults)
   for (const [paramName, paramDef] of Object.entries(schema.params)) {
-    if (paramDef.required && !seenParams.has(paramName)) {
-      if (paramDef.default !== undefined) {
-        normalizedArgs[paramName] = paramDef.default;
+    if (!seenParams.has(paramName) && paramDef.default !== undefined) {
+      normalizedArgs[paramName] = paramDef.default;
+      if (paramDef.required) {
         warnings.push(`Missing required "${paramName}" → default: ${JSON.stringify(paramDef.default)}`);
-        fixed = true;
-      } else {
-        // Required param with no default — log warning
-        // Don't add it — let Antigravity return the error
-        warnings.push(`Missing required "${paramName}" — no default available`);
       }
+      fixed = true;
+    } else if (paramDef.required && !seenParams.has(paramName)) {
+      // Required param with no default — log warning
+      // Don't add it — let Antigravity return the error
+      warnings.push(`Missing required "${paramName}" — no default available`);
     }
   }
 
@@ -192,6 +247,26 @@ export function normalizeToolCall(
     // We already set Action default above, but double-check
     if (!seenParams.has('Action')) {
       // The missing Action was already handled by the default above
+    }
+  }
+
+  // Step 5: Post-process — wrap single objects in arrays for tools that expect arrays
+  // Models sometimes pass {TypeName:"x",Role:"y",Prompt:"z"} instead of [{...}]
+  // Note: coerceValue already wraps objects in arrays for array types, but we
+  // also need to handle the case where the value was already an array from coerceValue
+  // and check for the specific tools.
+  if (canonicalName === 'invoke_subagent' && normalizedArgs.Subagents) {
+    if (!Array.isArray(normalizedArgs.Subagents)) {
+      normalizedArgs.Subagents = [normalizedArgs.Subagents];
+      warnings.push('Wrapped single SubagentConfig in array');
+      fixed = true;
+    }
+  }
+  if (canonicalName === 'ask_question' && normalizedArgs.questions) {
+    if (!Array.isArray(normalizedArgs.questions)) {
+      normalizedArgs.questions = [normalizedArgs.questions];
+      warnings.push('Wrapped single question in array');
+      fixed = true;
     }
   }
 

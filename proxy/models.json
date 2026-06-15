@@ -1,15 +1,23 @@
 {
   "_provider_models": {
     "claude-opus-4-6": {
+      "openrouter": "openrouter/free",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "mimo-v2.5-free"
     },
     "claude-opus-4-6-thinking": {
+      "openrouter": "openrouter/free",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "mimo-v2.5-free"
     },
     "claude-sonnet-4-6": {
+      "openrouter": "openrouter/free",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "mimo-v2.5-free"
     },
     "claude-sonnet-4-6-thinking": {
+      "openrouter": "openrouter/free",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "mimo-v2.5-free"
     },
     "gemini-2.5-flash": {
@@ -50,12 +58,12 @@
     },
     "gpt-oss-120b": {
       "openrouter": "stepfun/step-3.7-flash",
-      "nvidia": "minimaxai/minimax-m3",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "nemotron-3-ultra-free"
     },
     "gpt-oss-120b-medium": {
       "openrouter": "stepfun/step-3.7-flash",
-      "nvidia": "minimaxai/minimax-m3",
+      "nvidia": "stepfun-ai/step-3.7-flash",
       "zen": "nemotron-3-ultra-free"
     }
   }

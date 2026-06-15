@@ -167,6 +167,13 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
         description: 'Brief description of the edit',
         aliases: ['desc', 'description', 'summary'],
       },
+      AllowMultiple: {
+        type: 'boolean',
+        required: false,
+        description: 'Allow matching multiple occurrences of TargetContent',
+        aliases: ['allow_multiple', 'allowMultiple', 'multi'],
+        default: false,
+      },
     },
   },
   {
@@ -262,6 +269,18 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
         required: true,
         description: 'System prompt that defines the subagent behavior',
         aliases: ['systemPrompt', 'prompt', 'instructions'],
+      },
+      enable_mcp_tools: {
+        type: 'boolean',
+        required: false,
+        description: 'Grant MCP tool access to this subagent (default: false)',
+        aliases: ['enableMcpTools', 'mcp_tools', 'mcpTools'],
+      },
+      enable_write_tools: {
+        type: 'boolean',
+        required: false,
+        description: 'Grant file write access to this subagent (default: false)',
+        aliases: ['enableWriteTools', 'write_tools', 'writeTools'],
       },
     },
   },
@@ -397,7 +416,13 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
         type: 'string',
         required: true,
         description: 'Target path or resource for the permission',
-        aliases: ['target', 'reason', 'why', 'purpose', 'path'],
+        aliases: ['target', 'path'],
+      },
+      Reason: {
+        type: 'string',
+        required: false,
+        description: 'Human-readable explanation of why this permission is needed',
+        aliases: ['reason', 'why', 'purpose', 'justification'],
       },
     },
   },
@@ -463,6 +488,77 @@ const WELL_KNOWN_TOOLS: ToolSchema[] = [
         required: false,
         description: 'Cron expression for recurring scheduling',
         aliases: ['cron_expression', 'cron', 'schedule', 'interval'],
+      },
+      MaxIterations: {
+        type: 'number',
+        required: false,
+        description: 'Maximum number of recurring runs (default: unlimited)',
+        aliases: ['max_iterations', 'maxIterations', 'max_runs', 'limit'],
+      },
+    },
+  },
+  {
+    name: 'multi_replace_file_content',
+    aliases: ['multiReplaceFileContent', 'multi-replace', 'batch_edit', 'batchEdit'],
+    description: 'Edit multiple non-contiguous sections in the same file in one call',
+    params: {
+      TargetFile: {
+        type: 'string',
+        required: true,
+        description: 'Absolute path to the target file',
+        aliases: ['file_path', 'filepath', 'path', 'file', 'target'],
+      },
+      ReplacementChunks: {
+        type: 'array',
+        required: true,
+        description: 'Array of edit chunks, each with StartLine, EndLine, TargetContent, ReplacementContent, AllowMultiple',
+        aliases: ['chunks', 'edits', 'replacements'],
+      },
+    },
+  },
+  {
+    name: 'read_resource',
+    aliases: ['readResource', 'read-resource', 'load_resource', 'loadResource'],
+    description: 'Read a resource by URI (MCP or built-in)',
+    params: {
+      uri: {
+        type: 'string',
+        required: true,
+        description: 'Resource URI to read',
+        aliases: ['Uri', 'URI', 'url', 'path', 'resource'],
+      },
+    },
+  },
+  {
+    name: 'list_resources',
+    aliases: ['listResources', 'list-resources', 'resources'],
+    description: 'List available resources',
+    params: {
+      // No required params
+    },
+  },
+  {
+    name: 'call_mcp_tool',
+    aliases: ['callMcpTool', 'call-mcp-tool', 'mcp_tool', 'mcpTool'],
+    description: 'Call a tool on an MCP server',
+    params: {
+      ServerName: {
+        type: 'string',
+        required: true,
+        description: 'Name of the MCP server',
+        aliases: ['server', 'server_name', 'serverName'],
+      },
+      ToolName: {
+        type: 'string',
+        required: true,
+        description: 'Name of the tool on the MCP server',
+        aliases: ['tool', 'tool_name', 'toolName'],
+      },
+      Arguments: {
+        type: 'object',
+        required: false,
+        description: 'Arguments to pass to the MCP tool',
+        aliases: ['args', 'params', 'parameters', 'input'],
       },
     },
   },

@@ -372,12 +372,290 @@ test('T2: ask_permission accepts Action and Target (Go backend expects these)', 
   assert.equal(result.args.Target, '/tmp/test.txt');
 });
 
-test('T2: ask_permission resolves aliases permission/reason → Action/Target', () => {
+test('T2: ask_permission resolves aliases permission/reason → Action/Reason', () => {
   const result = normalizeToolCall('askPermission', {
     permission: 'network',
     reason: 'Need to fetch data',
   });
   assert.equal(result.name, 'ask_permission');
   assert.equal(result.args.Action, 'network', 'permission alias should resolve to Action');
-  assert.equal(result.args.Target, 'Need to fetch data', 'reason alias should resolve to Target');
+  assert.equal(result.args.Reason, 'Need to fetch data', 'reason alias should resolve to Reason');
+});
+
+// ─── New tool registration tests ───────────────────────────────────────
+
+test('T1: ToolCapabilityRegistry has new tools at construction', () => {
+  const registry = new ToolCapabilityRegistry();
+  assert.ok(registry.hasTool('multi_replace_file_content'), 'should have multi_replace_file_content');
+  assert.ok(registry.hasTool('read_resource'), 'should have read_resource');
+  assert.ok(registry.hasTool('list_resources'), 'should have list_resources');
+  assert.ok(registry.hasTool('call_mcp_tool'), 'should have call_mcp_tool');
+});
+
+test('T1: ToolCapabilityRegistry resolves new tool aliases', () => {
+  const registry = new ToolCapabilityRegistry();
+  assert.equal(registry.resolveName('multiReplaceFileContent'), 'multi_replace_file_content');
+  assert.equal(registry.resolveName('batch_edit'), 'multi_replace_file_content');
+  assert.equal(registry.resolveName('readResource'), 'read_resource');
+  assert.equal(registry.resolveName('listResources'), 'list_resources');
+  assert.equal(registry.resolveName('callMcpTool'), 'call_mcp_tool');
+  assert.equal(registry.resolveName('mcp_tool'), 'call_mcp_tool');
+});
+
+test('T1: multi_replace_file_content schema has required params', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('multi_replace_file_content')!;
+  assert.ok(schema, 'should have schema');
+  assert.equal(schema.params.TargetFile.required, true);
+  assert.equal(schema.params.ReplacementChunks.required, true);
+  assert.equal(schema.params.TargetFile.aliases!.includes('file_path'), true);
+});
+
+test('T1: call_mcp_tool schema has required params', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('call_mcp_tool')!;
+  assert.ok(schema, 'should have schema');
+  assert.equal(schema.params.ServerName.required, true);
+  assert.equal(schema.params.ToolName.required, true);
+  assert.equal(schema.params.Arguments.required, false);
+});
+
+test('T1: read_resource schema has required params', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('read_resource')!;
+  assert.ok(schema, 'should have schema');
+  assert.equal(schema.params.uri.required, true);
+});
+
+test('T1: list_resources has no required params', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('list_resources')!;
+  assert.ok(schema, 'should have schema');
+  const required = Object.values(schema.params).filter(p => p.required);
+  assert.equal(required.length, 0, 'should have no required params');
+});
+
+// ─── Updated tool schema tests ─────────────────────────────────────────
+
+test('T1: ask_permission schema has Reason param', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('ask_permission')!;
+  assert.ok(schema.params.Reason, 'should have Reason param');
+  assert.equal(schema.params.Reason.required, false);
+  assert.ok(schema.params.Reason.aliases!.includes('reason'));
+});
+
+test('T1: define_subagent schema has enable_mcp_tools and enable_write_tools', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('define_subagent')!;
+  assert.ok(schema.params.enable_mcp_tools, 'should have enable_mcp_tools');
+  assert.equal(schema.params.enable_mcp_tools.required, false);
+  assert.ok(schema.params.enable_write_tools, 'should have enable_write_tools');
+  assert.equal(schema.params.enable_write_tools.required, false);
+});
+
+test('T1: schedule schema has MaxIterations param', () => {
+  const registry = new ToolCapabilityRegistry();
+  const schema = registry.getSchema('schedule')!;
+  assert.ok(schema.params.MaxIterations, 'should have MaxIterations param');
+  assert.equal(schema.params.MaxIterations.required, false);
+  assert.equal(schema.params.MaxIterations.type, 'number');
+});
+
+test('T2: multi_replace_file_content normalizes TargetFile alias', () => {
+  const result = normalizeToolCall('multi_replace_file_content', {
+    file_path: '/tmp/test.ts',
+    chunks: [{ StartLine: 1, EndLine: 5, TargetContent: 'old', ReplacementContent: 'new', AllowMultiple: false }],
+  });
+  assert.equal(result.name, 'multi_replace_file_content');
+  assert.equal(result.args.TargetFile, '/tmp/test.ts');
+});
+
+test('T2: call_mcp_tool normalizes aliases', () => {
+  const result = normalizeToolCall('callMcpTool', {
+    server: 'my-server',
+    tool: 'do_thing',
+    args: { key: 'value' },
+  });
+  assert.equal(result.name, 'call_mcp_tool');
+  assert.equal(result.args.ServerName, 'my-server');
+  assert.equal(result.args.ToolName, 'do_thing');
+});
+
+test('T2: read_resource normalizes uri alias', () => {
+  const result = normalizeToolCall('readResource', {
+    Uri: 'file:///tmp/data.json',
+  });
+  assert.equal(result.name, 'read_resource');
+  assert.equal(result.args.uri, 'file:///tmp/data.json');
+});
+
+test('T2: define_subagent resolves enable_mcp_tools alias', () => {
+  const result = normalizeToolCall('define_subagent', {
+    name: 'my-agent',
+    description: 'A custom agent',
+    system_prompt: 'You are helpful',
+    enableMcpTools: true,
+    enable_write_tools: false,
+  });
+  assert.equal(result.name, 'define_subagent');
+  assert.equal(result.args.enable_mcp_tools, true);
+  assert.equal(result.args.enable_write_tools, false);
+});
+
+test('T2: schedule normalizes MaxIterations from alias', () => {
+  const result = normalizeToolCall('schedule', {
+    prompt: 'Check something',
+    max_iterations: 5,
+  });
+  assert.equal(result.args.MaxIterations, 5);
+});
+
+test('T2: ask_permission passes Reason param', () => {
+  const result = normalizeToolCall('ask_permission', {
+    Action: 'file_write',
+    Target: '/tmp/test.txt',
+    Reason: 'Need to create a config file',
+  });
+  assert.equal(result.args.Action, 'file_write');
+  assert.equal(result.args.Target, '/tmp/test.txt');
+  assert.equal(result.args.Reason, 'Need to create a config file');
+});
+
+// ─── Phase 3: Enhanced coercion tests ─────────────────────────────────
+
+test('T3: coerceValue wraps single object in array for array type', () => {
+  const result = normalizeToolCall('invoke_subagent', {
+    Subagents: { TypeName: 'research', Role: 'explore', Prompt: 'find X' },
+  });
+  assert.ok(Array.isArray(result.args.Subagents), 'should wrap single object in array');
+  assert.equal(result.args.Subagents.length, 1);
+  assert.equal(result.args.Subagents[0].TypeName, 'research');
+  assert.ok(result.fixed, 'should mark as fixed');
+});
+
+test('T3: coerceValue parses comma-separated string into array', () => {
+  const result = normalizeToolCall('grep_search', {
+    SearchPath: 'src/',
+    Query: 'test',
+    Includes: '*.ts,*.js',
+  });
+  assert.ok(Array.isArray(result.args.Includes), 'should parse comma-separated string');
+  assert.deepEqual(result.args.Includes, ['*.ts', '*.js']);
+});
+
+test('T3: coerceValue parses JSON array string', () => {
+  const result = normalizeToolCall('grep_search', {
+    SearchPath: 'src/',
+    Query: 'test',
+    Includes: '["*.ts","*.js"]',
+  });
+  assert.ok(Array.isArray(result.args.Includes), 'should parse JSON array string');
+  assert.deepEqual(result.args.Includes, ['*.ts', '*.js']);
+});
+
+test('T3: coerceValue converts number to string for string type', () => {
+  const result = normalizeToolCall('schedule', {
+    Prompt: 'check',
+    DurationSeconds: 60,
+  });
+  assert.equal(typeof result.args.DurationSeconds, 'string', 'should convert to string');
+  assert.equal(result.args.DurationSeconds, '60');
+});
+
+test('T3: coerceValue converts number to string for string type (Description)', () => {
+  const result = normalizeToolCall('write_to_file', {
+    TargetFile: '/tmp/test.txt',
+    CodeContent: 'hello',
+    Overwrite: true,
+    Description: 123,
+  });
+  assert.equal(typeof result.args.Description, 'string', 'should convert number to string');
+  assert.equal(result.args.Description, '123');
+});
+
+test('T3: coerceValue parses JSON object string for object type', () => {
+  const result = normalizeToolCall('call_mcp_tool', {
+    ServerName: 'my-server',
+    ToolName: 'do_thing',
+    Arguments: '{"key":"value","num":42}',
+  });
+  assert.equal(typeof result.args.Arguments, 'object');
+  assert.equal(result.args.Arguments.key, 'value');
+  assert.equal(result.args.Arguments.num, 42);
+});
+
+test('T3: coerceValue handles array JSON parse failure gracefully', () => {
+  const result = normalizeToolCall('grep_search', {
+    SearchPath: 'src/',
+    Query: 'test',
+    Includes: 'not-json',
+  });
+  assert.ok(Array.isArray(result.args.Includes), 'should wrap non-JSON string in array');
+  assert.deepEqual(result.args.Includes, ['not-json']);
+});
+
+// ─── Phase 3: Levenshtein fuzzy matching tests ────────────────────────
+
+test('T3: resolveParamName handles Levenshtein fuzzy match for close misspelling', () => {
+  // "TragetFile" is 1 edit away from "TargetFile"
+  const result = normalizeToolCall('write_to_file', {
+    TragetFile: '/tmp/test.txt',
+    CodeContent: 'hello',
+    Overwrite: true,
+  });
+  assert.equal(result.args.TargetFile, '/tmp/test.txt', 'should fuzzy match TragetFile -> TargetFile');
+  assert.ok(result.fixed, 'should mark as fixed');
+});
+
+test('T3: resolveParamName does not match distant strings', () => {
+  const result = normalizeToolCall('write_to_file', {
+    xyzabc: '/tmp/test.txt',
+    TargetFile: '/tmp/test.txt',
+    CodeContent: 'hello',
+    Overwrite: true,
+  });
+  assert.equal(result.args.xyzabc, undefined, 'should strip very distant misspelling');
+});
+
+// ─── Phase 3: Post-processing tests ──────────────────────────────────
+
+test('T3: invoke_subagent wraps single SubagentConfig in array', () => {
+  const r = normalizeToolCall('invoke_subagent', {
+    Subagents: { TypeName: 'research', Role: 'explore', Prompt: 'find X' },
+  });
+  assert.ok(Array.isArray(r.args.Subagents), 'Subagents should be an array');
+  assert.equal(r.args.Subagents.length, 1, 'should have one element');
+  assert.equal(r.args.Subagents[0].TypeName, 'research');
+  assert.ok(r.warnings!.some(w => w.includes('Wrapped')), 'should warn about wrapping');
+});
+
+test('T3: invoke_subagent keeps existing array intact', () => {
+  const r = normalizeToolCall('invoke_subagent', {
+    Subagents: [{ TypeName: 'a', Role: 'b', Prompt: 'c' }, { TypeName: 'd', Role: 'e', Prompt: 'f' }],
+  });
+  assert.ok(Array.isArray(r.args.Subagents));
+  assert.equal(r.args.Subagents.length, 2, 'should keep both elements');
+});
+
+test('T3: ask_question wraps single question object in array', () => {
+  const r = normalizeToolCall('ask_question', {
+    questions: { question: 'Port?', options: ['3000', '8000'] },
+  });
+  assert.ok(Array.isArray(r.args.questions), 'questions should be an array');
+  assert.equal(r.args.questions.length, 1);
+  assert.equal(r.args.questions[0].question, 'Port?');
+  assert.ok(r.warnings!.some(w => w.includes('Wrapped')), 'should warn about wrapping');
+});
+
+test('T3: replace_file_content fills AllowMultiple default', () => {
+  const r = normalizeToolCall('replace_file_content', {
+    TargetFile: '/tmp/test.txt',
+    StartLine: 1,
+    EndLine: 5,
+    TargetContent: 'old',
+    ReplacementContent: 'new',
+    Instruction: 'edit',
+  });
+  assert.equal(r.args.AllowMultiple, false, 'should fill AllowMultiple with default false');
 });
