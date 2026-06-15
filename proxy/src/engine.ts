@@ -135,7 +135,9 @@ export async function* streamResponse(
     // external models receive the tool-discipline rules, decision tree,
     // spawning guidelines, and verification requirements directly — without
     // needing to call view_file first.
-    if (ANTIGRAVITY_CONTEXT.enabled) {
+    // SKIP in passthrough mode: the original Antigravity context already
+    // contains everything, and injecting on top causes duplication.
+    if (ANTIGRAVITY_CONTEXT.enabled && config.contextStripMode !== 'passthrough') {
       const ctx = ANTIGRAVITY_CONTEXT.prompt;
       const existing = mapped.system;
       mapped.system = existing ? `${ctx}\n\n${existing}` : ctx;
@@ -158,10 +160,11 @@ export async function* streamResponse(
     // Also inject a prompt telling the model to read agent-context.md for
     // the full operating manual. This complements the system message with
     // the complete file content when the model chooses to read it.
-    // Include the explicit file path so the model knows where to find it.
-    if (!mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
-      msg.content.includes('Read the agent-context.md file using the view_file tool')
-    )) {
+    // SKIP in passthrough mode: the model already has the identity inline.
+    if (config.contextStripMode !== 'passthrough' &&
+      !mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
+        msg.content.includes('Read the agent-context.md file using the view_file tool')
+      )) {
       const contextPath = process.env.AGENT_CONTEXT_PATH || 'agent-context.md';
       mapped.messages.unshift({
         role: 'user' as const,
@@ -222,7 +225,9 @@ export async function generateResponse(
     // external models receive the tool-discipline rules, decision tree,
     // spawning guidelines, and verification requirements directly — without
     // needing to call view_file first.
-    if (ANTIGRAVITY_CONTEXT.enabled) {
+    // SKIP in passthrough mode: the original Antigravity context already
+    // contains everything, and injecting on top causes duplication.
+    if (ANTIGRAVITY_CONTEXT.enabled && config.contextStripMode !== 'passthrough') {
       const ctx = ANTIGRAVITY_CONTEXT.prompt;
       const existing = mapped.system;
       mapped.system = existing ? `${ctx}\n\n${existing}` : ctx;
@@ -241,9 +246,11 @@ export async function generateResponse(
 
     // Also inject a prompt telling the model to read agent-context.md for
     // the full operating manual. Include explicit file path.
-    if (!mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
-      msg.content.includes('Read the agent-context.md file using the view_file tool')
-    )) {
+    // SKIP in passthrough mode: the model already has the identity inline.
+    if (config.contextStripMode !== 'passthrough' &&
+      !mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
+        msg.content.includes('Read the agent-context.md file using the view_file tool')
+      )) {
       const contextPath = process.env.AGENT_CONTEXT_PATH || 'agent-context.md';
       mapped.messages.unshift({
         role: 'user' as const,

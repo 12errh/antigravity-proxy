@@ -278,3 +278,35 @@ test('Phase 3 / A6: router.ts has a clarifying comment on the second-pass fallba
     'router.ts should have a clarifying A6 comment near the second-pass fallback',
   );
 });
+
+// ---------------------------------------------------------------------------
+// CONTEXT_STRIP_MODE passthrough: engine.ts should skip injection in passthrough
+// ---------------------------------------------------------------------------
+
+test('Passthrough: engine.ts streamResponse skips ANTIGRAVITY_CONTEXT injection when passthrough', () => {
+  const engine = src('engine.ts');
+  // The ANTIGRAVITY_CONTEXT.enabled check must also require contextStripMode !== 'passthrough'
+  assert.ok(
+    /ANTIGRAVITY_CONTEXT\.enabled\s*&&\s*config\.contextStripMode\s*!==\s*'passthrough'/.test(engine),
+    'engine.ts streamResponse should skip ANTIGRAVITY_CONTEXT injection in passthrough mode',
+  );
+});
+
+test('Passthrough: engine.ts streamResponse skips agent-context.md prompt when passthrough', () => {
+  const engine = src('engine.ts');
+  // The "Read the agent-context.md" injection must also check contextStripMode
+  assert.ok(
+    /config\.contextStripMode\s*!==\s*'passthrough'[\s\S]{0,200}Read the agent-context\.md/.test(engine),
+    'engine.ts streamResponse should skip agent-context.md prompt in passthrough mode',
+  );
+});
+
+test('Passthrough: engine.ts generateResponse also checks contextStripMode', () => {
+  const engine = src('engine.ts');
+  // Both functions must have the passthrough check. Count occurrences of the pattern.
+  const matches = engine.match(/ANTIGRAVITY_CONTEXT\.enabled\s*&&\s*config\.contextStripMode\s*!==\s*'passthrough'/g);
+  assert.ok(
+    matches && matches.length >= 2,
+    `engine.ts should have contextStripMode check in both streamResponse and generateResponse (found ${matches?.length ?? 0})`,
+  );
+});
