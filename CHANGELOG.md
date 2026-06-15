@@ -25,10 +25,11 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ### Context Architecture
 
-The external context (`agent-context.md` + `antigravity-context.ts`) was built as a workaround when passthrough didn't work. Now that passthrough forwards the full native context correctly:
+> **Why passthrough is now the default:** We built `agent-context.md` (~10K tokens) and the `antigravity-context.ts` system message (~4K tokens) to teach external models about Antigravity's tools and workflows. But after implementation, we discovered the external context grew to **~28K tokens** — the same size as the native Antigravity context that Gemini receives. Since both consume identical tokens, there's no benefit to stripping the native context and injecting our own. Passthrough simply forwards what Antigravity already sends — simpler, no injection overhead, and external models understand it natively (validated: 18/20 tools working).
+
 - **Passthrough mode** (default): Full native context forwarded — no injection, no stripping, no file reads needed
 - **Strip mode** (fallback): Bulk context stripped, compact reference injected — only for models that can't handle XML-like tags
-- Future: Token compression to reduce the ~28K token context while maintaining full tool coverage
+- **Future goal:** Compress the external context to deliver the same native quality with fewer tokens, reducing the ~28K token overhead while maintaining full tool coverage
 
 ---
 

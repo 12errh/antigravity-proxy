@@ -350,9 +350,17 @@ FAILOVER_WEBHOOK_URL=https://hooks.example.com/webhook
 # Workspace context hardening
 WORKSPACE_CONTEXT_ENVELOPE=strict   # off | loose | strict
 
-# Inline context strip mode
+# Inline context mode
 CONTEXT_STRIP_MODE=passthrough       # passthrough (default) | strip
 ```
+
+> ### 💡 Why Passthrough is the Default
+>
+> We originally built an external context system (`agent-context.md` + `antigravity-context.ts`) to teach external models about Antigravity's tools. But after implementation, we discovered the external context grew to **~28K tokens — the exact same size as the native Antigravity context** that Gemini receives.
+>
+> Since both consume identical tokens, there's no benefit to stripping the native context and injecting our own. **Passthrough simply forwards what Antigravity already sends** — simpler, no injection overhead, and external models understand it natively (validated: 18/20 tools working with MiMo-v2.5).
+>
+> **Future goal:** Compress the external context to deliver the same native quality with fewer tokens, reducing the ~28K token overhead while maintaining full tool coverage.
 
 ---
 
