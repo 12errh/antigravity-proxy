@@ -9,32 +9,32 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 
 :root {
-  --bg: #0d0d0d;
-  --surface: #141414;
-  --surface2: #1c1c1c;
-  --surface3: #262626;
-  --border: rgba(255, 255, 255, 0.06);
-  --border2: rgba(255,255,255,0.08);
-  --text: #f0f0f0;
-  --text2: #a0a0a0;
-  --text3: #666666;
-  --accent: #ffffff;
-  --accent2: #e0e0e0;
-  --accentDim: rgba(255,255,255,0.06);
-  --green: #4ade80;
-  --greenDim: rgba(74,222,128,0.10);
-  --yellow: #facc15;
-  --yellowDim: rgba(250,204,21,0.10);
-  --red: #f87171;
-  --redDim: rgba(248,113,113,0.10);
-  --blue: #60a5fa;
-  --radius: 10px;
-  --radiusSm: 6px;
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a26;
+  --surface3: #22223a;
+  --border: rgba(124, 58, 237, 0.08);
+  --border2: rgba(255,255,255,0.06);
+  --text: #f1f5f9;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --accent: #7c3aed;
+  --accent2: #a855f7;
+  --accentDim: rgba(124,58,237,0.12);
+  --green: #22c55e;
+  --greenDim: rgba(34,197,94,0.12);
+  --yellow: #eab308;
+  --yellowDim: rgba(234,179,8,0.12);
+  --red: #ef4444;
+  --redDim: rgba(239,68,68,0.12);
+  --blue: #3b82f6;
+  --radius: 12px;
+  --radiusSm: 8px;
   --font: -apple-system,'SF Pro','Inter','Segoe UI',sans-serif;
   --mono: 'SF Mono','Cascadia Code','Fira Code','Consolas',monospace;
-  --shadow: 0 1px 2px rgba(0,0,0,0.4);
-  --shadowLg: 0 4px 16px rgba(0,0,0,0.5);
-  --transition: 200ms ease;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadowLg: 0 4px 20px rgba(0,0,0,0.4);
+  --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;display:flex;height:100vh;overflow:hidden;}
@@ -52,7 +52,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 }
 .sidebar::after{
   content:'';position:absolute;top:0;right:-1px;width:1px;
-  background:linear-gradient(to bottom, transparent, rgba(255,255,255,0.08), transparent);
+  background:linear-gradient(to bottom, transparent, var(--accentDim), transparent);
 }
 .sidebar-header{
   padding:20px 20px 16px;display:flex;align-items:center;gap:12px;
@@ -60,11 +60,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
 }
 .sidebar-header .logo-img{border-radius:10px;flex-shrink:0;object-fit:contain;background:transparent;}
 .sidebar-header .logo{
-  width:32px;height:32px;border-radius:8px;
-  background:var(--surface3);
+  width:32px;height:32px;border-radius:10px;
+  background:linear-gradient(135deg, var(--accent), var(--accent2));
   display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:13px;color:var(--text);flex-shrink:0;
-  border:1px solid var(--border2);
+  font-weight:700;font-size:14px;color:#fff;flex-shrink:0;
 }
 .sidebar-header .brand h1{font-size:14px;font-weight:600;letter-spacing:-0.01em}
 .sidebar-header .brand span{font-size:11px;color:var(--text3);display:block;margin-top:1px}
@@ -77,10 +76,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14
   font-size:13px;font-weight:450;
 }
 .nav-item:hover{background:var(--surface2);color:var(--text);}
-.nav-item.active{background:var(--accentDim);color:var(--accent);}
+.nav-item.active{background:var(--accentDim);color:var(--accent2);}
 .nav-item.active::before{
   content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
-  width:2px;height:18px;border-radius:0 2px 2px 0;
+  width:3px;height:18px;border-radius:0 2px 2px 0;
   background:var(--accent);transition:all var(--transition);
 }
 .nav-item .icon{width:18px;height:18px;flex-shrink:0;opacity:0.7;}
@@ -265,6 +264,142 @@ tbody tr:hover{background:var(--surface2);}
   cursor:pointer;transition:all var(--transition);
 }
 .model-row .btn-icon:hover{background:var(--redDim);color:var(--red);border-color:var(--redDim);}
+
+/* Mode Toggle */
+.mode-toggle{display:inline-flex;background:var(--surface2);border-radius:8px;border:1px solid var(--border2);padding:3px;gap:2px;}
+.mode-toggle-btn{padding:8px 18px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;font-family:var(--font);}
+.mode-toggle-btn.active{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(124,58,237,0.3);}
+.mode-toggle-btn:hover:not(.active){color:var(--text);background:var(--surface3);}
+
+/* Priority Chain */
+.priority-chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;margin-top:12px;}
+.priority-provider{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--surface3);font-size:12px;font-weight:500;color:var(--text);cursor:grab;user-select:none;transition:all 0.15s;}
+.priority-provider:hover{border-color:var(--accent);background:var(--accentDim);}
+.priority-arrow{color:var(--text3);font-size:14px;}
+
+/* Model Cards Grid */
+.model-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;margin-top:20px;}
+.model-card{
+  background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);
+  border:1px solid var(--border2);border-radius:16px;overflow:visible;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+.model-card:hover{
+  border-color:rgba(124,58,237,0.3);
+  box-shadow:0 8px 32px rgba(0,0,0,0.2),0 0 0 1px rgba(124,58,237,0.1);
+  transform:translateY(-2px);
+}
+.model-card-header{
+  display:flex;align-items:center;gap:12px;padding:16px 18px;
+  border-bottom:1px solid var(--border2);
+  background:linear-gradient(135deg,var(--surface2) 0%,rgba(124,58,237,0.03) 100%);
+}
+.model-card-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.model-card-name{font-size:15px;font-weight:700;color:var(--text);flex:1;letter-spacing:-0.01em;}
+.model-card-badge{
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;
+  padding:4px 10px;border-radius:6px;
+  background:var(--accentDim);color:var(--accent2);
+  border:1px solid rgba(124,58,237,0.15);
+}
+.model-card-body{padding:18px;}
+.model-card-field{margin-bottom:16px;}
+.model-card-field:last-child{margin-bottom:0;}
+.model-card-field label{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;
+  color:var(--text3);margin-bottom:8px;
+}
+.model-card-field select,.model-card-field input{
+  width:100%;padding:10px 14px;border-radius:8px;
+  border:1px solid var(--border2);background:var(--surface);
+  color:var(--text);font-size:13px;font-family:var(--mono);
+  outline:none;transition:all 0.2s;
+}
+.model-card-field select:focus,.model-card-field input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--accentDim);
+  background:var(--surface2);
+}
+.model-card-field select{
+  cursor:pointer;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;
+}
+
+/* Model name field — click to select, double-click to edit */
+.model-name-field{position:relative;}
+.model-name-display{
+  display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border-radius:8px;border:1px solid var(--border2);background:var(--surface);
+  cursor:pointer;transition:all 0.2s;min-height:40px;
+}
+.model-name-display:hover{border-color:var(--accent);background:var(--surface2);box-shadow:0 0 0 3px var(--accentDim);}
+.model-name-display .model-name-text{flex:1;font-size:13px;font-family:var(--mono);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.model-name-display .model-name-edit-icon{color:var(--text3);font-size:11px;opacity:0;transition:opacity 0.15s;}
+.model-name-display:hover .model-name-edit-icon{opacity:1;}
+.model-name-edit{
+  width:100%;padding:10px 14px;border-radius:8px;
+  border:1px solid var(--accent);background:var(--surface2);
+  color:var(--text);font-size:13px;font-family:var(--mono);
+  outline:none;box-shadow:0 0 0 3px var(--accentDim);
+}
+
+/* Variants section */
+.model-card-variants{
+  margin-top:16px;padding-top:16px;
+  border-top:1px solid var(--border2);
+  background:rgba(0,0,0,0.15);
+  border-radius:0 0 16px 16px;
+}
+.variant-label{
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;
+  color:var(--text3);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.variant-label::before{content:'';flex:1;height:1px;background:var(--border2);}
+.variant-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.variant-row:last-child{margin-bottom:0;}
+.variant-name{
+  font-size:12px;color:var(--text2);min-width:70px;font-family:var(--mono);
+  padding:4px 8px;background:var(--surface2);border-radius:4px;text-align:center;
+}
+.variant-row .model-card-field{margin-bottom:0;flex:1;}
+.variant-row select{font-size:12px;padding:6px 28px 6px 10px;min-width:80px;width:auto;flex-shrink:0;}
+.variant-row .model-name-field{flex:1;min-width:0;}
+
+/* Utility model cards (Title + Fallback) */
+.utility-models-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;margin-top:20px;}
+.utility-card{
+  background:linear-gradient(145deg,var(--surface) 0%,var(--surface2) 100%);
+  border:1px solid var(--border2);border-radius:16px;overflow:hidden;
+  transition:all 0.3s cubic-bezier(0.4,0,0.2,1);
+  box-shadow:0 2px 8px rgba(0,0,0,0.1);
+}
+.utility-card:hover{
+  border-color:rgba(124,58,237,0.3);
+  box-shadow:0 8px 32px rgba(0,0,0,0.2);
+  transform:translateY(-2px);
+}
+.utility-card:hover{border-color:rgba(124,58,237,0.2);}
+.utility-card-header{
+  display:flex;align-items:center;gap:12px;padding:16px 18px;
+  border-bottom:1px solid var(--border2);
+  background:linear-gradient(135deg,var(--surface2) 0%,rgba(124,58,237,0.03) 100%);
+}
+.utility-card-header h3{font-size:14px;font-weight:600;color:var(--text);margin:0;flex:1;}
+.utility-card-header .utility-desc{font-size:11px;color:var(--text3);font-weight:400;}
+.utility-card-body{padding:18px;}
+
+/* Dropdown overlay for model/provider selection */
+._dropdown-overlay{position:fixed;z-index:1000;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);overflow:hidden;min-width:260px;max-width:380px;}
+._dropdown-search{width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;}
+._dropdown-list{max-height:240px;overflow-y:auto;}
+._dropdown-item{padding:7px 12px;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--text2);display:flex;align-items:center;gap:8px;transition:background 0.1s;}
+._dropdown-item:hover{background:var(--surface3);}
+._dropdown-item.selected{background:var(--accentDim);color:var(--accent2);}
+._dropdown-item img._dd-logo{width:14px;height:14px;object-fit:contain;}
+._dropdown-item img._dd-logo-mask{width:14px;height:14px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.7;}
 
 /* Log viewer */
 .log-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;}
@@ -854,39 +989,78 @@ tbody tr:hover{background:var(--surface2);}
 
     <!-- Models -->
     <section class="section" id="sec-models">
-      <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
-          <p style="font-size:13px;color:var(--text2)">Per-provider model matrix. One row per model alias — set which real model each provider should use.</p>
-          <p style="font-size:12px;color:var(--text3);margin-top:2px">Double-click any cell to pick from the live catalog. Empty cell = use Default. Changes saved to <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">models.json</code></p>
+          <p style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:4px">Model Routing Configuration</p>
+          <p style="font-size:12px;color:var(--text3)">Configure how requests are routed to providers. Changes saved to <code style="background:var(--surface2);padding:1px 5px;border-radius:3px">models.json</code></p>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-sm" onclick="matrixAddRow()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add Row
-          </button>
-          <button class="btn btn-sm" onclick="matrixAddQuickPreset('claude')">+ Claude</button>
-          <button class="btn btn-sm" onclick="matrixAddQuickPreset('gemini')">+ Gemini</button>
-          <button class="btn btn-sm" onclick="matrixAddQuickPreset('gpt')">+ GPT</button>
-          <button class="btn btn-sm btn-primary" onclick="saveModels()">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="mode-toggle" id="routingModeToggle">
+            <button class="mode-toggle-btn active" data-mode="priority-chain" onclick="setRoutingMode('priority-chain')">Priority Chain</button>
+            <button class="mode-toggle-btn" data-mode="per-model-per-provider" onclick="setRoutingMode('per-model-per-provider')">Per-Model Providers</button>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="saveModelConfig()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save
           </button>
         </div>
       </div>
 
-      <!-- Column visibility toggles -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-        <span style="font-size:11px;color:var(--text3);white-space:nowrap">Show columns:</span>
-        <div id="matrixColToggles" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+      <!-- Priority chain is managed in the Config tab to avoid sync issues -->
+      <div style="padding:10px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--accent2);flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span style="font-size:12px;color:var(--text2);flex:1">Provider priority is configured in the <strong>Config</strong> tab. All models follow that global priority chain in Priority Chain mode.</span>
+        <button class="btn btn-sm" onclick="switchTab('config')">Go to Config</button>
       </div>
 
-      <div style="overflow-x:auto">
-        <table id="matrixTable" style="width:100%;border-collapse:collapse;min-width:600px">
-          <thead id="matrixHead"></thead>
-          <tbody id="matrixBody"></tbody>
-        </table>
+      <!-- Model Cards -->
+      <div class="model-cards-grid" id="modelCardsGrid"></div>
+
+      <!-- Separator -->
+      <div style="margin:24px 0;border-top:1px solid var(--border2)"></div>
+
+      <!-- Default Model Card -->
+      <div style="padding:16px;background:var(--surface);border:1px solid var(--accent);border-radius:12px;overflow:visible">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--accent2)"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          <div>
+            <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0">Default Model</h3>
+            <p style="font-size:11px;color:var(--text3);margin:0">Handles ALL unknown model requests from Antigravity (e.g. gemini-2.5-flash, gemini-pro-agent, title generation)</p>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:140px 1fr;gap:12px;align-items:end">
+          <div class="model-card-field" style="margin-bottom:0">
+            <label>Provider</label>
+            <div id="defaultProviderSelect" style="position:relative"></div>
+          </div>
+          <div class="model-card-field" style="margin-bottom:0">
+            <label>Model</label>
+            <div id="defaultModelSelect" style="position:relative"></div>
+          </div>
+        </div>
       </div>
-      <p style="font-size:11px;color:var(--text3);margin-top:8px">Rows with an empty Model ID or all-empty cells are ignored on save. ✕ removes a row.</p>
+
+      <!-- Custom Model Mapping -->
+      <div style="margin-top:16px;padding:14px 16px;background:var(--surface);border:1px dashed var(--border2);border-radius:10px;overflow:visible">
+        <p style="font-size:13px;color:var(--text);margin-bottom:4px;font-weight:600">Add Custom Model Mapping</p>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:12px">Map any model name Antigravity sends to a specific provider + model. Overrides the default model for that specific name.</p>
+        <div style="display:grid;grid-template-columns:1fr 140px 1fr auto;gap:8px;align-items:end">
+          <div class="model-card-field" style="margin-bottom:0">
+            <label>Model Name (sent by Antigravity)</label>
+            <input id="customModelAlias" type="text" placeholder="e.g. gemini-2.5-flash" style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--mono);outline:none">
+          </div>
+          <div class="model-card-field" style="margin-bottom:0">
+            <label>Provider</label>
+            <div id="customModelProvider" style="position:relative"></div>
+          </div>
+          <div class="model-card-field" style="margin-bottom:0">
+            <label>Resolved Model</label>
+            <div id="customModelResolved" style="position:relative"></div>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="addCustomModelMapping()" style="margin-bottom:0;height:36px">+ Add</button>
+        </div>
+        <div id="customModelMappingsList" style="margin-top:12px"></div>
+      </div>
     </section>
 
     <!-- Browse -->
@@ -1162,6 +1336,10 @@ const openDetails = new Set(); // tracks open detail rows by request.id
 const PER_PAGE = 25;
 
 // Navigation
+function switchTab(tab) {
+  const navItem = document.querySelector(`.nav-item[data-tab="${tab}"]`);
+  if (navItem) navItem.click();
+}
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1177,7 +1355,7 @@ document.querySelectorAll('.nav-item').forEach(el => {
 
 function refreshTab(tab) {
   if (tab === 'requests') renderRequests();
-  else if (tab === 'models') { loadModels(); renderMatrixTable(); }
+  else if (tab === 'models') { loadModelConfig(); }
   else if (tab === 'browse') { if (_browseProvider && window._fetchedModels[_browseProvider]) { document.getElementById('browseResultsPanel').style.display = 'block'; renderBrowseModels(); } }
   else if (tab === 'cost') loadCostData();
   else if (tab === 'dashboard') { reloadAll(); }
@@ -1560,6 +1738,8 @@ const PROVIDER_META = {
   lmstudio:   { label: 'LM Studio',  color: '#888', desc: 'Local: localhost:1234', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/lmstudio.svg', logoMask: true },
 };
 
+const ALL_PROVIDERS = Object.keys(PROVIDER_META);
+
 function logoHtml(meta, size) {
   if (!meta || !meta.logo) return '';
   const s = size || 16;
@@ -1916,503 +2096,570 @@ async function testWebhook() {
   setTimeout(() => { result.textContent = ''; }, 5000);
 }
 
-async function loadModels() {
+let _modelConfig = null; // full models.json data
+let _routingMode = 'priority-chain';
+
+async function loadModelConfig() {
   try {
-    const m = await api('GET','/api/models');
-    window._matrixData = m;
-    _allModelNames = [];
-    // collect all model names for replay selects
-    for (const [k] of Object.entries(m)) {
-      if (k !== '_provider_models') _allModelNames.push(k);
-    }
-    const pm = m._provider_models || {};
-    for (const k of Object.keys(pm)) _allModelNames.push(k);
-    _allModelNames = [...new Set(_allModelNames)];
-    primeModelCache();
-    renderMatrixTable();
-  } catch (e) {}
+    _modelConfig = await api('GET', '/api/models');
+    _routingMode = _modelConfig._routing_mode || 'priority-chain';
+    // Update mode toggle UI
+    document.querySelectorAll('#routingModeToggle .mode-toggle-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === _routingMode);
+    });
+    const pcs = document.getElementById('priorityChainSection');
+    if (pcs) pcs.style.display = _routingMode === 'priority-chain' ? 'block' : 'none';
+  } catch (e) { console.error('[modelConfig] Failed to load models:', e); }
+  try { renderPriorityChain(); } catch (e) { console.error('[modelConfig] renderPriorityChain failed:', e); }
+  try { renderModelCards(); } catch (e) { console.error('[modelConfig] renderModelCards failed:', e); }
+  try { renderUtilityModels(); } catch (e) { console.error('[modelConfig] renderUtilityModels failed:', e); }
+  try { initCustomModelMapping(); renderCustomModelMappings(); } catch (e) {}
 }
 
-// ---- Provider Matrix ----
-// The ordered list of providers shown as columns (user can hide any)
-const MATRIX_PROVIDERS = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
-let _matrixVisibleProviders = null; // null = all visible
-
-function matrixGetVisible() {
-  if (!_matrixVisibleProviders) return MATRIX_PROVIDERS;
-  return MATRIX_PROVIDERS.filter(p => _matrixVisibleProviders.has(p));
-}
-
-function renderMatrixColToggles() {
-  const container = document.getElementById('matrixColToggles');
-  if (!container) return;
-  if (!_matrixVisibleProviders) _matrixVisibleProviders = new Set(MATRIX_PROVIDERS);
-  container.innerHTML = MATRIX_PROVIDERS.map(p => {
-    const meta = PROVIDER_META[p] || { label: p, color: '#888' };
-    const on = _matrixVisibleProviders.has(p);
-    return `<label style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;border:1px solid var(--border2);background:${on ? 'var(--accentDim)' : 'var(--surface2)'};color:${on ? 'var(--accent2)' : 'var(--text3)'};font-size:11px;cursor:pointer;user-select:none;transition:all 0.15s">
-      <input type="checkbox" ${on ? 'checked' : ''} data-provider="${p}" onchange="matrixToggleCol('${p}',this.checked)" style="display:none">
-      ${meta.logo ? logoHtml(meta, 12) : ''}
-      <span>${meta.label}</span>
-    </label>`;
-  }).join('');
-}
-
-function matrixToggleCol(provider, visible) {
-  if (!_matrixVisibleProviders) _matrixVisibleProviders = new Set(MATRIX_PROVIDERS);
-  if (visible) _matrixVisibleProviders.add(provider);
-  else _matrixVisibleProviders.delete(provider);
-  renderMatrixTable();
-}
-
-function renderMatrixTable() {
-  const data = window._matrixData || {};
-  const visible = matrixGetVisible();
-  renderMatrixColToggles();
-
-  // Build rows: collect ALL aliases from both flat keys AND _provider_models keys
-  const rows = {}; // modelAlias → { default, [provider]: '' ... }
-  // Pass 1: flat entries (have an explicit default value)
-  for (const [k, v] of Object.entries(data)) {
-    if (k === '_provider_models') continue;
-    if (!rows[k]) rows[k] = { default: '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
-    rows[k].default = typeof v === 'string' ? v : '';
-  }
-  // Pass 2: per-provider entries (may have NO flat entry — must still appear as a row)
-  const pm = (data._provider_models) || {};
-  for (const [model, providers] of Object.entries(pm)) {
-    if (!rows[model]) rows[model] = { default: '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
-    for (const [prov, val] of Object.entries(providers)) {
-      if (MATRIX_PROVIDERS.includes(prov)) rows[model][prov] = typeof val === 'string' ? val : '';
-    }
-  }
-
-  // Render header
-  const head = document.getElementById('matrixHead');
-  const body = document.getElementById('matrixBody');
-  if (!head || !body) return;
-
-  const thStyle = 'text-align:left;padding:8px 10px;font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;background:var(--surface2);border-bottom:1px solid var(--border2)';
-  let headHtml = '<tr>'
-    + '<th style="' + thStyle + ';width:180px;position:sticky;left:0;z-index:2">Model Alias</th>'
-    + '<th style="' + thStyle + ';width:200px">Default</th>';
-  for (const p of visible) {
-    const meta = PROVIDER_META[p] || { label: p, color: '#888' };
-    headHtml += '<th style="' + thStyle + ';width:180px">'
-      + (meta.logo ? logoHtml(meta, 13) : '')
-      + '<span style="margin-left:4px">' + meta.label + '</span></th>';
-  }
-  headHtml += '<th style="' + thStyle + ';width:36px"></th></tr>';
-  head.innerHTML = headHtml;
-
-  // Render body — IMPORTANT: never use single quotes inside onfocus/onblur HTML attributes
-  // because the attribute value itself is single-quoted by the HTML parser.
-  // We use data-attributes + a shared JS handler instead.
-  const tdBase = 'padding:5px 6px;border-top:1px solid var(--border2);vertical-align:middle';
-
-  let bodyHtml = '';
-  const rowKeys = Object.keys(rows);
-  if (rowKeys.length === 0) {
-    bodyHtml = '<tr><td colspan="' + (visible.length + 3) + '" style="padding:40px;text-align:center;color:var(--text3);font-size:13px">No models configured. Click <strong>Add Row</strong> to start.</td></tr>';
-  }
-
-  for (const alias of rowKeys) {
-    const row = rows[alias];
-    const km = alias.toLowerCase();
-    const aliasMeta = km.startsWith('claude') ? PROVIDER_META.anthropic
-      : km.startsWith('gemini') ? PROVIDER_META.google
-      : km.startsWith('gpt') ? PROVIDER_META.openai
-      : null;
-    const aliasLogo = aliasMeta ? logoHtml(aliasMeta, 13) : '';
-
-    bodyHtml += '<tr class="matrix-row" data-alias="' + esc(alias) + '">'
-      + '<td style="' + tdBase + ';background:var(--surface);position:sticky;left:0;z-index:1">'
-      + '<div style="display:flex;align-items:center;gap:4px">'
-      + aliasLogo
-      + '<input class="matrix-alias" data-col="alias" data-orig="' + esc(alias) + '" value="' + esc(alias) + '" placeholder="e.g. claude-sonnet-4-6"'
-      + ' style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer;font-weight:500"'
-      + ' onfocus="matrixInputFocus(this)" onblur="matrixInputBlur(this)">'
-      + '</div></td>'
-      + '<td style="' + tdBase + '">'
-      + '<input class="matrix-cell" data-col="default" value="' + esc(row.default) + '" placeholder="use default"'
-      + ' title="Default resolved model (used when no provider-specific cell is set)"'
-      + ' style="width:100%;padding:5px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer"'
-      + ' onfocus="matrixInputFocus(this)" onblur="matrixCellBlur(this)">'
-      + '</td>';
-
-    for (const p of visible) {
-      const val = row[p] || '';
-      const meta = PROVIDER_META[p] || {};
-      const rgb = meta.color ? hexToRgb(meta.color) : '124,58,237';
-      const filledStyle = val
-        ? 'width:100%;padding:5px 8px;border-radius:5px;border:1px solid rgba(' + rgb + ',0.25);background:rgba(' + rgb + ',0.08);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer'
-        : 'width:100%;padding:5px 8px;border-radius:5px;border:1px dashed var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none;cursor:pointer';
-      bodyHtml += '<td style="' + tdBase + '">'
-        + '<div style="position:relative">'
-        + '<input class="matrix-cell" data-col="' + p + '" value="' + esc(val) + '" placeholder="use default"'
-        + ' style="' + filledStyle + '"'
-        + ' onfocus="matrixCellFocus(this,&quot;' + p + '&quot;)" onblur="matrixCellBlur(this)" ondblclick="matrixOpenPicker(this,&quot;' + p + '&quot;)">'
-        + (val ? '<span style="position:absolute;right:4px;top:50%;transform:translateY(-50%);display:inline-flex;pointer-events:none">' + logoHtml(meta, 10) + '</span>' : '')
-        + '</div></td>';
-    }
-
-    bodyHtml += '<td style="' + tdBase + ';text-align:center">'
-      + '<button onclick="this.closest(\'tr\').remove()" title="Remove row"'
-      + ' style="width:24px;height:24px;border:none;background:transparent;color:var(--text3);cursor:pointer;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1"'
-      + ' onmouseenter="this.style.color=\'var(--red)\'" onmouseleave="this.style.color=\'var(--text3)\'">✕</button>'
-      + '</td></tr>';
-  }
-
-  body.innerHTML = bodyHtml;
-
-  // Wire up input events after DOM insertion
-  body.querySelectorAll('.matrix-cell,.matrix-alias').forEach(inp => {
-    inp.addEventListener('input', function() { matrixCellBlur(this); });
+function setRoutingMode(mode) {
+  _routingMode = mode;
+  document.querySelectorAll('#routingModeToggle .mode-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 }
 
-// Shared focus/blur handlers — no inline CSS string literals with quotes
-function matrixInputFocus(inp) {
-  inp.style.borderColor = 'var(--accent)';
-  inp.style.background = 'var(--surface2)';
-  inp.style.boxShadow = '0 0 0 2px var(--accentDim)';
+function renderPriorityChain() {
+  const container = document.getElementById('providerPriorityList');
+  if (!container) return;
+  const priority = _modelConfig?._global_provider_priority || [];
+  const providers = _modelConfig?.providers || [];
+  renderProviderPriority(priority, providers);
 }
 
-function matrixInputBlur(inp) {
-  inp.style.borderColor = 'transparent';
-  inp.style.background = 'transparent';
-  inp.style.boxShadow = '';
-}
+const MODEL_GROUPS = [
+  { alias: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', category: 'Google Gemini', color: '#4285f4', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg', logoMask: true, variants: ['gemini-3.5-flash-medium', 'gemini-3.5-flash-low', 'gemini-3.5-flash-high'], variantLabels: ['Medium', 'Low', 'High'] },
+  { alias: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro', category: 'Google Gemini', color: '#4285f4', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg', logoMask: true, variants: ['gemini-3.1-pro-low', 'gemini-3.1-pro-high'], variantLabels: ['Low', 'High'] },
+  { alias: 'claude-sonnet-4-6-thinking', label: 'Claude Sonnet 4.6', category: 'Anthropic', color: '#d97757', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg', logoMask: true, variants: [], variantLabels: [] },
+  { alias: 'claude-opus-4-6-thinking', label: 'Claude Opus 4.6', category: 'Anthropic', color: '#d97757', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg', logoMask: true, variants: [], variantLabels: [] },
+  { alias: 'gpt-oss-120b-medium', label: 'GPT-OSS 120B', category: 'OpenAI', color: '#10a37f', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/openai.svg', logoMask: true, variants: [], variantLabels: [] },
+];
 
-function hexToRgb(hex) {
-  // handles short hex like #4b8 or full #4488bb
-  hex = hex.replace('#','');
-  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
-  const n = parseInt(hex, 16);
-  return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
-}
+function renderModelCards() {
+  const grid = document.getElementById('modelCardsGrid');
+  if (!grid) return;
+  const pm = _modelConfig?._provider_models || {};
 
-function matrixCellFocus(inp, provider) {
-  matrixInputFocus(inp);
-  // Show dropdown if cache populated
-  const models = window._toggledModels[provider] || [];
-  if (models.length > 0) matrixShowMiniPicker(inp, provider, models);
-}
+  grid.innerHTML = MODEL_GROUPS.map(group => {
+    const perProvider = pm[group.alias] || {};
+    const firstProvider = Object.keys(perProvider)[0] || '';
+    const firstModel = perProvider[firstProvider] || '';
 
-function matrixCellBlur(inp) {
-  const provider = inp.dataset.col;
-  if (!provider || provider === 'default' || provider === 'alias') {
-    matrixInputBlur(inp);
-    return;
-  }
-  const val = inp.value.trim();
-  const meta = PROVIDER_META[provider] || {};
-  const rgb = meta.color ? hexToRgb(meta.color) : '124,58,237';
-  inp.style.boxShadow = '';
-  if (val) {
-    inp.style.borderColor = 'rgba(' + rgb + ',0.25)';
-    inp.style.background = 'rgba(' + rgb + ',0.08)';
-    inp.style.borderStyle = 'solid';
-  } else {
-    inp.style.borderColor = 'var(--border2)';
-    inp.style.background = 'transparent';
-    inp.style.borderStyle = 'dashed';
-  }
-}
+    let variantsHtml = '';
+    if (group.variants.length > 0) {
+      variantsHtml = `<div class="model-card-variants">
+        <div class="variant-label">Variants</div>
+        ${group.variants.map((v, vi) => {
+          const vPerProvider = pm[v] || {};
+          const vProvider = Object.keys(vPerProvider)[0] || firstProvider || '';
+          const vModel = vPerProvider[vProvider] || '';
+          return `<div class="variant-row">
+            <span class="variant-name">${group.variantLabels[vi]}</span>
+            <div style="flex:1;display:flex;gap:6px;align-items:center;min-width:0">
+              <div id="prov_${v}" style="flex-shrink:0;min-width:90px"></div>
+              <div id="model_${v}" style="flex:1;min-width:0"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }
 
-let _matrixPickerTarget = null;
+    const logoHtml = group.logo
+      ? (group.logoMask
+        ? `<span style="display:inline-block;width:28px;height:28px;mask-image:url(${group.logo});-webkit-mask-image:url(${group.logo});mask-size:contain;-webkit-mask-size:contain;background:${group.color};flex-shrink:0"></span>`
+        : `<img src="${group.logo}" style="width:28px;height:28px;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">`)
+      : `<div class="model-card-icon" style="background:${group.color}18;color:${group.color}">${group.icon || ''}</div>`;
 
-function matrixShowMiniPicker(inp, provider, models) {
-  // Remove any existing picker
-  const existing = document.getElementById('_matrixMiniPicker');
-  if (existing) existing.remove();
-  if (models.length === 0) return;
+    return `<div class="model-card" data-alias="${esc(group.alias)}">
+      <div class="model-card-header">
+        ${logoHtml}
+        <div class="model-card-name">${esc(group.label)}</div>
+        <div class="model-card-badge" style="background:${group.color}14;color:${group.color}">${esc(group.category)}</div>
+      </div>
+      <div class="model-card-body">
+        <div class="model-card-field">
+          <label>Provider</label>
+          <div id="prov_${group.alias}" style="min-width:0"></div>
+        </div>
+        <div class="model-card-field">
+          <label>Model Name <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--text3)">(click to select, dbl-click to edit)</span></label>
+          <div id="model_${group.alias}" style="min-width:0"></div>
+        </div>
+        ${variantsHtml}
+      </div>
+    </div>`;
+  }).join('');
 
-  const picker = document.createElement('div');
-  picker.id = '_matrixMiniPicker';
-  picker.style.cssText = 'position:fixed;z-index:1000;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);overflow:hidden;min-width:260px;max-width:360px';
+  // Now attach Browse-style resolver selects to each DOM container
+  MODEL_GROUPS.forEach(group => {
+    const perProvider = pm[group.alias] || {};
+    const primaryProv = Object.keys(perProvider)[0] || '';
+    const primaryModel = perProvider[primaryProv] || '';
 
-  const searchEl = document.createElement('input');
-  searchEl.placeholder = 'Search ' + (PROVIDER_META[provider]?.label || provider) + ' models...';
-  searchEl.style.cssText = 'width:100%;padding:8px 10px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none';
-  picker.appendChild(searchEl);
+    attachModelField('model_' + group.alias, group.alias, primaryProv, primaryModel);
+    attachProviderField('prov_' + group.alias, group.alias, primaryProv, (newProv) => {
+      const pm2 = _modelConfig._provider_models || {};
+      if (!pm2[group.alias]) pm2[group.alias] = {};
+      const oldModel = pm2[group.alias][primaryProv] || '';
+      pm2[group.alias] = {};
+      pm2[group.alias][newProv] = oldModel || '';
+      _modelConfig._provider_models = pm2;
+      attachModelField('model_' + group.alias, group.alias, newProv, oldModel || '');
+      renderUtilityModels();
+    });
 
-  const list = document.createElement('div');
-  list.style.cssText = 'max-height:200px;overflow-y:auto';
-  picker.appendChild(list);
-
-  function renderPickerList(filter) {
-    const filtered = filter ? models.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : models.slice(0, 80);
-    list.innerHTML = filtered.map(m => {
-      const sel = m === inp.value;
-      return `<div class="_mpItem" data-model="${esc(m)}" style="padding:5px 10px;cursor:pointer;font-size:12px;font-family:var(--mono);color:${sel ? 'var(--accent2)' : 'var(--text2)'};${sel ? 'background:var(--accentDim)' : ''}transition:background 0.1s">${esc(m)}</div>`;
-    }).join('');
-    list.querySelectorAll('._mpItem').forEach(el => {
-      el.addEventListener('mousedown', e => {
-        e.preventDefault();
-        inp.value = el.dataset.model;
-        matrixCellBlur(inp);
-        picker.remove();
+    group.variants.forEach(v => {
+      const vPerProvider = pm[v] || {};
+      const vProv = Object.keys(vPerProvider)[0] || primaryProv || '';
+      const vModel = vPerProvider[vProv] || '';
+      attachModelField('model_' + v, v, vProv, vModel);
+      attachProviderField('prov_' + v, v, vProv, (newProv) => {
+        const pm2 = _modelConfig._provider_models || {};
+        if (!pm2[v]) pm2[v] = {};
+        const oldModel = pm2[v][vProv] || '';
+        pm2[v] = {};
+        pm2[v][newProv] = oldModel || '';
+        _modelConfig._provider_models = pm2;
+        attachModelField('model_' + v, v, newProv, oldModel || '');
+        renderUtilityModels();
       });
-      el.addEventListener('mouseenter', () => { el.style.background = 'var(--surface3)'; });
-      el.addEventListener('mouseleave', () => { el.style.background = el.dataset.model === inp.value ? 'var(--accentDim)' : ''; });
+    });
+  });
+}
+
+function attachProviderField(containerId, alias, selected, onChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const meta = PROVIDER_META[selected] || PROVIDER_META[ALL_PROVIDERS[0]];
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:relative;width:100%';
+  const sel = document.createElement('select');
+  sel.style.cssText = 'position:absolute;opacity:0;width:0;height:0;pointer-events:none';
+  ALL_PROVIDERS.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = PROVIDER_META[p]?.label || p;
+    if (p === selected) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  wrapper.appendChild(sel);
+  const trigger = document.createElement('div');
+  trigger.className = 'psel-trigger';
+  trigger.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;outline:none;user-select:none;min-height:34px';
+  trigger.innerHTML = (meta ? logoHtml(meta, 14) : '') + '<span style="flex:1">' + (meta?.label || selected) + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3);flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>';
+  wrapper.appendChild(trigger);
+  const menu = document.createElement('div');
+  menu.className = 'psel-menu';
+  menu.style.cssText = 'position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:9999;display:none;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.4)';
+  ALL_PROVIDERS.forEach(p => {
+    const pm2 = PROVIDER_META[p] || { label: p, color: '#888' };
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:6px;padding:7px 10px;cursor:pointer;font-size:12px;color:var(--text);transition:background 0.1s';
+    item.innerHTML = (pm2.logo ? '<img src="' + pm2.logo + '" style="width:14px;height:14px;' + (pm2.logoMask ? 'filter:brightness(0) invert(1);opacity:0.6' : '') + '" onerror="this.style.display=\'none\'">' : '<span style="width:14px;height:14px;border-radius:50%;background:' + pm2.color + ';flex-shrink:0;display:inline-block"></span>') + '<span>' + pm2.label + '</span>';
+    item.onmouseenter = () => item.style.background = 'var(--surface3)';
+    item.onmouseleave = () => item.style.background = '';
+    item.onclick = (e) => {
+      e.stopPropagation();
+      const nm = PROVIDER_META[p] || { label: p };
+      trigger.innerHTML = (nm.logo ? '<img src="' + nm.logo + '" style="width:14px;height:14px;' + (nm.logoMask ? 'filter:brightness(0) invert(1);opacity:0.6' : '') + '" onerror="this.style.display=\'none\'">' : '<span style="width:14px;height:14px;border-radius:50%;background:' + (nm.color||'#888') + ';flex-shrink:0;display:inline-block"></span>') + '<span style="flex:1">' + nm.label + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3);flex-shrink:0"><polyline points="6 9 12 15 18 9"/></svg>';
+      menu.style.display = 'none'; sel.value = p;
+      if (onChange) onChange(p);
+    };
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  menu._trigger = trigger;
+  trigger.onclick = (e) => {
+    e.stopPropagation();
+    if (menu.style.display === 'block') { menu.style.display = 'none'; return; }
+    var r = trigger.getBoundingClientRect();
+    var spaceBelow = window.innerHeight - r.bottom;
+    var menuH = Math.min(220, ALL_PROVIDERS.length * 36 + 8);
+    if (spaceBelow < menuH && r.top > menuH) {
+      menu.style.top = (r.top - menuH - 2) + 'px';
+    } else {
+      menu.style.top = (r.bottom + 2) + 'px';
+    }
+    menu.style.left = r.left + 'px';
+    menu.style.width = r.width + 'px';
+    menu.style.display = 'block';
+  };
+  container.appendChild(wrapper);
+}
+
+function attachModelField(containerId, alias, provider, modelName) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:relative;width:100%';
+  const hi = document.createElement('input');
+  hi.type = 'hidden'; hi.className = 'rsel-value'; hi.value = modelName || '';
+  wrapper.appendChild(hi);
+  const trigger = document.createElement('div');
+  trigger.className = 'rsel-trigger';
+  trigger.style.cssText = 'display:flex;align-items:center;gap:4px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--mono);cursor:pointer;outline:none;user-select:none;min-height:34px';
+  const pm = PROVIDER_META[provider] || PROVIDER_META.openrouter;
+  trigger.innerHTML = '<span style="display:inline-flex;width:14px;height:14px;flex-shrink:0">' + logoHtml(pm, 14) + '</span><span class="rsel-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (modelName ? 'var(--text)' : 'var(--text3)') + '">' + esc(modelName || 'Select model...') + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
+  wrapper.appendChild(trigger);
+  const menu = document.createElement('div');
+  menu.style.cssText = 'position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:9999;display:none;max-height:280px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.4)';
+  const search = document.createElement('input');
+  search.placeholder = 'Search ' + (PROVIDER_META[provider]?.label || provider) + ' models...';
+  search.style.cssText = 'width:100%;padding:7px 10px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:11px;font-family:var(--mono);outline:none';
+  menu.appendChild(search);
+  const list = document.createElement('div');
+  list.style.cssText = 'max-height:220px;overflow-y:auto';
+  menu.appendChild(list);
+  function renderList(filter) {
+    const cached = window._toggledModels[provider] || window._fetchedModels[provider] || [];
+    const filtered = filter ? cached.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : cached.slice(0, 80);
+    list.innerHTML = filtered.map(m => {
+      const sel2 = m === hi.value;
+      return '<div class="rsel-item" data-model="' + esc(m) + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;cursor:pointer;font-size:12px;font-family:var(--mono);color:' + (sel2 ? 'var(--accent2)' : 'var(--text2)') + ';transition:background 0.1s' + (sel2 ? ';background:var(--accentDim)' : '') + '">' +
+        (sel2 ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>' : '<span style="width:10px;flex-shrink:0"></span>') +
+        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis">' + esc(m) + '</span></div>';
+    }).join('');
+    list.querySelectorAll('.rsel-item').forEach(el => {
+      el.onclick = function(e) {
+        e.stopPropagation();
+        const m2 = this.dataset.model;
+        hi.value = m2;
+        const t = trigger.querySelector('.rsel-text');
+        t.textContent = m2;
+        t.style.color = 'var(--text)';
+        menu.style.display = 'none';
+        setModelName(alias, provider, m2);
+      };
     });
   }
-
-  renderPickerList('');
-  searchEl.addEventListener('input', () => renderPickerList(searchEl.value));
-  searchEl.addEventListener('keydown', e => {
-    if (e.key === 'Escape') picker.remove();
-    if (e.key === 'Enter') { const first = list.querySelector('._mpItem'); if (first) first.dispatchEvent(new MouseEvent('mousedown')); }
-  });
-
-  document.body.appendChild(picker);
-  const rect = inp.getBoundingClientRect();
-  picker.style.left = rect.left + 'px';
-  picker.style.top = (rect.bottom + 4) + 'px';
-  if (rect.left + 360 > window.innerWidth) picker.style.left = (window.innerWidth - 370) + 'px';
-  setTimeout(() => searchEl.focus(), 30);
-
-  const close = (e) => { if (!picker.contains(e.target) && e.target !== inp) { picker.remove(); document.removeEventListener('mousedown', close); } };
-  setTimeout(() => document.addEventListener('mousedown', close), 100);
+  renderList('');
+  document.body.appendChild(menu);
+  menu._trigger = trigger;
+  trigger.onclick = function(e) {
+    e.stopPropagation();
+    if (menu.style.display === 'block') { menu.style.display = 'none'; return; }
+    var r = trigger.getBoundingClientRect();
+    var spaceBelow = window.innerHeight - r.bottom;
+    var cached = window._toggledModels?.[provider] || window._fetchedModels?.[provider] || [];
+    var menuH = Math.min(280, cached.length * 32 + 40);
+    if (spaceBelow < menuH && r.top > menuH) {
+      menu.style.top = (r.top - menuH - 2) + 'px';
+    } else {
+      menu.style.top = (r.bottom + 2) + 'px';
+    }
+    menu.style.left = r.left + 'px';
+    menu.style.width = r.width + 'px';
+    menu.style.display = 'block';
+    search.value = ''; renderList(''); setTimeout(() => search.focus(), 50);
+  };
+  search.oninput = function() { renderList(this.value); };
+  search.onkeydown = function(e) {
+    if (e.key === 'Escape') menu.style.display = 'none';
+    else if (e.key === 'Enter') { const fi = list.querySelector('.rsel-item'); if (fi) fi.click(); }
+  };
+  wrapper.updateProvider = function(newProvider) {
+    const nm = PROVIDER_META[newProvider] || PROVIDER_META.openrouter;
+    const logoEl = trigger.querySelector('span[style*="inline-flex"]');
+    if (logoEl) logoEl.innerHTML = logoHtml(nm, 14);
+    search.placeholder = 'Search ' + (nm.label || newProvider) + ' models...';
+    renderList(search.value);
+  };
+  container.appendChild(wrapper);
 }
 
-function matrixOpenPicker(inp, provider) {
+function createModelNameFieldHtml(alias, provider, modelName, context) {
+  const display = modelName || 'Not configured';
+  const color = modelName ? 'var(--text)' : 'var(--text3)';
+  return `<div class="model-name-field" data-alias="${esc(alias)}" data-context="${context}">
+    <div class="model-name-display" onclick="onModelNameClick(event, this)" ondblclick="onModelNameDblClick(event, this)">
+      <span class="model-name-text" style="color:${color}">${esc(display)}</span>
+      <span class="model-name-edit-icon">✎</span>
+    </div>
+    <input class="model-name-edit" type="text" style="display:none" value="${esc(modelName)}"
+      onblur="onModelNameEditBlur(this)" onkeydown="if(event.key==='Enter')this.blur();if(event.key==='Escape'){this.dataset.cancel='1';this.blur()}">
+  </div>`;
+}
+
+function onProviderChange(sel, alias, context) {
+  const provider = sel.value;
+  const pm = _modelConfig._provider_models || {};
+  if (!pm[alias]) pm[alias] = {};
+  const oldProvider = Object.keys(pm[alias])[0];
+  if (oldProvider && oldProvider !== provider) {
+    const oldModel = pm[alias][oldProvider];
+    delete pm[alias][oldProvider];
+    pm[alias][provider] = oldModel || '';
+  }
+  _modelConfig._provider_models = pm;
+  // Re-render to update model name display
+  renderModelCards();
+  renderUtilityModels();
+}
+
+function onModelNameClick(e, display) {
+  e.stopPropagation();
+  const field = display.closest('.model-name-field');
+  const alias = field.dataset.alias;
+  const editInput = field.querySelector('.model-name-edit');
+  const provider = field.closest('.model-card')?.querySelector('select')?.value || 'openrouter';
   const models = window._toggledModels[provider] || window._fetchedModels[provider] || [];
+
   if (models.length === 0) {
     // Try lazy fetch
     api('GET', '/api/provider-models?provider=' + encodeURIComponent(provider)).then(r => {
       if (r && r.models && r.models.length) {
         window._fetchedModels[provider] = r.models;
         window._toggledModels[provider] = [...r.models];
-        matrixShowMiniPicker(inp, provider, r.models);
+        showModelDropdown(field, alias, provider, r.models);
       } else {
         toast('No cached models for ' + provider + ' — use Browse tab to fetch', true);
       }
-    }).catch(() => toast('Failed to load models', true));
-  } else {
-    matrixShowMiniPicker(inp, provider, models);
+    }).catch(() => {});
+    return;
   }
+  showModelDropdown(field, alias, provider, models);
 }
 
-function matrixAddRow(alias, defaultVal, providerVals) {
-  const data = window._matrixData || {};
-  if (!data[alias || '']) data[alias || ''] = typeof defaultVal === 'string' ? defaultVal : '';
-  const newRow = { default: defaultVal || '', ...Object.fromEntries(MATRIX_PROVIDERS.map(p => [p, ''])) };
-  if (providerVals) Object.assign(newRow, providerVals);
-  if (!window._matrixData) window._matrixData = {};
-  window._matrixData[alias || ''] = newRow.default;
-  if (alias && providerVals) {
-    if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
-    window._matrixData._provider_models[alias] = providerVals;
-  }
-  renderMatrixTable();
-  // focus the alias cell of the new row
-  setTimeout(() => {
-    const rows = document.querySelectorAll('#matrixBody .matrix-row');
-    const last = rows[rows.length - 1];
-    if (last) { const inp = last.querySelector('.matrix-alias'); if (inp) inp.focus(); }
-  }, 50);
-}
+function showModelDropdown(field, alias, provider, models) {
+  const existing = document.querySelector('._dropdown-overlay');
+  if (existing) existing.remove();
 
-function matrixAddQuickPreset(type) {
-  if (!window._matrixData) window._matrixData = {};
-  const presets = {
-    claude: { alias: 'claude-sonnet-4-6', defaultVal: 'claude-sonnet-4-6', providerVals: { anthropic: 'claude-sonnet-4-5', openrouter: 'anthropic/claude-sonnet-4-5', zen: 'claude-sonnet-4-5' } },
-    gemini: { alias: 'gemini-2.5-pro', defaultVal: 'gemini-2.5-pro', providerVals: { google: 'gemini-2.5-pro', openrouter: 'google/gemini-2.5-pro', zen: 'gemini-2.5-pro' } },
-    gpt: { alias: 'gpt-4o', defaultVal: 'gpt-4o', providerVals: { openai: 'gpt-4o', openrouter: 'openai/gpt-4o', zen: 'gpt-4o' } },
-  };
-  const p = presets[type]; if (!p) return;
-  window._matrixData[p.alias] = p.defaultVal;
-  if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
-  window._matrixData._provider_models[p.alias] = p.providerVals;
-  renderMatrixTable();
-}
+  const overlay = document.createElement('div');
+  overlay.className = '_dropdown-overlay';
+  const search = document.createElement('input');
+  search.className = '_dropdown-search';
+  search.placeholder = 'Search ' + (PROVIDER_META[provider]?.label || provider) + ' models...';
+  overlay.appendChild(search);
+  const list = document.createElement('div');
+  list.className = '_dropdown-list';
+  overlay.appendChild(list);
 
-async function saveModels() {
-  // Read matrix table — collect all rows from the DOM
-  const flat = {};
-  const providerModels = {};
-  const rows = document.querySelectorAll('#matrixBody .matrix-row');
-  rows.forEach(row => {
-    const aliasInp = row.querySelector('.matrix-alias');
-    if (!aliasInp) return;
-    const alias = aliasInp.value.trim();
-    if (!alias) return;
-    const cells = row.querySelectorAll('.matrix-cell');
-    let defaultVal = '';
-    const perProvider = {};
-    cells.forEach(cell => {
-      const col = cell.dataset.col;
-      const val = cell.value.trim();
-      if (col === 'default') { defaultVal = val; }
-      else if (val) { perProvider[col] = val; }
+  const currentVal = _modelConfig._provider_models?.[alias]?.[provider] || '';
+
+  function renderItems(filter) {
+    const filtered = filter ? models.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : models.slice(0, 80);
+    list.innerHTML = filtered.map(m => {
+      const sel = m === currentVal;
+      return `<div class="_dropdown-item${sel ? ' selected' : ''}" data-model="${esc(m)}">${sel ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>' : '<span style="width:10px;flex-shrink:0"></span>'}<span>${esc(m)}</span></div>`;
+    }).join('');
+    list.querySelectorAll('._dropdown-item').forEach(el => {
+      el.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const model = el.dataset.model;
+        setModelName(alias, provider, model);
+        overlay.remove();
+      });
     });
-    // Save the row as long as it has EITHER a default OR at least one provider cell.
-    // A row with only provider cells is valid — the router uses per-provider values.
-    if (defaultVal) flat[alias] = defaultVal;
-    if (Object.keys(perProvider).length > 0) {
-      providerModels[alias] = perProvider;
-      // If there's no default, still register the alias so loadModels shows it
-      if (!defaultVal && !flat[alias]) flat[alias] = '';
-    }
+  }
+
+  renderItems('');
+  search.addEventListener('input', () => renderItems(search.value));
+  search.addEventListener('keydown', e => {
+    if (e.key === 'Escape') overlay.remove();
+    if (e.key === 'Enter') { const first = list.querySelector('._dropdown-item'); if (first) first.dispatchEvent(new MouseEvent('mousedown')); }
   });
 
-  // Build payload: flat keys (non-empty default values only in flat map),
-  // plus _provider_models for everything with per-provider overrides.
-  // We store alias→'' for alias-only rows so loadModels can enumerate them.
-  const payload = {};
-  for (const [k, v] of Object.entries(flat)) {
-    if (v !== '') payload[k] = v; // only write non-empty defaults
-    // alias-only rows (v==='') are represented solely via _provider_models
-  }
-  if (Object.keys(providerModels).length > 0) payload._provider_models = providerModels;
+  document.body.appendChild(overlay);
+  const rect = field.querySelector('.model-name-display').getBoundingClientRect();
+  overlay.style.left = rect.left + 'px';
+  overlay.style.top = (rect.bottom + 4) + 'px';
+  if (rect.left + 380 > window.innerWidth) overlay.style.left = (window.innerWidth - 390) + 'px';
+  setTimeout(() => search.focus(), 30);
 
+  const close = (e) => { if (!overlay.contains(e.target)) { overlay.remove(); document.removeEventListener('mousedown', close); } };
+  setTimeout(() => document.addEventListener('mousedown', close), 100);
+}
+
+function onModelNameDblClick(e, display) {
+  e.stopPropagation();
+  const field = display.closest('.model-name-field');
+  const displayEl = field.querySelector('.model-name-display');
+  const editInput = field.querySelector('.model-name-edit');
+  displayEl.style.display = 'none';
+  editInput.style.display = 'block';
+  editInput.focus();
+  editInput.select();
+}
+
+function onModelNameEditBlur(input) {
+  if (input.dataset.cancel) { input.dataset.cancel = ''; input.style.display = 'none'; input.closest('.model-name-field').querySelector('.model-name-display').style.display = ''; return; }
+  const field = input.closest('.model-name-field');
+  const alias = field.dataset.alias;
+  const display = field.querySelector('.model-name-display');
+  const text = field.querySelector('.model-name-text');
+  const model = input.value.trim();
+  const provider = field.closest('.model-card')?.querySelector('select')?.value || 'openrouter';
+  setModelName(alias, provider, model);
+  input.style.display = 'none';
+  display.style.display = '';
+}
+
+function setModelName(alias, provider, model) {
+  const pm = _modelConfig._provider_models || {};
+  if (!pm[alias]) pm[alias] = {};
+  if (provider) pm[alias][provider] = model;
+  _modelConfig._provider_models = pm;
+  renderModelCards();
+  renderUtilityModels();
+}
+
+function renderUtilityModels() {
+  const defaultProvContainer = document.getElementById('defaultProviderSelect');
+  if (defaultProvContainer) {
+    const currentDefault = _modelConfig?._default_provider || 'openrouter';
+    attachProviderField('defaultProviderSelect', 'default', currentDefault, function(val) {
+      _modelConfig._default_provider = val;
+      attachModelField('defaultModelSelect', 'default', val, _modelConfig._default_model || '');
+    });
+    attachModelField('defaultModelSelect', 'default', currentDefault, _modelConfig._default_model || '');
+  }
+}
+
+
+
+function onUtilityModelChange() {}
+
+async function saveModelConfig() {
+  if (!_modelConfig) { toast('No config loaded', true); return; }
+  _modelConfig._routing_mode = _routingMode;
+  _modelConfig._default_model = _modelConfig._default_model || '';
+  _modelConfig._default_provider = (() => {
+    var wrap = document.getElementById('defaultProviderSelect')?.querySelector('.psel-wrap');
+    return wrap?.querySelector('select')?.value || '';
+  })();
+  if ((_modelConfig._default_provider && !_modelConfig._default_model) || (!_modelConfig._default_provider && _modelConfig._default_model)) {
+    toast('Default model requires both provider AND model to be set', true); return;
+  }
   try {
-    const r = await api('POST', '/api/models', payload);
-    if (r.ok) {
-      // Rebuild _matrixData to match what we just saved so the renderer
-      // shows correctly without needing a round-trip that might lose alias-only rows
-      window._matrixData = { ...payload };
-      // Ensure alias-only rows (no flat default) are still tracked
-      for (const alias of Object.keys(providerModels)) {
-        if (!(alias in window._matrixData) && alias !== '_provider_models') {
-          // no-op — they're in _provider_models which is already in _matrixData
-        }
-      }
-      toast('Models saved and loaded');
-      // Re-render from our local copy first so there's no flicker,
-      // then sync with server in the background
-      renderMatrixTable();
-      loadModels();
-    } else toast('Save failed: ' + (r.error || 'unknown'), true);
+    var r = await api('POST', '/api/models', _modelConfig);
+    if (r.ok) { toast('Model config saved'); loadModelConfig(); }
+    else toast('Save failed: ' + (r.error || 'unknown'), true);
   } catch (e) { toast('Save failed: ' + e.message, true); }
 }
 
-// Legacy compatibility — browseAddSelected still uses addRow internally
-function addModelRow() { matrixAddRow('', '', {}); }
+// Legacy compatibility — browseAddSelected still calls addRow()
 function addRow(k, v, provider) {
-  // called by browseAddSelected — merge into matrixData and re-render
-  if (!window._matrixData) window._matrixData = {};
+  if (!_modelConfig) _modelConfig = {};
   if (provider) {
-    if (!window._matrixData._provider_models) window._matrixData._provider_models = {};
-    if (!window._matrixData._provider_models[k]) window._matrixData._provider_models[k] = {};
-    window._matrixData._provider_models[k][provider] = v;
+    if (!_modelConfig._provider_models) _modelConfig._provider_models = {};
+    if (!_modelConfig._provider_models[k]) _modelConfig._provider_models[k] = {};
+    _modelConfig._provider_models[k][provider] = v;
   } else {
-    window._matrixData[k] = v;
+    _modelConfig[k] = v;
   }
-  renderMatrixTable();
+  renderModelCards();
+  renderUtilityModels();
+}
+function addModelRow() {}
+
+function initCustomModelMapping() {
+  const provContainer = document.getElementById('customModelProvider');
+  if (provContainer) {
+    attachProviderField('customModelProvider', 'custom', 'openrouter', function(val) {
+      attachModelField('customModelResolved', 'custom_' + val, val, '');
+    });
+    attachModelField('customModelResolved', 'custom_openrouter', 'openrouter', '');
+  }
 }
 
-// ---- Resolver Select Widget ----
-function createResolverSelect(models, value, onChange, providerMeta) {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'rsel-wrap';
-  wrapper.style.cssText = 'position:relative;width:100%';
-  const hi = document.createElement('input');
-  hi.type = 'hidden'; hi.className = 'rsel-value'; hi.value = value || '';
-  wrapper.appendChild(hi);
-  const trigger = document.createElement('div');
-  trigger.className = 'rsel-trigger';
-  const triggerLogo = providerMeta ? logoHtml(providerMeta, 14) : '';
-  trigger.style.cssText = 'display:flex;align-items:center;gap:4px;padding:7px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:13px;font-family:var(--mono);cursor:pointer;outline:none;user-select:none;min-height:34px';
-  trigger.innerHTML = '<span class="rsel-logo" style="display:inline-flex;width:14px;height:14px;flex-shrink:0">'+triggerLogo+'</span><span class="rsel-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:'+(value?'var(--text)':'var(--text3)')+'">'+esc(value||'Select model...')+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
-  wrapper.appendChild(trigger);
-  const menu = document.createElement('div');
-  menu.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:200;display:none;max-height:280px;overflow:hidden;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
-  const search = document.createElement('input');
-  search.placeholder = 'Search models...';
-  search.style.cssText = 'width:100%;padding:6px 8px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);outline:none';
-  menu.appendChild(search);
-  const list = document.createElement('div');
-  list.style.cssText = 'max-height:220px;overflow-y:auto';
-  menu.appendChild(list);
-  function renderList(filter) {
-    const filtered = filter ? models.filter(m => m.toLowerCase().includes(filter.toLowerCase())) : models;
-    list.innerHTML = filtered.map(m => {
-      const sel = m === hi.value;
-      const itemLogo = providerMeta ? logoHtml(providerMeta, 12) : '<span style="width:12px;display:inline-block"></span>';
-      return '<div class="rsel-item" data-model="'+esc(m)+'" style="display:flex;align-items:center;gap:6px;padding:5px 8px;cursor:pointer;font-size:12px;font-family:var(--mono);color:'+(sel?'var(--accent)':'var(--text2)')+';transition:background 0.12s'+(sel?';background:var(--accentDim)':'')+'">' +
-        '<span style="display:inline-flex;width:12px;height:12px;flex-shrink:0">'+itemLogo+'</span>' +
-        (sel?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg>':'<span style="width:10px;flex-shrink:0"></span>') +
-        '<span style="flex:1;overflow:hidden;text-overflow:ellipsis">'+esc(m)+'</span>' +
+function populateCustomModelDropdown(provider) {
+  attachModelField('customModelResolved', 'custom_' + provider, provider, '');
+}
+
+function addCustomModelMapping() {
+  var alias = document.getElementById('customModelAlias')?.value.trim();
+  var providerWrap = document.getElementById('customModelProvider')?.querySelector('.psel-wrap');
+  var provider = providerWrap?.querySelector('select')?.value || 'openrouter';
+  var modelWrap = document.getElementById('customModelResolved');
+  var hi = modelWrap?.querySelector('.rsel-value');
+  var modelText = hi ? hi.value : '';
+  if (!alias) { toast('Model name is required', true); return; }
+  if (!modelText) { toast('Select a model', true); return; }
+  var pm = _modelConfig._provider_models || {};
+  if (!pm[alias]) pm[alias] = {};
+  pm[alias][provider] = modelText;
+  _modelConfig._provider_models = pm;
+  document.getElementById('customModelAlias').value = '';
+  renderCustomModelMappings();
+  renderModelCards();
+  toast('Mapped "' + alias + '" to ' + provider + '/' + modelText);
+}
+
+function removeCustomModelMapping(alias) {
+  const pm = _modelConfig._provider_models || {};
+  delete pm[alias];
+  _modelConfig._provider_models = pm;
+  renderCustomModelMappings();
+  renderModelCards();
+}
+
+function renderCustomModelMappings() {
+  const container = document.getElementById('customModelMappingsList');
+  if (!container) return;
+  const pm = _modelConfig?._provider_models || {};
+  const customModels = Object.keys(pm).filter(k => !MODEL_GROUPS.some(g => g.alias === k || g.variants.includes(k)));
+  if (customModels.length === 0) { container.innerHTML = '<p style="font-size:11px;color:var(--text3)">No custom mappings yet.</p>'; return; }
+  container.innerHTML = customModels.map(alias => {
+    const providers = pm[alias];
+    const entries = Object.entries(providers);
+    return entries.map(function(entry) {
+      const prov = entry[0];
+      const model = entry[1];
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface2);border-radius:6px;margin-bottom:4px">' +
+        '<span style="font-size:12px;font-family:var(--mono);color:var(--text);flex:1">' + esc(alias) + '</span>' +
+        '<span style="font-size:11px;color:var(--text3)">→</span>' +
+        '<span style="font-size:11px;color:var(--accent2);font-family:var(--mono)">' + esc(prov) + '</span>' +
+        '<span style="font-size:11px;color:var(--text3)">/</span>' +
+        '<span style="font-size:11px;color:var(--text2);font-family:var(--mono);flex:1">' + esc(model) + '</span>' +
+        '<button class="btn btn-sm btn-danger" onclick="removeCustomModelMapping(\'' + esc(alias) + '\')" style="padding:2px 8px;font-size:11px">✕</button>' +
       '</div>';
     }).join('');
-    list.querySelectorAll('.rsel-item').forEach(el => {
-      el.onclick = function(e) {
-        e.stopPropagation();
-        const m = this.dataset.model;
-        hi.value = m;
-        const t = trigger.querySelector('.rsel-text');
-        t.textContent = m;
-        t.style.color = 'var(--text)';
-        menu.style.display = 'none';
-        if (onChange) onChange(m);
-      };
-    });
-  }
-  renderList('');
-  wrapper.appendChild(menu);
-  trigger.onclick = function(e) {
-    e.stopPropagation();
-    const open = menu.style.display === 'block';
-    menu.style.display = open ? 'none' : 'block';
-    if (!open) { search.value = ''; renderList(''); setTimeout(() => search.focus(), 50); }
-  };
-  search.oninput = function() { renderList(this.value); };
-  search.onkeydown = function(e) {
-    if (e.key === 'Escape') { menu.style.display = 'none'; }
-    else if (e.key === 'Enter') { const fi = list.querySelector('.rsel-item'); if (fi) fi.click(); }
-  };
-  wrapper.updateModels = function(newModels, newProviderMeta) {
-    models = newModels || [];
-    if (newProviderMeta) {
-      const trigLogo = trigger.querySelector('.rsel-logo');
-      if (trigLogo) trigLogo.innerHTML = logoHtml(newProviderMeta, 14);
-      providerMeta = newProviderMeta;
-    }
-    renderList(search.value);
-  };
-  return wrapper;
+  }).join('');
 }
 
-// ---- Provider Select ----
+// ---- Provider Select (DOM element creator — used by browseInit) ----
 function createProviderSelect(selected, onChange) {
   const wrapper = document.createElement('div');
   wrapper.style.cssText = 'position:relative;width:100%';
   wrapper.className = 'psel-wrap';
   const sel = document.createElement('select');
   sel.style.cssText = 'position:absolute;opacity:0;width:0;height:0;pointer-events:none';
-  PROVIDER_OPTIONS.forEach(o => {
+  ALL_PROVIDERS.forEach(p => {
     const opt = document.createElement('option');
-    opt.value = o.value; opt.textContent = o.label;
-    if (o.value === selected) opt.selected = true;
+    opt.value = p;
+    const meta = PROVIDER_META[p] || { label: p };
+    opt.textContent = meta.label;
+    if (p === selected) opt.selected = true;
     sel.appendChild(opt);
   });
   wrapper.appendChild(sel);
-  const cur = PROVIDER_OPTIONS.find(o => o.value === selected) || PROVIDER_OPTIONS[0];
+  const meta = PROVIDER_META[selected] || PROVIDER_META[ALL_PROVIDERS[0]];
   const trigger = document.createElement('div');
   trigger.className = 'psel-trigger';
   trigger.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;outline:none;user-select:none';
-  const curMeta = cur.value ? PROVIDER_META[cur.value] : null;
-  trigger.innerHTML = (curMeta?logoHtml(curMeta,14):'')+'<span style="flex:1">'+cur.label+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
+  trigger.innerHTML = (meta ? logoHtml(meta, 14) : '') + '<span style="flex:1">' + (meta?.label || selected) + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
   wrapper.appendChild(trigger);
   const menu = document.createElement('div');
   menu.className = 'psel-menu';
   menu.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:200;display:none;max-height:220px;overflow-y:auto;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
-  PROVIDER_OPTIONS.forEach(o => {
+  ALL_PROVIDERS.forEach(p => {
+    const pm = PROVIDER_META[p] || { label: p, color: '#888' };
     const item = document.createElement('div');
     item.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;cursor:pointer;font-size:12px;color:var(--text);transition:background 0.12s';
-    const om = o.value ? PROVIDER_META[o.value] : null;
-    item.innerHTML = (om?logoHtml(om,14):'<span style="width:14px;display:inline-block"></span>')+'<span>'+o.label+'</span>';
-    item.onmouseenter = () => item.style.background = 'var(--surface1)';
+    item.innerHTML = (pm.logo ? logoHtml(pm, 14) : '<span style="width:14px;display:inline-block"></span>') + '<span>' + pm.label + '</span>';
+    item.onmouseenter = () => item.style.background = 'var(--surface3)';
     item.onmouseleave = () => item.style.background = '';
     item.onclick = (e) => {
       e.stopPropagation();
-      const nm = o.value ? PROVIDER_META[o.value] : null;
-      trigger.innerHTML = (nm?logoHtml(nm,14):'')+'<span style="flex:1">'+o.label+'</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
-      menu.style.display = 'none'; sel.value = o.value;
-      if (onChange) onChange(o.value);
+      const nm = PROVIDER_META[p] || { label: p };
+      trigger.innerHTML = (nm.logo ? logoHtml(nm, 14) : '') + '<span style="flex:1">' + nm.label + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
+      menu.style.display = 'none'; sel.value = p;
+      if (onChange) onChange(p);
     };
     menu.appendChild(item);
   });
@@ -2420,11 +2667,6 @@ function createProviderSelect(selected, onChange) {
   trigger.onclick = (e) => { e.stopPropagation(); menu.style.display = menu.style.display === 'none' ? 'block' : 'none'; };
   return wrapper;
 }
-
-// ---- Row Builder (legacy shim — real logic is in matrix above) ----
-// browseAddSelected still calls addRow(); it now merges into _matrixData
-
-// old saveModels removed — replaced by matrix saveModels above
 
 // ---- Reasoning Effort ----
 let _reData = null;
@@ -2523,8 +2765,9 @@ function browseInit() {
   const container = document.getElementById('browseProviderSelect');
   if (!container) return;
   container.innerHTML = '';
-  const psel = createProviderSelect('', function(val) { _browseProvider = val; });
+  const psel = createProviderSelect(ALL_PROVIDERS[0], function(val) { _browseProvider = val; });
   container.appendChild(psel);
+  _browseProvider = ALL_PROVIDERS[0];
   primeModelCache();
 }
 
@@ -3311,11 +3554,14 @@ async function searchAll() {
 // ---- Init ----
 document.addEventListener('click', function(e) {
   document.querySelectorAll('.psel-menu').forEach(m => { if (!m.closest('.psel-wrap')?.contains(e.target)) m.style.display = 'none'; });
+  document.querySelectorAll('[style*="position:fixed"][style*="z-index:9999"]').forEach(m => {
+    if (m.style.display === 'block' && !m.contains(e.target) && !m._trigger?.contains(e.target)) m.style.display = 'none';
+  });
 });
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();
 initSidebar(); initShortcuts();
-reloadAll(); loadModels(); connectSSE(); loadHistoryDates(); browseInit(); loadReasoningEffort();
+reloadAll(); loadModelConfig(); connectSSE(); loadHistoryDates(); browseInit(); loadReasoningEffort();
 api('GET','/api/logs').then(logs => { logs.forEach(e => { logBuf.push(e); appendLog(e, true); }); }).catch(()=>{});
 </script>
 </body>

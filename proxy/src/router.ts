@@ -55,19 +55,30 @@ export class Router {
     signal?: AbortSignal,
     system?: string,
   ): AsyncGenerator<StreamChunk & { provider?: string; resolvedModel?: string }> {
-    // Check if the model has explicit per-provider mappings
-    const modelProviders = this.modelResolver.getProvidersForModel(model);
-    let candidates = modelProviders
-      ? providerIds.filter(id => modelProviders.includes(id))
-      : providerIds;
+    // Determine candidate providers based on routing mode
+    let candidates: ProviderId[];
+    const routingMode = this.modelResolver.routingMode;
+
+    if (routingMode === 'per-model-per-provider') {
+      const modelProviders = this.modelResolver.getProvidersForModel(model);
+      if (modelProviders && modelProviders.length > 0) {
+        candidates = [modelProviders[0] as ProviderId];
+      } else if (this.modelResolver.defaultProvider && this.modelResolver.defaultModel) {
+        candidates = [this.modelResolver.defaultProvider];
+      } else {
+        candidates = providerIds;
+      }
+    } else {
+      candidates = providerIds;
+    }
 
     if (candidates.length === 0) {
-      logger.warn(`[router] No providers available for model: ${model}${modelProviders ? ` (explicit: ${modelProviders.join(', ')})` : ''}`);
+      logger.warn(`[router] No providers available for model: ${model}`);
       yield { type: 'error', content: `No providers available for model: ${model}`, provider: '', resolvedModel: model };
       return;
     }
 
-    logger.info(`[router] Candidates: ${candidates.join(' → ')} → ${model}`);
+    logger.info(`[router] Mode: ${routingMode} | Candidates: ${candidates.join(' → ')} → ${model}`);
 
     // First pass: try the explicit/configured provider list.
     // When multiple providers are candidates, cap per-provider retries low (2) so we
@@ -86,7 +97,12 @@ export class Router {
         continue;
       }
 
-      const resolvedModel = this.modelResolver.resolve(model, providerId);
+      let resolvedModel = this.modelResolver.resolve(model, providerId);
+      if (!resolvedModel || resolvedModel === model) {
+        if (this.modelResolver.defaultModel) {
+          resolvedModel = this.modelResolver.defaultModel;
+        }
+      }
       logger.info(`[router] Trying ${providerId} → ${resolvedModel} (from ${model})`);
 
       let hasStreamedData = false;
@@ -157,7 +173,12 @@ export class Router {
         tried.add(providerId);
         const adapter = this.adapters.get(providerId);
         if (!adapter) continue;
-        const resolvedModel = this.modelResolver.resolve(model, providerId);
+        let resolvedModel = this.modelResolver.resolve(model, providerId);
+        if (!resolvedModel || resolvedModel === model) {
+          if (this.modelResolver.defaultModel) {
+            resolvedModel = this.modelResolver.defaultModel;
+          }
+        }
         logger.info(`[router] Fallback trying ${providerId} → ${resolvedModel} (from ${model})`);
 
         for (let attempt = 0; attempt <= fallbackRetries; attempt++) {

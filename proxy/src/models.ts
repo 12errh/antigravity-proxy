@@ -3,6 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { detectModelCapabilities } from './model-capabilities.js';
 import type { ModelCapabilities } from './model-capabilities.js';
+import type { ProviderId } from './adapter.js';
+
+export type RoutingMode = 'priority-chain' | 'per-model-per-provider';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODELS_PATH = path.resolve(__dirname, '..', 'models.json');
@@ -16,36 +19,19 @@ export interface ProviderModelMap {
 export class ModelResolver {
   private flatMap: Record<string, string> = {};
   private providerMap: ProviderModelMap = {};
+  routingMode: RoutingMode = 'priority-chain';
+  globalProviderPriority: ProviderId[] = ['openrouter', 'nvidia', 'anthropic', 'google', 'zen', 'ollama', 'vllm', 'lmstudio'];
+  titleModel: string = '';
+  fallbackModel: string = '';
+  defaultProvider: ProviderId | '' = '';
+  defaultModel: string = '';
 
   constructor() {
     this.load();
   }
 
   load(): void {
-    const defaults: Record<string, string> = {
-      "gemini-3.5-flash": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.5-flash-low": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.5-flash-medium": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.5-flash-high": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3-flash-agent": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.1-flash-lite": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.1-flash": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.1-pro": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.1-pro-low": "deepseek-ai/deepseek-v4-flash",
-      "gemini-3.1-pro-high": "deepseek-ai/deepseek-v4-flash",
-      "claude-sonnet-4-6": "deepseek-ai/deepseek-v4-flash",
-      "claude-sonnet-4-6-thinking": "deepseek-ai/deepseek-v4-flash",
-      "claude-opus-4-6": "deepseek-ai/deepseek-v4-flash",
-      "claude-opus-4-6-thinking": "deepseek-ai/deepseek-v4-flash",
-      "gpt-oss-120b": "deepseek-ai/deepseek-v4-flash",
-      "gpt-oss-120b-medium": "deepseek-ai/deepseek-v4-flash",
-      "qwen3-32b": "deepseek-ai/deepseek-v4-flash",
-      "qwen3-32b-fast": "deepseek-ai/deepseek-v4-flash",
-      "openai/gpt-oss-120b": "openai/gpt-oss-120b",
-      default: "deepseek-ai/deepseek-v4-flash",
-    };
-
-    this.flatMap = { ...defaults };
+    this.flatMap = {};
     this.providerMap = {};
 
     try {
@@ -54,6 +40,24 @@ export class ModelResolver {
         const file = JSON.parse(raw);
         if (file._provider_models) {
           this.providerMap = file._provider_models;
+        }
+        if (file._routing_mode === 'per-model-per-provider' || file._routing_mode === 'priority-chain') {
+          this.routingMode = file._routing_mode;
+        }
+        if (Array.isArray(file._global_provider_priority)) {
+          this.globalProviderPriority = file._global_provider_priority;
+        }
+        if (typeof file._title_model === 'string') {
+          this.titleModel = file._title_model;
+        }
+        if (typeof file._fallback_model === 'string') {
+          this.fallbackModel = file._fallback_model;
+        }
+        if (typeof file._default_provider === 'string') {
+          this.defaultProvider = file._default_provider as ProviderId;
+        }
+        if (typeof file._default_model === 'string') {
+          this.defaultModel = file._default_model;
         }
         for (const [k, v] of Object.entries(file)) {
           if (!k.startsWith('_')) this.flatMap[k] = String(v);
@@ -71,7 +75,7 @@ export class ModelResolver {
       const fromProviderMap = this.providerMap['default']?.[providerId];
       if (fromProviderMap) return fromProviderMap;
     }
-    return this.flatMap['default'] || 'openai/gpt-oss-120b';
+    return this.flatMap['default'] || '';
   }
 
   resolve(model: string, providerId?: string): string {
@@ -85,16 +89,39 @@ export class ModelResolver {
       if (key === 'default') continue;
       if (short.startsWith(key) || key.startsWith(short)) return this.flatMap[key];
     }
-    return this.getDefaultModel(providerId);
+    const primary = this.findPrimaryModel(short);
+    if (primary && providerId && this.providerMap[primary]?.[providerId]) {
+      return this.providerMap[primary][providerId];
+    }
+    return short || model;
   }
 
   getProvidersForModel(model: string): string[] | null {
-    const providers = this.providerMap[model];
-    if (providers) return Object.keys(providers);
+    const exact = this.providerMap[model];
+    if (exact) return Object.keys(exact);
     const short = model.replace(/^models\//, '');
-    if (short !== model && this.providerMap[short]) return Object.keys(this.providerMap[short]);
+    if (short !== model) {
+      const exactShort = this.providerMap[short];
+      if (exactShort) return Object.keys(exactShort);
+    }
+    const primary = this.findPrimaryModel(short);
+    if (primary && primary !== short) {
+      const primaryProviders = this.providerMap[primary];
+      if (primaryProviders) return Object.keys(primaryProviders);
+    }
+    return null;
+  }
+
+  private findPrimaryModel(model: string): string | null {
     for (const key of Object.keys(this.providerMap)) {
-      if (short.startsWith(key) || key.startsWith(short)) return Object.keys(this.providerMap[key]);
+      if (key === 'default' || key === model) continue;
+      if (model.startsWith(key + '-')) return key;
+    }
+    const stripped = model.replace(/-thinking$/, '');
+    if (stripped !== model && this.providerMap[stripped]) return stripped;
+    for (const key of Object.keys(this.providerMap)) {
+      if (key === 'default' || key === stripped) continue;
+      if (stripped.startsWith(key + '-')) return key;
     }
     return null;
   }

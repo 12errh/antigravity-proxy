@@ -70,49 +70,60 @@ LOG_LEVEL=info
 
 ## Model Mapping: `proxy/models.json`
 
-Controls which AI model the router sends to each provider for each Antigravity model name. Two ways to think about it:
+Controls which AI model the router sends to each provider for each Antigravity model name. Three ways to configure:
 
-- **Flat map** — one resolved model per Antigravity alias, used by every provider
+- **Default Model** — handles ALL unknown model requests from Antigravity
 - **Per-provider overrides** — same Antigravity alias, different resolved model per provider
+- **Custom model mapping** — map any model name to a specific provider + model
 
-Both live in the same `models.json` file. The dashboard Models tab edits them through a single matrix view.
+All live in the same `models.json` file. The dashboard Models tab edits them.
 
 ### File structure
 
 ```json
 {
-  "_comment": "Optional. Free-form note shown in the dashboard header.",
-  "default": "deepseek-ai/deepseek-v4-flash",
-  "claude-sonnet-4-6": "deepseek-ai/deepseek-v4-flash",
+  "_routing_mode": "per-model-per-provider",
+  "_global_provider_priority": ["zen", "nvidia", "openrouter", "google"],
+  "_default_provider": "nvidia",
+  "_default_model": "stepfun-ai/step-3.7-flash",
+  "_title_model": "gemini-3.5-flash",
+  "_fallback_model": "",
   "_provider_models": {
-    "claude-sonnet-4-6": {
-      "google": "gemini-2.5-pro",
-      "openrouter": "anthropic/claude-sonnet-4.5",
-      "zen": "claude-sonnet-4-6",
-      "nvidia": "stepfun-ai/step-3.7-flash"
+    "gemini-3.5-flash": {
+      "zen": "deepseek-v4-flash-free"
     },
-    "gpt-oss-120b": {
-      "nvidia": "deepseek-ai/deepseek-v4-flash",
-      "openrouter": "openai/gpt-oss-120b"
+    "claude-sonnet-4-6-thinking": {
+      "nvidia": "minimaxai/minimax-m3"
+    },
+    "gpt-oss-120b-medium": {
+      "openrouter": "openrouter/free"
     }
   }
 }
 ```
 
-- Top-level keys (except `_comment` / `_provider_models` / `default`) are **flat defaults** per Antigravity model ID
-- `_provider_models[antigravityModel][providerId]` are **per-provider overrides**
-- `default` is the global fallback for any Antigravity model ID that isn't mapped anywhere
+### Key fields
 
-### Lookup order
+| Field | Description |
+|-------|-------------|
+| `_routing_mode` | `"priority-chain"` or `"per-model-per-provider"` |
+| `_global_provider_priority` | Provider priority list for fallback |
+| `_default_provider` | Provider for ALL unknown model requests (must set both provider AND model) |
+| `_default_model` | Resolved model name for unknown requests |
+| `_title_model` | Model used for title generation |
+| `_fallback_model` | Model used when primary fails |
+| `_provider_models` | Per-model provider overrides |
 
-When Antigravity asks for model `X` and the router picks provider `P`:
+### Lookup order (per-model-per-provider mode)
 
-1. **Per-provider** — `_provider_models[X][P]` if set → use it
-2. **Flat default** — `X` in the top-level keys → use it
-3. **Global default** — `default` → use it
-4. **Provider default** — code-level fallback in `models.ts` (`getDefaultModel`)
+When Antigravity sends model `X`:
 
-> **Important:** if `_provider_models[X]` is set to *any* provider, the router **only considers those providers** (in priority order). Providers without an entry in the override map are skipped for that model. This is how you route "Claude requests only to Zen/OpenRouter" without affecting other models.
+1. **Per-provider** — `_provider_models[X]` exists → use first provider's model
+2. **Variant fallback** — Check if `X` is a variant (e.g., `gemini-3.5-flash-medium` → `gemini-3.5-flash`)
+3. **Default model** — `_default_provider` + `_default_model` set → use that
+4. **Global priority chain** — try all providers in priority order
+
+> **Important:** `_default_provider` and `_default_model` must BOTH be set for the default model to work. If only one is set, the router falls back to the global priority chain.
 
 ---
 
