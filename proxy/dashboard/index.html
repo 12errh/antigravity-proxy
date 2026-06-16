@@ -1305,12 +1305,20 @@ tbody tr:hover{background:var(--surface2);}
     <section class="section" id="sec-sessions">
       <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div>
-          <p style="font-size:13px;color:var(--text2)">Session log files with DB-backed request counts. <strong>Select 2</strong> to compare side-by-side. Click a session to expand its requests.</p>
+          <p style="font-size:14px;color:var(--text);font-weight:600;margin-bottom:4px">Session Logs</p>
+          <p style="font-size:12px;color:var(--text3)">DB-backed session files with request counts. Select sessions to compare or view details.</p>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-sm btn-primary" id="sessCompareBtn" onclick="sessCompare()" style="display:none">Compare Selected</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="sessSelectedCount" style="font-size:12px;color:var(--text3);display:none">0 selected</span>
+          <button class="btn btn-sm btn-primary" id="sessCompareBtn" onclick="sessCompare()" style="display:none">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+            Compare
+          </button>
           <button class="btn btn-sm btn-ghost" onclick="sessClearCompare()" style="display:none" id="sessClearBtn">Clear</button>
-          <button class="btn btn-sm" onclick="loadSessions()">↻ Refresh</button>
+          <button class="btn btn-sm" onclick="loadSessions()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+          </button>
         </div>
       </div>
       <div id="sessionsContent">
@@ -3415,26 +3423,47 @@ async function loadSessions() {
       document.getElementById('sessionsContent').innerHTML = '<div class="empty-state"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/></svg><p>No sessions yet</p><p class="sub">Sessions appear here as requests are made through the proxy.</p></div>';
       return;
     }
-    let html = '<div style="max-height:60vh;overflow-y:auto;border:1px solid var(--border2);border-radius:8px">';
+    let html = '<div style="display:flex;flex-direction:column;gap:12px">';
     for (const d of dates) {
       const sessions = await api('GET', '/api/sessions?date='+encodeURIComponent(d.date));
       if (!sessions || sessions.length === 0) continue;
-      html += `<div style="padding:10px 14px;border-bottom:1px solid var(--border2);background:var(--surface2)"><strong style="font-size:12px">${d.date} (${sessions.length} files)</strong></div>`;
+      html += `<div style="margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:8px 8px 0 0;border:1px solid var(--border2);border-bottom:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <strong style="font-size:13px;color:var(--text)">${esc(d.date)}</strong>
+          <span style="font-size:11px;color:var(--text3)">${sessions.length} session${sessions.length>1?'s':''}</span>
+        </div>
+        <div style="border:1px solid var(--border2);border-radius:0 0 8px 8px;overflow:hidden">`;
       for (const s of sessions) {
         const checked = _sessCompare.has(s.file) ? 'checked' : '';
         const reqCount = s.requestCount || 0;
-        html += `<div style="border-bottom:1px solid var(--border2);font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;transition:background 0.12s" onclick="toggleSessDetail('${esc(s.file)}')" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
-            <input type="checkbox" ${checked} onclick="event.stopPropagation();toggleSessCompare('${esc(s.file)}')" style="accent-color:var(--accent)">
-            <span style="min-width:10px;color:var(--text3);font-size:10px" id="sessArrow-${esc(s.file)}">▶</span>
-            <span style="flex:1;font-weight:${reqCount>0?'600':'400'}">${esc(s.file)}</span>
-            <span style="color:var(--text3);font-size:11px;min-width:80px;text-align:right">${reqCount} req</span>
-            <span style="color:var(--text3);font-size:11px;min-width:70px;text-align:right">${s.duration||'—'}</span>
-            ${s.models && s.models.length ? '<span style="font-size:10px;color:var(--accent2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.models.join(', '))+'</span>' : ''}
+        const models = (s.models || []).slice(0, 3);
+        const moreModels = (s.models || []).length > 3 ? '+' + ((s.models||[]).length - 3) : '';
+        html += `<div style="border-bottom:1px solid var(--border2);${sessions.indexOf(s)===sessions.length-1?'border-bottom:none':''}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.15s" onclick="toggleSessDetail('${esc(s.file)}')" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+            <label style="display:flex;align-items:center;cursor:pointer;position:relative" onclick="event.stopPropagation()">
+              <input type="checkbox" ${checked} onchange="toggleSessCompare('${esc(s.file)}')" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer">
+            </label>
+            <span style="min-width:12px;color:var(--text3);font-size:11px;transition:transform 0.2s" id="sessArrow-${esc(s.file)}">▶</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:${reqCount>0?'600':'400'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.file)}</div>
+              ${models.length ? '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">' + models.map(m => '<span style="font-size:10px;padding:2px 6px;background:var(--accentDim);color:var(--accent2);border-radius:4px;font-family:var(--mono)">' + esc(m) + '</span>').join('') + (moreModels ? '<span style="font-size:10px;color:var(--text3)">…</span>' : '') + '</div>' : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+              <div style="text-align:right;min-width:60px">
+                <div style="font-size:13px;font-weight:600;color:${reqCount>0?'var(--text)':'var(--text3)'}">${reqCount}</div>
+                <div style="font-size:10px;color:var(--text3)">requests</div>
+              </div>
+              <div style="text-align:right;min-width:50px">
+                <div style="font-size:12px;color:var(--text2)">${s.duration||'—'}</div>
+                <div style="font-size:10px;color:var(--text3)">duration</div>
+              </div>
+            </div>
           </div>
           <div id="sessDetail-${esc(s.file)}" style="display:none;padding:0 14px 12px 44px;font-size:11px;color:var(--text3)"></div>
         </div>`;
       }
+      html += '</div></div>';
     }
     html += '</div>';
     document.getElementById('sessionsContent').innerHTML = html;
@@ -3473,13 +3502,20 @@ function toggleSessCompare(file) {
   updateSessButtons();
   // Update checkbox visual
   document.querySelectorAll('#sessionsContent input[type=checkbox]').forEach(cb => {
-    cb.checked = _sessCompare.has(cb.getAttribute('onchange')?.match(/'([^']+)'/)?.[1] || '');
+    const onchange = cb.getAttribute('onchange') || '';
+    const match = onchange.match(/'([^']+)'/);
+    if (match) cb.checked = _sessCompare.has(match[1]);
   });
 }
 
 function updateSessButtons() {
   document.getElementById('sessCompareBtn').style.display = _sessCompare.size === 2 ? '' : 'none';
   document.getElementById('sessClearBtn').style.display = _sessCompare.size > 0 ? '' : 'none';
+  const countEl = document.getElementById('sessSelectedCount');
+  if (countEl) {
+    countEl.style.display = _sessCompare.size > 0 ? '' : 'none';
+    countEl.textContent = _sessCompare.size + ' selected';
+  }
 }
 
 function sessClearCompare() { _sessCompare.clear(); updateSessButtons(); loadSessions(); }
