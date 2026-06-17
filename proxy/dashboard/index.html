@@ -2315,6 +2315,7 @@ function attachModelField(containerId, alias, provider, modelName) {
   trigger.innerHTML = '<span style="display:inline-flex;width:14px;height:14px;flex-shrink:0">' + logoHtml(pm, 14) + '</span><span class="rsel-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (modelName ? 'var(--text)' : 'var(--text3)') + '">' + esc(modelName || 'Select model...') + '</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;flex-shrink:0;color:var(--text3)"><polyline points="6 9 12 15 18 9"/></svg>';
   wrapper.appendChild(trigger);
   const menu = document.createElement('div');
+  menu.className = 'rsel-menu';
   menu.style.cssText = 'position:fixed;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;z-index:9999;display:none;max-height:280px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.4)';
   const search = document.createElement('input');
   search.placeholder = 'Search ' + (PROVIDER_META[provider]?.label || provider) + ' models...';
@@ -2535,14 +2536,12 @@ function onUtilityModelChange() {}
 async function saveModelConfig() {
   if (!_modelConfig) { toast('No config loaded', true); return; }
   _modelConfig._routing_mode = _routingMode;
-  _modelConfig._default_model = _modelConfig._default_model || '';
-  _modelConfig._default_provider = (() => {
-    var wrap = document.getElementById('defaultProviderSelect')?.querySelector('.psel-wrap');
-    return wrap?.querySelector('select')?.value || '';
-  })();
-  if ((_modelConfig._default_provider && !_modelConfig._default_model) || (!_modelConfig._default_provider && _modelConfig._default_model)) {
-    toast('Default model requires both provider AND model to be set', true); return;
-  }
+  var dp = _modelConfig._default_provider || '';
+  var dm = _modelConfig._default_model || _modelConfig._provider_models?.default?.[dp] || '';
+  if (dp && !dm) { dp = ''; }
+  if (dm && !dp) { dm = ''; }
+  _modelConfig._default_provider = dp;
+  _modelConfig._default_model = dm;
   try {
     var r = await api('POST', '/api/models', _modelConfig);
     if (r.ok) { toast('Model config saved'); loadModelConfig(); }
@@ -3590,10 +3589,14 @@ async function searchAll() {
 // ---- Init ----
 document.addEventListener('click', function(e) {
   document.querySelectorAll('.psel-menu').forEach(m => { if (!m.closest('.psel-wrap')?.contains(e.target)) m.style.display = 'none'; });
-  document.querySelectorAll('[style*="position:fixed"][style*="z-index:9999"]').forEach(m => {
-    if (m.style.display === 'block' && !m.contains(e.target) && !m._trigger?.contains(e.target)) m.style.display = 'none';
-  });
+  document.querySelectorAll('.rsel-menu').forEach(m => { if (m.style.display === 'block' && !m.contains(e.target) && !m._trigger?.contains(e.target)) m.style.display = 'none'; });
+  document.querySelectorAll('._dropdown-overlay').forEach(m => { if (!m.contains(e.target)) m.remove(); });
 });
+document.addEventListener('scroll', function() {
+  document.querySelectorAll('.psel-menu').forEach(m => m.style.display = 'none');
+  document.querySelectorAll('.rsel-menu').forEach(m => m.style.display = 'none');
+  document.querySelectorAll('._dropdown-overlay').forEach(m => m.remove());
+}, true);
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();
 initSidebar(); initShortcuts();
