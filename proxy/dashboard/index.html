@@ -819,6 +819,11 @@ tbody tr:hover{background:var(--surface2);}
           <input type="password" autocomplete="new-password" id="cfgZenKey" placeholder="sk-...">
           <div class="hint">From <span style="color:var(--accent2)">opencode.ai/auth</span> — curated gateway: Claude, GPT, Gemini, Grok, Kimi, GLM in one key</div>
         </div>
+        <div class="form-group">
+          <label><img src="https://opencode.ai/favicon.ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px;border-radius:2px" onerror="this.style.display='none'">OpenCode Go API Key <span id="goKeyStatus" style="font-size:11px;color:var(--text3);font-weight:400">—</span></label>
+          <input type="password" autocomplete="new-password" id="cfgGoKey" placeholder="sk-opencode-go-...">
+          <div class="hint">From <span style="color:var(--accent2)">opencode.ai/auth</span> — paid tier ($10/mo): DeepSeek, Qwen, MiniMax, GLM, Kimi, MiMo</div>
+        </div>
       </form></div>
 
       <div class="form-section">
@@ -1450,6 +1455,7 @@ async function reloadAll() {
     document.getElementById('anthKeyStatus').textContent = s.env.ANTHROPIC_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('googleKeyStatus').textContent = s.env.GOOGLE_API_KEY ? '✓ configured' : '○ not set';
     document.getElementById('zenKeyStatus').textContent = s.env.OPENCODE_API_KEY ? '✓ configured' : '○ not set';
+    document.getElementById('goKeyStatus').textContent = s.env.OPENCODE_GO_API_KEY ? '✓ configured' : '○ not set';
   } catch (e) {}
   loadLocalProviders();
 }
@@ -1741,6 +1747,7 @@ const PROVIDER_META = {
   anthropic:  { label: 'Anthropic',  color: '#e48', desc: 'Claude models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/anthropic.svg', logoMask: true },
   google:     { label: 'Google',     color: '#48e', desc: 'Gemini models API', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/googlegemini.svg', logoMask: true },
   zen:        { label: 'Zen',        color: '#0af', desc: 'OpenCode Zen gateway', logo: 'https://opencode.ai/favicon.ico' },
+  'opencode-go': { label: 'OpenCode Go', color: '#0c8', desc: 'OpenCode Go ($10/mo)', logo: 'https://opencode.ai/favicon.ico' },
   ollama:     { label: 'Ollama',     color: '#888', desc: 'Local: localhost:11434', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/ollama.svg', logoMask: true },
   vllm:       { label: 'vLLM',       color: '#888', desc: 'Local: localhost:8000', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/vllm.svg', logoMask: true },
   lmstudio:   { label: 'LM Studio',  color: '#888', desc: 'Local: localhost:1234', logo: 'https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/lmstudio.svg', logoMask: true },
@@ -1847,6 +1854,7 @@ async function saveConfig() {
     ANTHROPIC_API_KEY: document.getElementById('cfgAnthropicKey').value.trim(),
     GOOGLE_API_KEY: document.getElementById('cfgGoogleKey').value.trim(),
     OPENCODE_API_KEY: document.getElementById('cfgZenKey').value.trim(),
+    OPENCODE_GO_API_KEY: document.getElementById('cfgGoKey').value.trim(),
     PROXY_PORT: document.getElementById('cfgProxyPort').value,
     API_PORT: document.getElementById('cfgApiPort').value,
     LOG_LEVEL: document.getElementById('cfgLogLevel').value,
@@ -2804,14 +2812,15 @@ async function browseFetch(force) {
       await api('DELETE', '/api/provider-models/cache?provider=' + encodeURIComponent(provider)).catch(() => {});
     }
     const res = await api('POST', '/api/provider-models', { provider, apiKey, force: !!force });
-    if (res && res.models) {
+    if (res && res.error) {
+      status.textContent = res.error;
+      document.getElementById('browseResultsPanel').style.display = 'none';
+    } else if (res && res.models) {
       window._fetchedModels[provider] = res.models;
       window._toggledModels[provider] = [...res.models];
       document.getElementById('browseResultsPanel').style.display = 'block';
       renderBrowseModels();
       status.textContent = res.models.length + ' models loaded' + (force ? ' (refreshed)' : '');
-    } else if (res && res.error) {
-      status.textContent = 'Failed: ' + res.error;
     } else {
       status.textContent = 'Failed';
     }
@@ -3190,7 +3199,7 @@ async function loadPricingConfig() {
 function renderPricingEditor(data) {
   const meta = data['$meta'] || {};
   document.getElementById('pricingAutoFree').checked = meta.autoFree !== false;
-  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','opencode-go','ollama','vllm','lmstudio'];
   let html = '';
   for (const pid of providerIds) {
     const pmeta = PROVIDER_META[pid] || { label: pid, color: '#888' };
@@ -3268,7 +3277,7 @@ function removePricingRow(btn) {
 function collectPricingFromEditor() {
   const data = { '$meta': _pricingData?.['$meta'] || { autoFree: true } };
   data['$meta'].autoFree = document.getElementById('pricingAutoFree').checked;
-  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio'];
+  const providerIds = ['openrouter','nvidia','openai','groq','anthropic','google','zen','opencode-go','ollama','vllm','lmstudio'];
   for (const pid of providerIds) {
     const entries = {};
     const defIn = parseFloat(document.querySelector(`.pdef-in[data-provider="${pid}"]`)?.value) || 0;
@@ -3592,10 +3601,10 @@ document.addEventListener('click', function(e) {
   document.querySelectorAll('.rsel-menu').forEach(m => { if (m.style.display === 'block' && !m.contains(e.target) && !m._trigger?.contains(e.target)) m.style.display = 'none'; });
   document.querySelectorAll('._dropdown-overlay').forEach(m => { if (!m.contains(e.target)) m.remove(); });
 });
-document.addEventListener('scroll', function() {
-  document.querySelectorAll('.psel-menu').forEach(m => m.style.display = 'none');
-  document.querySelectorAll('.rsel-menu').forEach(m => m.style.display = 'none');
-  document.querySelectorAll('._dropdown-overlay').forEach(m => m.remove());
+document.addEventListener('scroll', function(e) {
+  const target = e.target;
+  document.querySelectorAll('.psel-menu').forEach(m => { if (!m.contains(target)) m.style.display = 'none'; });
+  document.querySelectorAll('.rsel-menu').forEach(m => { if (!m.contains(target)) m.style.display = 'none'; });
 }, true);
 [document.getElementById('reqPagination')].forEach(el => { if (el) el.style.display='none'; });
 document.getElementById('historyDate').value = todayStr();

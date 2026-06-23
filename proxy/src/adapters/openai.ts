@@ -198,7 +198,7 @@ export class OpenAICompatAdapter implements ModelAdapter {
 
   // Providers that support OpenAI-specific params like reasoning_effort
   // (kept for potential future per-provider guards; effort is now driven by model config)
-  private static REASONING_PROVIDERS = new Set(['openai', 'zen', 'nvidia', 'openrouter', 'groq']);
+  private static REASONING_PROVIDERS = new Set(['openai', 'zen', 'opencode-go', 'nvidia', 'openrouter', 'groq']);
 
   protected buildRequest(
     model: string,

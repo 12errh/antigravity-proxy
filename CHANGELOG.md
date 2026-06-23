@@ -6,6 +6,37 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [latest] — 2026-06-23
+
+### Added
+
+- **OpenCode Go provider** — new provider for OpenCode Go's paid tier ($10/mo), offering curated access to high-performing open-source models:
+  - DeepSeek V4 Pro, V4 Flash
+  - Qwen 3.7 Max, 3.7 Plus
+  - MiniMax M3
+  - GLM 5.2, 5.1, 5
+  - Kimi K2.7 Code, K2.6, K2.5
+  - MiMo V2.5 Pro, V2.5, V2 Pro, V2 Omni
+  - Set `OPENCODE_GO_API_KEY` in `.env` to enable
+- **Provider priority** — `opencode-go` added to default provider chain (second after `zen`)
+- **Reasoning effort** — Go models (DeepSeek V4, Qwen 3.7 Max, GLM 5.x, Kimi K2.7) configured for reasoning support
+- **Dashboard** — OpenCode Go visible in provider list, config tab, browse tab, and pricing editor
+- **Browse tab** — OpenCode Go model listing with proper API key validation
+
+### Fixed
+
+- **Dashboard dropdown scroll** — provider and model dropdown menus no longer close when scrolling inside them (trackpad two-finger scroll)
+- **Live Log tab** — logs from previous sessions no longer appear on fresh proxy startup; DB logs are cleared on each launch
+- **Browse tab API key error** — selecting a provider without a configured API key now shows a clear error message instead of silently failing
+
+### Changed
+
+- **OpenCode Go** added to provider priority list, pricing config, pricing.json, and .env.example
+- **README.md** updated with OpenCode Go in provider table and env vars section
+- **reasoning-effort.json** — added reasoning effort entries for Go models
+
+---
+
 ## [latest] — 2026-06-16
 
 ### Changed

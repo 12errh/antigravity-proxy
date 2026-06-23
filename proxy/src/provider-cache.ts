@@ -19,6 +19,7 @@ const PROVIDER_META: Record<string, { baseUrl: string; envKey: string }> = {
   anthropic: { baseUrl: 'https://api.anthropic.com/v1',                envKey: 'ANTHROPIC_API_KEY' },
   google:    { baseUrl: 'https://generativelanguage.googleapis.com',    envKey: 'GOOGLE_API_KEY' },
   zen:       { baseUrl: 'https://opencode.ai/zen/v1',                  envKey: 'OPENCODE_API_KEY' },
+  'opencode-go': { baseUrl: 'https://opencode.ai/zen/go/v1',         envKey: 'OPENCODE_GO_API_KEY' },
   ollama:    { baseUrl: 'http://localhost:11434',                      envKey: '' },
   vllm:      { baseUrl: 'http://localhost:8000',                       envKey: '' },
   lmstudio:  { baseUrl: 'http://localhost:1234',                       envKey: '' },
@@ -37,6 +38,9 @@ export async function fetchProviderModels(provider: string, apiKey?: string, for
   if (!force && existing && (now - existing.fetchedAt) < CACHE_TTL_MS) return existing;
 
   const key = apiKey || (meta.envKey ? process.env[meta.envKey] : '') || '';
+  if (meta.envKey && !key) {
+    return { models: [], fetchedAt: Date.now(), error: `No API key configured — set ${meta.envKey} in .env` };
+  }
   let models: string[] = [];
   let error: string | undefined;
 

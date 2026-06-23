@@ -1,6 +1,13 @@
 {
   "models": {
     "deepseek-v4-flash-free": "max",
-    "gpt-oss-120b-medium": "max"
+    "deepseek-v4-pro": "max",
+    "deepseek-v4-flash": "max",
+    "qwen-3.7-max": "high",
+    "qwen-3.7-plus": "high",
+    "gpt-oss-120b-medium": "max",
+    "glm-5.2": "high",
+    "glm-5.1": "high",
+    "kimi-k2.7-code": "high"
   }
 }

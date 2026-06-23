@@ -44,6 +44,13 @@
       "output": 15
     }
   },
+  "opencode-go": {
+    "default": {
+      "input": 0,
+      "output": 0,
+      "_note": "Flat-rate subscription: $10/mo (first month $5)"
+    }
+  },
   "ollama": {
     "default": {
       "input": 0,

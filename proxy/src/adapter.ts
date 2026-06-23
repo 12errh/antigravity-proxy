@@ -2,13 +2,14 @@ import type { ModelAdapter, StreamChunk } from './adapters/types.js';
 import { OpenAICompatAdapter } from './adapters/openai.js';
 import { GroqAdapter } from './adapters/groq.js';
 import { ZenAdapter } from './adapters/zen.js';
+import { OpencodeGoAdapter } from './adapters/opencode-go.js';
 import { NvidiaAdapter } from './adapters/nvidia.js';
 import { AnthropicAdapter } from './adapters/anthropic.js';
 import { GoogleAdapter } from './adapters/google.js';
 import { providerRegistry } from './provider-registry.js';
 import type { OpenAIMessage } from './mapper.js';
 
-export type ProviderId = 'nvidia' | 'openrouter' | 'openai' | 'groq' | 'anthropic' | 'google' | 'zen' | 'ollama' | 'vllm' | 'lmstudio' | (string & {});
+export type ProviderId = 'nvidia' | 'openrouter' | 'openai' | 'groq' | 'anthropic' | 'google' | 'zen' | 'opencode-go' | 'ollama' | 'vllm' | 'lmstudio' | (string & {});
 
 export interface ProviderConfig {
   id: ProviderId;
@@ -31,6 +32,7 @@ export const DEFAULT_PROVIDER_CONFIGS: Record<string, { baseUrl: string; adapter
   anthropic: { baseUrl: 'https://api.anthropic.com/v1',                adapterType: 'anthropic', envKey: 'ANTHROPIC_API_KEY' },
   google:    { baseUrl: 'https://generativelanguage.googleapis.com',    adapterType: 'google',    envKey: 'GOOGLE_API_KEY' },
   zen:       { baseUrl: 'https://opencode.ai/zen/v1',                  adapterType: 'openai',    envKey: 'OPENCODE_API_KEY' },
+  'opencode-go': { baseUrl: 'https://opencode.ai/zen/go/v1',         adapterType: 'openai',    envKey: 'OPENCODE_GO_API_KEY' },
   ollama:    { baseUrl: 'http://localhost:11434',                      adapterType: 'openai',    envKey: '' },
   vllm:      { baseUrl: 'http://localhost:8000',                       adapterType: 'openai',    envKey: '' },
   lmstudio:  { baseUrl: 'http://localhost:1234',                       adapterType: 'openai',    envKey: '' },
@@ -67,6 +69,8 @@ export function createAdapter(cfg: ProviderConfig): ModelAdapter {
       return new GroqAdapter(cfg.id, baseUrl, apiKey);
     case 'zen':
       return new ZenAdapter(cfg.id, baseUrl, apiKey);
+    case 'opencode-go':
+      return new OpencodeGoAdapter(cfg.id, baseUrl, apiKey);
     case 'nvidia':
       return new NvidiaAdapter(cfg.id, baseUrl, apiKey);
   }

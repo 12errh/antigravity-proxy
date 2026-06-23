@@ -694,6 +694,7 @@ async function main(): Promise<void> {
   }
 
   db.init();
+  db.clearLogs();
   setRateLimitConfig({ globalMax: config.rateLimitGlobal, providerMax: config.rateLimitProvider, windowMs: config.rateLimitWindow });
   logger.info(`=== Antigravity Proxy (${config.provider}) ===`);
 

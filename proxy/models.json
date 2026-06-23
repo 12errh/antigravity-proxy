@@ -4,42 +4,55 @@
     "zen",
     "nvidia",
     "openrouter",
-    "google"
+    "google",
+    "opencode-go"
   ],
   "_title_model": "gpt-oss-120b-medium",
   "_fallback_model": "",
-  "_default_provider": "",
+  "_default_provider": "nvidia",
   "_default_model": "stepfun-ai/step-3.7-flash",
   "_provider_models": {
     "gemini-3.5-flash": {
-      "nvidia": "minimaxai/minimax-m3"
+      "opencode-go": "deepseek-v4-flash",
+      "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.1-pro": {
+      "opencode-go": "deepseek-v4-pro",
       "zen": "deepseek-v4-flash-free"
     },
     "claude-sonnet-4-6-thinking": {
-      "nvidia": "minimaxai/minimax-m3"
+      "zen": "mimo-v2.5-free"
     },
     "claude-opus-4-6-thinking": {
+      "opencode-go": "qwen-3.7-max",
       "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gpt-oss-120b-medium": {
       "zen": "mimo-v2.5-free"
     },
     "gemini-3.5-flash-medium": {
+      "opencode-go": "minimax-m3",
       "nvidia": "minimaxai/minimax-m3"
     },
     "gemini-3.5-flash-low": {
+      "opencode-go": "deepseek-v4-flash",
       "nvidia": "stepfun-ai/step-3.7-flash"
     },
     "gemini-3.5-flash-high": {
+      "opencode-go": "qwen-3.7-max",
       "zen": "nemotron-3-ultra-free"
     },
     "gemini-3.1-pro-low": {
+      "opencode-go": "mimo-v2.5-pro",
       "zen": "mimo-v2.5-free"
     },
     "gemini-3.1-pro-high": {
+      "opencode-go": "mimo-v2.5-pro",
       "zen": "mimo-v2.5-free"
+    },
+    "default": {
+      "opencode-go": "deepseek-v4-flash",
+      "nvidia": "stepfun-ai/step-3.7-flash"
     }
   }
 }

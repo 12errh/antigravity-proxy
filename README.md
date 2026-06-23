@@ -6,7 +6,7 @@
 
 <h1 align="center">Antigravity Proxy</h1>
 
-<p align="center"><strong>Use any AI provider</strong> with <strong>Antigravity 2.0</strong> — NVIDIA, OpenRouter, OpenAI, Groq, Anthropic, Google Gemini, OpenCode Zen, or 9+ local inference solutions.</p>
+<p align="center"><strong>Use any AI provider</strong> with <strong>Antigravity 2.0</strong> — NVIDIA, OpenRouter, OpenAI, Groq, Anthropic, Google Gemini, OpenCode Zen, OpenCode Go, or 9+ local inference solutions.</p>
 
 <p align="center">
   <a href="https://github.com/12errh/antigravity-proxy/actions/workflows/ci.yml">
@@ -157,6 +157,7 @@ graph TD
 | **Anthropic** | Cloud API | `ANTHROPIC_API_KEY` | Claude 3.x / 4.x |
 | **Google Gemini** | Cloud API | `GOOGLE_API_KEY` | Gemini 2.5 Pro/Flash |
 | **OpenCode Zen** | Cloud gateway | `OPENCODE_API_KEY` | Claude, GPT, Gemini, Grok, Kimi, GLM — one key |
+| **OpenCode Go** | Cloud gateway | `OPENCODE_GO_API_KEY` | DeepSeek, Qwen, MiniMax, GLM, Kimi, MiMo — $10/mo |
 
 ### Local Inference
 
@@ -320,6 +321,7 @@ GROQ_API_KEY=gsk_...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=AIza...
 OPENCODE_API_KEY=sk-...
+OPENCODE_GO_API_KEY=sk-opencode-go-...
 
 # Ports
 PROXY_PORT=443          # TLS port Antigravity connects to

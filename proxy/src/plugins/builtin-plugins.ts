@@ -18,6 +18,7 @@ import { AnthropicAdapter } from '../adapters/anthropic.js';
 import { GoogleAdapter } from '../adapters/google.js';
 import { GroqAdapter } from '../adapters/groq.js';
 import { ZenAdapter } from '../adapters/zen.js';
+import { OpencodeGoAdapter } from '../adapters/opencode-go.js';
 import { NvidiaAdapter } from '../adapters/nvidia.js';
 import { DEFAULT_CAPABILITIES } from '../provider-plugin.js';
 
@@ -90,6 +91,14 @@ const BUILTIN_PROVIDERS: ProviderDef[] = [
     capabilities: { supportsReasoning: true, supportsImages: false },
   },
   {
+    id: 'opencode-go',
+    name: 'OpenCode Go',
+    envKey: 'OPENCODE_GO_API_KEY',
+    baseUrl: 'https://opencode.ai/zen/go/v1',
+    adapterType: 'openai',
+    capabilities: { supportsReasoning: true, supportsImages: false },
+  },
+  {
     id: 'ollama',
     name: 'Ollama (Local)',
     envKey: '',
@@ -124,6 +133,8 @@ function createAdapterForType(type: 'openai' | 'anthropic' | 'google', cfg: Prov
       return new GroqAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
     case 'zen':
       return new ZenAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
+    case 'opencode-go':
+      return new OpencodeGoAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
     case 'nvidia':
       return new NvidiaAdapter(cfg.id, cfg.baseUrl || BUILTIN_PROVIDERS.find(p => p.id === cfg.id)?.baseUrl || '', cfg.apiKey || '');
   }
