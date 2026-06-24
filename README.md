@@ -57,6 +57,13 @@ All launcher scripts and source code are inside the cloned directory.
 
 ### Launch
 
+**Via npm (recommended)**
+
+```bash
+npm install -g @12errh/antigravity-proxy
+antigravity start
+```
+
 **Windows (PowerShell as Administrator)**
 
 ```powershell

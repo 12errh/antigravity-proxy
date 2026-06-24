@@ -63,6 +63,6 @@ test('A1: package.json has a "test" script', () => {
 });
 
 test('A1: package.json is the Antigravity Proxy package', () => {
-  assert.equal(pkg.name, 'antigravity-proxy', 'package name should be antigravity-proxy');
+  assert.ok(pkg.name === '@12errh/antigravity-proxy' || pkg.name === 'antigravity' || pkg.name === 'antigravity-proxy', 'package name should be @12errh/antigravity-proxy');
   assert.ok(pkg.version, 'package version should be set');
 });

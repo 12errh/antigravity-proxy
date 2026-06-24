@@ -99,7 +99,11 @@ export class Router {
 
       let resolvedModel = this.modelResolver.resolve(model, providerId);
       if (!resolvedModel || resolvedModel === model) {
-        if (this.modelResolver.defaultModel) {
+        // Use provider-specific default first, then global default
+        const providerDefault = this.modelResolver.getDefaultModel(providerId);
+        if (providerDefault) {
+          resolvedModel = providerDefault;
+        } else if (this.modelResolver.defaultModel) {
           resolvedModel = this.modelResolver.defaultModel;
         }
       }
@@ -175,7 +179,10 @@ export class Router {
         if (!adapter) continue;
         let resolvedModel = this.modelResolver.resolve(model, providerId);
         if (!resolvedModel || resolvedModel === model) {
-          if (this.modelResolver.defaultModel) {
+          const providerDefault = this.modelResolver.getDefaultModel(providerId);
+          if (providerDefault) {
+            resolvedModel = providerDefault;
+          } else if (this.modelResolver.defaultModel) {
             resolvedModel = this.modelResolver.defaultModel;
           }
         }

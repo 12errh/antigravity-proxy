@@ -4,13 +4,12 @@
     "zen",
     "nvidia",
     "openrouter",
-    "google",
-    "opencode-go"
+    "google"
   ],
   "_title_model": "gpt-oss-120b-medium",
   "_fallback_model": "",
-  "_default_provider": "nvidia",
-  "_default_model": "stepfun-ai/step-3.7-flash",
+  "_default_provider": "zen",
+  "_default_model": "mimo-v2.5-free",
   "_provider_models": {
     "gemini-3.5-flash": {
       "opencode-go": "deepseek-v4-flash",
@@ -51,8 +50,7 @@
       "zen": "mimo-v2.5-free"
     },
     "default": {
-      "opencode-go": "deepseek-v4-flash",
-      "nvidia": "stepfun-ai/step-3.7-flash"
+      "zen": "mimo-v2.5-free"
     }
   }
 }

@@ -1,9 +1,24 @@
 {
-  "name": "antigravity-proxy",
+  "name": "@12errh/antigravity-proxy",
   "version": "1.0.0",
-  "description": "Proxy translating Antigravity Google API calls to any LLM provider",
+  "description": "LLM proxy for Antigravity — translate Google Gemini API calls to any provider",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "bin": {
+    "antigravity": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "src/",
+    "dashboard/",
+    "scripts/",
+    "agent-context.md",
+    "models.json",
+    "pricing.json",
+    ".env.example",
+    "tsconfig.json"
+  ],
   "engines": {
     "node": ">=20"
   },
@@ -14,14 +29,16 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "tsx test/run.ts",
-    "gen-certs": "node scripts/gen-certs.mjs"
+    "gen-certs": "node scripts/gen-certs.mjs",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "ai": "^6.0.193",
     "better-sqlite3": "^12.10.0",
-    "undici": "^7.7.0",
+    "commander": "^15.0.0",
     "dotenv": "^17.4.2",
-    "node-forge": "^1.4.0"
+    "node-forge": "^1.4.0",
+    "undici": "^7.7.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

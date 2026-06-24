@@ -9,6 +9,21 @@
 
 ## Quick Start
 
+### Via npm (recommended)
+
+```bash
+npm install -g @12errh/antigravity-proxy
+antigravity start
+```
+
+Run the interactive setup wizard first:
+
+```bash
+antigravity setup
+```
+
+This will guide you through selecting a provider, entering your API key, choosing a port, and configuring features.
+
 ### Windows (PowerShell as Administrator)
 
 ```powershell
@@ -54,6 +69,32 @@ npm start                       # runs via tsx (development)
 # or
 npm run build && npm run start:prod   # compiled (production)
 ```
+
+---
+
+## CLI Commands
+
+After installing globally, use these commands:
+
+| Command | Description |
+|---------|-------------|
+| `antigravity start` | Start proxy + dashboard + launch Antigravity desktop |
+| `antigravity start --foreground` | Run in foreground with live logs |
+| `antigravity start --port 8443` | Use port 8443 (no admin needed) |
+| `antigravity start --no-browser` | Don't open dashboard in browser |
+| `antigravity start --trust-cert` | Auto-trust TLS certificate |
+| `antigravity stop` | Stop proxy + Antigravity desktop |
+| `antigravity status` | Show running status and uptime |
+| `antigravity health` | Check health endpoint |
+| `antigravity config` | Show current configuration |
+| `antigravity config set <key> <value>` | Update a config value |
+| `antigravity config get <key>` | Get a specific config value |
+| `antigravity logs` | Tail latest log file |
+| `antigravity logs list` | List all log files |
+| `antigravity certs` | Show certificate info |
+| `antigravity certs generate` | Generate TLS certificates |
+| `antigravity certs trust` | Install cert to OS trust store |
+| `antigravity setup` | Interactive onboarding wizard |
 
 ---
 
@@ -140,6 +181,14 @@ LOG_LEVEL=debug
 
 ## Updating
 
+### Via npm (recommended)
+
+```bash
+npm install -g @12errh/antigravity-proxy@latest
+```
+
+### From source
+
 ```bash
 git pull
 cd proxy
@@ -153,11 +202,11 @@ npm run build      # recompile if running from dist/
 
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
-| `EACCES` on port 443 | No root/admin privileges | Use `sudo` / Administrator, or set `PROXY_PORT=8443` |
-| `EADDRINUSE` on port 443/4000 | Old process still running | `start.sh` / `start.ps1` kills it automatically; or `lsof -ti :443 \| xargs kill` |
-| "API key not configured" | Missing `.env` | Copy `.env.example` → `.env` and add keys, or use the Config tab |
-| TLS error in Antigravity | Cert not trusted | Follow the certificate trust steps above |
-| Language Server crashes | API returned error (429, 5xx) | Check `proxy/logs/` for details; try a different model or provider |
+| `EACCES` on port 443 | No root/admin privileges | Use `sudo` / Administrator, or `antigravity start --port 8443` |
+| `EADDRINUSE` on port 443/4000 | Old process still running | `antigravity stop` kills it automatically; or `lsof -ti :443 \| xargs kill` |
+| "API key not configured" | Missing `.env` | Run `antigravity setup` or copy `.env.example` → `.env` and add keys |
+| TLS error in Antigravity | Cert not trusted | Run `antigravity certs trust` or follow manual steps below |
+| Language Server crashes | API returned error (429, 5xx) | Check `antigravity logs` for details; try a different model or provider |
 | "Provider returned error" / 429 | Rate limit hit | Proxy retries automatically; add a second provider as fallback |
 | Model not found / 404 | Wrong model ID in Models tab | Use the Browse Models tab to fetch the provider's real catalog |
 | Text responses but no tools | Model doesn't support tool calling | Switch to a model that supports function calling (see provider docs) |

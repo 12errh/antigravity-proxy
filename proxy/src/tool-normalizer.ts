@@ -228,7 +228,11 @@ export function normalizeToolCall(
   }
 
   // Step 3: Fill missing params with defaults (required AND optional with defaults)
+  // Skip Antigravity internal params (toolAction, toolSummary) — they are stripped
+  // by engine.ts before normalization and never sent by the model.
+  const INTERNAL_PARAMS = new Set(['toolAction', 'toolSummary', 'ToolAction', 'ToolSummary']);
   for (const [paramName, paramDef] of Object.entries(schema.params)) {
+    if (INTERNAL_PARAMS.has(paramName)) continue;
     if (!seenParams.has(paramName) && paramDef.default !== undefined) {
       normalizedArgs[paramName] = paramDef.default;
       if (paramDef.required) {
@@ -236,8 +240,6 @@ export function normalizeToolCall(
       }
       fixed = true;
     } else if (paramDef.required && !seenParams.has(paramName)) {
-      // Required param with no default — log warning
-      // Don't add it — let Antigravity return the error
       warnings.push(`Missing required "${paramName}" — no default available`);
     }
   }

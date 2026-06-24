@@ -2521,6 +2521,10 @@ function setModelName(alias, provider, model) {
   if (!pm[alias]) pm[alias] = {};
   if (provider) pm[alias][provider] = model;
   _modelConfig._provider_models = pm;
+  if (alias === 'default') {
+    _modelConfig._default_model = model;
+    _modelConfig._default_provider = provider;
+  }
   renderModelCards();
   renderUtilityModels();
 }
@@ -2528,7 +2532,7 @@ function setModelName(alias, provider, model) {
 function renderUtilityModels() {
   const defaultProvContainer = document.getElementById('defaultProviderSelect');
   if (defaultProvContainer) {
-    const currentDefault = _modelConfig?._default_provider || 'openrouter';
+    const currentDefault = _modelConfig?._default_provider || (_modelConfig?._global_provider_priority?.[0]) || 'zen';
     attachProviderField('defaultProviderSelect', 'default', currentDefault, function(val) {
       _modelConfig._default_provider = val;
       attachModelField('defaultModelSelect', 'default', val, _modelConfig._default_model || '');
