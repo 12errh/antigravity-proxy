@@ -9,6 +9,12 @@
 <p align="center"><strong>Use any AI provider</strong> with <strong>Antigravity 2.0</strong> — NVIDIA, OpenRouter, OpenAI, Groq, Anthropic, Google Gemini, OpenCode Zen, OpenCode Go, or 9+ local inference solutions.</p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/@12errh/antigravity-proxy">
+    <img src="https://img.shields.io/npm/v/@12errh/antigravity-proxy.svg" alt="npm version">
+  </a>
+  <a href="https://www.npmjs.com/package/@12errh/antigravity-proxy">
+    <img src="https://img.shields.io/npm/dm/@12errh/antigravity-proxy.svg" alt="npm downloads">
+  </a>
   <a href="https://github.com/12errh/antigravity-proxy/actions/workflows/ci.yml">
     <img src="https://github.com/12errh/antigravity-proxy/actions/workflows/ci.yml/badge.svg" alt="CI">
   </a>
@@ -17,26 +23,21 @@
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
 </p>
 
-The proxy intercepts Antigravity's Google Gemini API calls and translates them to the target provider's format. It supports:
+---
 
-- Multi-provider failover with retry + exponential backoff
-- Per-model, per-provider routing via a matrix UI  
-- Reasoning effort control
-- Real-time hot-reload of all config
-- Advanced tool normalization and capability detection
+## Quick Install
+
+```bash
+npm install -g @12errh/antigravity-proxy
+antigravity setup    # interactive wizard — picks provider, enters API key, configures port
+antigravity start    # starts proxy + dashboard + launches Antigravity desktop
+```
+
+> **No clone required.** The npm package includes everything: CLI, proxy, dashboard, certs, and all providers. Install once, run anywhere.
 
 ---
 
 ## Quick Start
-
-### Get the Repository
-
-```bash
-git clone https://github.com/12errh/antigravity-proxy.git
-cd antigravity-proxy
-```
-
-All launcher scripts and source code are inside the cloned directory.
 
 ### Prerequisites
 
@@ -49,19 +50,30 @@ All launcher scripts and source code are inside the cloned directory.
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| **Windows 10/11** | ✅ Tested | `start.ps1` handles cert install, port binding, and launch |
-| **macOS** | ⚠️ Untested | `start.sh` with best-effort cert trust. Report issues on GitHub. |
-| **Linux** | ⚠️ Untested | `start.sh` with best-effort cert trust. Report issues on GitHub. |
+| **Windows 10/11** | ✅ Tested | CLI handles cert install, port binding, and launch |
+| **macOS** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
+| **Linux** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
 
-> TypeScript code is cross-platform. Only launcher scripts and TLS cert trust are platform-specific.
+> TypeScript code is cross-platform. Only TLS cert trust is platform-specific.
 
-### Launch
-
-**Via npm (recommended)**
+### Launch via CLI (recommended)
 
 ```bash
 npm install -g @12errh/antigravity-proxy
-antigravity start
+antigravity start                    # background mode — runs silently, launches desktop
+antigravity start --foreground       # foreground mode — see live logs in terminal
+antigravity start --port 8443        # no admin needed
+antigravity start --trust-cert       # auto-trust TLS certificate
+antigravity stop                     # stop everything cleanly
+```
+
+### Launch from source (development)
+
+**Get the Repository**
+
+```bash
+git clone https://github.com/12errh/antigravity-proxy.git
+cd antigravity-proxy
 ```
 
 **Windows (PowerShell as Administrator)**

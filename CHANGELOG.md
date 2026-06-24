@@ -6,6 +6,42 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [latest] — 2026-06-24
+
+### Added
+
+- **npm package** — published as `@12errh/antigravity-proxy@1.0.0` on npm. Install globally with `npm install -g @12errh/antigravity-proxy` and run `antigravity start` — no clone required.
+- **CLI (Commander.js)** — 8 commands for full proxy lifecycle management:
+  - `antigravity start [--port] [--foreground] [--no-browser] [--trust-cert]` — start proxy + dashboard + launch Antigravity desktop
+  - `antigravity stop` — stop proxy and desktop app cleanly
+  - `antigravity status` — show running status, uptime, ports
+  - `antigravity health` — hit health endpoint
+  - `antigravity config [show|get|set]` — view/update configuration
+  - `antigravity logs [tail|list|show]` — view proxy logs
+  - `antigravity certs [show|generate|trust]` — manage TLS certificates
+  - `antigravity setup` — interactive onboarding wizard (provider, API key, port, features)
+- **Onboarding wizard** — `antigravity setup` guides new users through selecting a provider, entering API key, choosing port, and configuring dashboard features. Preserves existing `.env` settings.
+- **OpenCode Go session_id caching** — captures `session_id` from OpenCode Go API responses and re-sends it on follow-up requests for context cache discounts.
+
+### Fixed
+
+- **Router fallback used wrong default model** — when a model had no provider-specific mapping, the router used the hardcoded `_default_model` (`stepfun-ai/step-3.7-flash`) instead of the provider-specific default from `_provider_models.default[provider]`. Now uses `getDefaultModel(providerId)` first.
+- **Dashboard default model not syncing** — selecting a new default model in the Models tab wrote to `_provider_models.default` but `_default_model` stayed stale. Fixed `setModelName()` to sync both fields.
+- **`config.provider` showed hardcoded `openrouter`** — `legacyProvider` defaulted to `'openrouter'` regardless of provider priority. Now uses `parsePriority()[0]` to match the user's configured first provider.
+- **Placeholder API keys showed as configured** — `.env.example` had fake keys (`sk-...`, `nvapi-...`) that passed `isConfigured` check. Cleared to empty strings and added regex filter.
+- **`antigravity start` hung on desktop launch** — `execSync` blocked the CLI when launching Antigravity on Windows. Replaced with non-blocking `exec`.
+- **Tool normalizer `toolAction`/`toolSummary` warnings** — Antigravity internal params were stripped by `engine.ts` before normalization, but the schema still listed them as required. Added skip for internal params in missing-required check.
+- **`antigravity setup` destroyed existing `.env`** — the setup wizard overwrote the entire `.env` with only user-provided values. Now copies `.env.example` first and uses selective updates.
+- **Engine used `modelResolver.globalProviderPriority` instead of `config.providerPriority`** — in `per-model-per-provider` mode, the engine used the hardcoded priority from `models.json` instead of the user's `.env` configuration. Fixed to always use `config.providerPriority`.
+
+### Changed
+
+- **`models.json`** — removed `opencode-go` from `_global_provider_priority`, changed `_default_provider` to `zen`, changed `_default_model` to `mimo-v2.5-free`.
+- **`.env.example`** — cleared placeholder API key values to empty strings.
+- **CLI architecture** — `proxy/bin/cli.js` entry point with Commander.js, `proxy/src/cli/` directory for commands and utilities.
+
+---
+
 ## [latest] — 2026-06-23
 
 ### Added
