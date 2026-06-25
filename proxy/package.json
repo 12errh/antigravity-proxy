@@ -1,6 +1,6 @@
 {
   "name": "@12errh/antigravity-proxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LLM proxy for Antigravity — translate Google Gemini API calls to any provider",
   "type": "module",
   "main": "dist/index.js",
