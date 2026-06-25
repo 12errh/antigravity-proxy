@@ -20,7 +20,7 @@ export class ModelResolver {
   private flatMap: Record<string, string> = {};
   private providerMap: ProviderModelMap = {};
   routingMode: RoutingMode = 'priority-chain';
-  globalProviderPriority: ProviderId[] = ['openrouter', 'nvidia', 'anthropic', 'google', 'zen', 'ollama', 'vllm', 'lmstudio'];
+  globalProviderPriority: ProviderId[] = ['openrouter', 'nvidia', 'anthropic', 'google', 'zen', 'opencode-go', 'openai', 'groq', 'ollama', 'vllm', 'lmstudio'];
   titleModel: string = '';
   fallbackModel: string = '';
   defaultProvider: ProviderId | '' = '';

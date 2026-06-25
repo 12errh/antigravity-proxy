@@ -13,6 +13,7 @@
     "src/",
     "dashboard/",
     "scripts/",
+    "README.md",
     "agent-context.md",
     "models.json",
     "pricing.json",

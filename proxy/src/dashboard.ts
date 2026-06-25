@@ -13,7 +13,7 @@ import { getAllPricing, savePricing, reload as reloadPricing } from './pricing.j
 import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLimits } from './rate-limiter.js';
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
 import { scanLocalProviders, getCachedLocalProviders } from './local-discovery.js';
-import { fetchProviderModels, getCachedProviderModels, clearProviderCache, warmProviderCache } from './provider-cache.js';
+import { fetchProviderModels, getCachedProviderModels, clearProviderCache, warmProviderCache, listKnownProviders } from './provider-cache.js';
 import {
   isAuthEnabled, verifyCredentials, createSession, getSession, destroySession,
   getCookie, buildSessionCookie, buildClearSessionCookie, getSessionTtlMs,
@@ -535,7 +535,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     if (url.pathname === '/api/provider-models' && method === 'GET') {
       const provider = (url.searchParams.get('provider') || '').trim();
       if (!provider) {
-        const all = ['nvidia','openrouter','openai','groq','anthropic','google','zen','ollama','vllm','lmstudio']
+        const all = listKnownProviders()
           .map(p => ({ provider: p, ...(getCachedProviderModels(p) || { models: [], fetchedAt: 0, error: 'not fetched' }) }));
         jsonResp(res, { providers: all });
         return;

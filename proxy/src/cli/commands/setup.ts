@@ -10,7 +10,11 @@ const PROVIDERS = [
   { id: 'anthropic', name: 'Anthropic', envKey: 'ANTHROPIC_API_KEY', placeholder: 'sk-ant-...' },
   { id: 'groq', name: 'Groq', envKey: 'GROQ_API_KEY', placeholder: 'gsk_...' },
   { id: 'google', name: 'Google AI', envKey: 'GOOGLE_API_KEY', placeholder: 'AIza...' },
+  { id: 'zen', name: 'OpenCode Zen', envKey: 'OPENCODE_API_KEY', placeholder: 'sk-...' },
+  { id: 'opencode-go', name: 'OpenCode Go', envKey: 'OPENCODE_GO_API_KEY', placeholder: 'sk-...' },
   { id: 'ollama', name: 'Ollama (local)', envKey: '', placeholder: '' },
+  { id: 'vllm', name: 'vLLM (local)', envKey: '', placeholder: '' },
+  { id: 'lmstudio', name: 'LM Studio (local)', envKey: '', placeholder: '' },
 ];
 
 function createRl(): readline.Interface {

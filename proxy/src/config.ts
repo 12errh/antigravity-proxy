@@ -24,7 +24,7 @@ const ENV_KEY_OVERRIDES: Partial<Record<ProviderId, { apiKey?: string; baseUrl?:
 function buildProviders(priority: ProviderId[], localConfigs?: ProviderConfig[]): ProviderConfig[] {
   const fromPriority: ProviderConfig[] = priority.map((id, idx) => {
     const override = ENV_KEY_OVERRIDES[id];
-    const envKey = id.toUpperCase();
+    const envKey = id.toUpperCase().replace(/-/g, '_');
     const apiKeyEnv = override?.apiKey || `${envKey}_API_KEY`;
     const baseUrlEnv = override?.baseUrl || `${envKey}_BASE_URL`;
     return {

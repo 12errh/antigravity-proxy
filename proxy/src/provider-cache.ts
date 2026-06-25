@@ -85,6 +85,10 @@ export function clearProviderCache(provider?: string): void {
   else cache.clear();
 }
 
+export function listKnownProviders(): string[] {
+  return Object.keys(PROVIDER_META);
+}
+
 export async function warmProviderCache(): Promise<void> {
   const providers = Object.keys(PROVIDER_META);
   await Promise.allSettled(providers.map(p => fetchProviderModels(p).catch(() => null)));
