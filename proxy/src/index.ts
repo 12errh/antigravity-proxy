@@ -144,7 +144,6 @@ const BULK_CONTEXT_TAGS = ['skills', 'plugins', 'user_rules'];
 
 function stripInlineContext(contents: Content[]): Content[] {
   const filtered: Content[] = [];
-  let hasAdapterRef = false;
 
   for (const c of contents) {
     const text = c.parts?.map((p: any) => p.text || '').join('') || '';
@@ -166,26 +165,8 @@ function stripInlineContext(contents: Content[]): Content[] {
       }
     }
   }
-  // Inject agent-context.md content with envelope protection as the first
-  // system-level instruction. This gives the model the complete operating
-  // manual (tool schemas, decision tree, spawning guidelines, verification
-  // requirements) without needing an extra view_file round-trip.
-  // The envelope wrapping prevents path/prose extraction as state.
-  const fullContent = readAgentContextFull();
-  if (fullContent) {
-    const adapterRef = {
-      role: 'user' as const,
-      parts: [{ text: fullContent }],
-    };
-    filtered.unshift(adapterRef);
-  } else {
-    // Fallback: inject the envelope reference only
-    const adapterRef = {
-      role: 'user' as const,
-      parts: [{ text: readAgentContextReference() }],
-    };
-    filtered.unshift(adapterRef);
-  }
+  // NOTE: agent-context.md injection is handled by injectContext() in engine.ts
+  // Do NOT inject it here as a user message - that causes duplication.
   return filtered;
 }
 
