@@ -206,18 +206,20 @@ function stripSystemContext(text: string): string {
     }
   }
 
-  // Strip the massive identity block and other boilerplate, but keep workspace info
-  let result = text;
-  result = result.replace(/<identity>[\s\S]*?<\/identity>/, 'See agent-context.md for runtime identity.');
-  // Also strip <mcp_servers> since those are handled separately
-  result = result.replace(/<mcp_servers>[\s\S]*?<\/mcp_servers>/, '');
+  // In strip/lite modes, we completely replace the system instruction.
+  // The native Antigravity system instruction is ~28k tokens containing
+  // tool definitions, behavioral rules, identity, etc. Our agent-context.md
+  // (or lite version) already contains all of this in a compressed form.
+  // Keeping the native instruction AND adding agent-context causes duplication
+  // and wastes tokens.
+  //
+  // We only keep the workspace path so the model knows where it is.
 
-  // Prepend the workspace path so the model always knows where it is
   if (workspacePath) {
-    result = `## Current Workspace\nYour current working directory is: \`${workspacePath}\`\nAll file operations (list_dir, view_file, write_to_file, run_command, etc.) should use this directory.\n\n${result}`;
+    return `## Current Workspace\nYour current working directory is: \`${workspacePath}\`\nAll file operations (list_dir, view_file, write_to_file, run_command, etc.) should use this directory.`;
   }
 
-  return result;
+  return '';
 }
 
 /**
