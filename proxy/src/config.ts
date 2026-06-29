@@ -78,6 +78,7 @@ function createConfig() {
     logLevel: process.env.LOG_LEVEL || 'info',
     retries: parseInt(process.env.PROXY_RETRIES || '10', 10),
     backoffMs: parseInt(process.env.PROXY_BACKOFF_MS || '1000', 10),
+    requestTimeoutMs: parseInt(process.env.REQUEST_TIMEOUT_MS || '300000', 10),
     rateLimitGlobal: parseInt(process.env.RATE_LIMIT_GLOBAL || '60', 10),
     rateLimitProvider: parseInt(process.env.RATE_LIMIT_PROVIDER || '30', 10),
     rateLimitWindow: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10),
@@ -130,6 +131,7 @@ function createConfig() {
       this.logLevel = process.env.LOG_LEVEL || 'info';
       this.retries = parseInt(process.env.PROXY_RETRIES || '10', 10);
       this.backoffMs = parseInt(process.env.PROXY_BACKOFF_MS || '1000', 10);
+      this.requestTimeoutMs = parseInt(process.env.REQUEST_TIMEOUT_MS || '300000', 10);
       this.rateLimitGlobal = parseInt(process.env.RATE_LIMIT_GLOBAL || '60', 10);
       this.rateLimitProvider = parseInt(process.env.RATE_LIMIT_PROVIDER || '30', 10);
       this.rateLimitWindow = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);

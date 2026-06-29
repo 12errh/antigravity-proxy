@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'node:module';
+import { logger } from './logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +23,7 @@ try {
 } catch {
   // Native module not available — provide a safe no-op stub so callers
   // can import db.ts without crashing (important for CI tests).
+  logger.warn('better-sqlite3 native module not available — using in-memory fallback. Request logging and cost tracking will not persist.');
   const noop = { run: () => ({}), get: () => null, all: () => [], lastInsertRowid: 0 };
   db = { exec: () => {}, prepare: () => noop, pragma: () => {} };
 }

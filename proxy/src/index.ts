@@ -21,6 +21,8 @@ import { scanLocalProviders } from './local-discovery.js';
 import { installAgentContext } from './install-context.js';
 import { getWorkspaceContextEnvelope, wrapToolResultForContextFile, isWorkspaceContextFile } from './workspace-context.js';
 import { getSessionId, setSessionId } from './session-store.js';
+import { safeWrite } from './utils/safe-write.js';
+import { formatErrorResponse } from './utils/error-response.js';
 import type { Content, Tool, GenerationConfig } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -362,7 +364,9 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   if (blockCheck.blocked) {
     logger.warn(`BLOCKED: ${model} — ${blockCheck.reason}`);
     res.writeHead(403, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ error: { message: `Request blocked: ${blockCheck.reason}`, code: 403 } }));
+    const err = new Error(`Request blocked: ${blockCheck.reason}`);
+    (err as any).code = 'BLOCKED';
+    res.end(JSON.stringify(formatErrorResponse(err)));
     return;
   }
 
@@ -371,7 +375,9 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   if (!rateCheck.allowed) {
     logger.warn(`RATE LIMITED: global limit exceeded`);
     res.writeHead(429, { 'content-type': 'application/json', 'retry-after': String(rateCheck.retryAfter) });
-    res.end(JSON.stringify({ error: { message: `Rate limit exceeded. Retry after ${rateCheck.retryAfter}s`, code: 429 } }));
+    const err = new Error(`Rate limit exceeded. Retry after ${rateCheck.retryAfter}s`);
+    (err as any).code = 'RATE_LIMITED';
+    res.end(JSON.stringify(formatErrorResponse(err)));
     return;
   }
 
@@ -500,7 +506,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
         // Send only the delta — Google's client concatenates text from each event
         const deltaParts: any[] = [{ text: c }];
         const outTokens = estTokens(fullText + thoughtText);
-        res.write(`data: ${JSON.stringify({
+        safeWrite(res, `data: ${JSON.stringify({
           response: {
             candidates: [{
               index: 0, content: { role: 'model', parts: deltaParts },
@@ -510,12 +516,12 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
             modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
             responseId,
           }, traceId, metadata: {},
-        })}\n\n`, 'utf-8');
+        })}\n\n`);
       } else if (ctype === 'thought') {
         const c = (chunk as any).content as string || '';
         thoughtText += c;
         const deltaParts: any[] = [{ thought: true, text: c }];
-        res.write(`data: ${JSON.stringify({
+        safeWrite(res, `data: ${JSON.stringify({
           response: {
             candidates: [{
               index: 0, content: { role: 'model', parts: deltaParts },
@@ -524,7 +530,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
             modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
             responseId,
           }, traceId, metadata: {},
-        })}\n\n`, 'utf-8');
+        })}\n\n`);
       } else if (ctype === 'tool-call') {
         toolCalls.push({ name: (chunk as any).name, args: (chunk as any).args });
       }
@@ -554,14 +560,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       finishReason: 'STOP',
     };
     try {
-      res.write(`data: ${JSON.stringify({
+      safeWrite(res, `data: ${JSON.stringify({
         response: {
           candidates: [candidate],
           usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
           modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
           responseId,
         }, traceId, metadata: {},
-      })}\n\n`, 'utf-8');
+      })}\n\n`);
       res.end();
     } catch {
       // Stream already closed — nothing to do
@@ -620,7 +626,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       error: { message: err.message, code: 503 },
     });
     try {
-      res.write(`data: ${errResp}\n\n`);
+      safeWrite(res, `data: ${errResp}\n\n`);
       res.end();
     } catch {
       // Stream already closed — nothing to do

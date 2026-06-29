@@ -55,6 +55,17 @@ export class Router {
     signal?: AbortSignal,
     system?: string,
   ): AsyncGenerator<StreamChunk & { provider?: string; resolvedModel?: string }> {
+    // Create server-side timeout signal
+    const timeoutMs = (config?.requestTimeoutMs as number) || 300000; // 5 minutes default
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+
+    // Combine with client abort signal
+    const combinedSignal = signal
+      ? AbortSignal.any([signal, timeoutController.signal])
+      : timeoutController.signal;
+
+    try {
     // Determine candidate providers based on routing mode
     let candidates: ProviderId[];
     const routingMode = this.modelResolver.routingMode;
@@ -114,7 +125,7 @@ export class Router {
       for (let attempt = 0; attempt <= perProviderRetries; attempt++) {
         yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying' };
         try {
-          const gen = adapter.stream(resolvedModel, messages, tools, config, signal);
+          const gen = adapter.stream(resolvedModel, messages, tools, config, combinedSignal);
           for await (const chunk of gen) {
             if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
             hasStreamedData = true;
@@ -123,7 +134,7 @@ export class Router {
           logger.info(`[router] ${providerId} succeeded`);
           return;
         } catch (err: any) {
-          if (signal?.aborted) throw err;
+            if (combinedSignal.aborted) throw err;
 
           // If we already yielded data to the client, retrying the same provider
           // would duplicate content. But we CAN still failover to the next provider.
@@ -192,7 +203,7 @@ export class Router {
           yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying', fallback: true };
           let hasStreamedData = false;
           try {
-          const gen = adapter.stream(resolvedModel, messages, tools, config, signal, system);
+          const gen = adapter.stream(resolvedModel, messages, tools, config, combinedSignal, system);
             for await (const chunk of gen) {
               if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
               hasStreamedData = true;
@@ -201,7 +212,7 @@ export class Router {
             logger.info(`[router] ${providerId} succeeded (fallback)`);
             return;
           } catch (err: any) {
-            if (signal?.aborted) throw err;
+          if (combinedSignal.aborted) throw err;
             // Mid-stream failure in fallback — can't retry same provider, try next
             if (hasStreamedData) {
               logger.error(`[router] ${providerId} (fallback) failed mid-stream — failing over: ${err.message}`);
@@ -234,6 +245,9 @@ export class Router {
     }
 
     yield { type: 'error', content: `All providers failed: ${lastError || 'unknown'}` };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
