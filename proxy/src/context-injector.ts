@@ -1,9 +1,5 @@
 import { ANTIGRAVITY_CONTEXT } from './antigravity-context.js';
-
-interface MappedRequest {
-  system?: string;
-  messages: Array<{ role: string; content: string | null; reasoning_content?: string }>;
-}
+import type { MappedRequest } from './mapper.js';
 
 export function injectContext(mapped: MappedRequest, contextStripMode: string): void {
   // Skip in passthrough mode: the original Antigravity context already

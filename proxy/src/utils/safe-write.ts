@@ -1,7 +1,11 @@
-import { ServerResponse } from 'http';
 import { logger } from '../logger.js';
 
-export function safeWrite(res: ServerResponse, data: string): boolean {
+interface WritableResponse {
+  destroyed?: boolean;
+  write(data: string, encoding?: string): boolean;
+}
+
+export function safeWrite(res: WritableResponse, data: string): boolean {
   if (res.destroyed) {
     logger.debug('Attempted to write to destroyed response');
     return false;
