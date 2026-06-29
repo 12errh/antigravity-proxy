@@ -2,6 +2,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { logger } from './logger.js';
 import type { ProviderConfig, ProviderId } from './adapter.js';
 import type { LocalProviderInfo } from './local-discovery.js';
 
@@ -9,6 +10,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ENV_PATH = path.resolve(__dirname, '..', '.env');
 
 dotenv.config({ path: ENV_PATH });
+
+const VALID_CONTEXT_STRIP_MODES = ['passthrough', 'strip'];
+
+function validateContextStripMode(value: string): 'strip' | 'passthrough' {
+  if (VALID_CONTEXT_STRIP_MODES.includes(value)) {
+    return value as 'strip' | 'passthrough';
+  }
+  logger.warn(`Invalid CONTEXT_STRIP_MODE '${value}', defaulting to 'passthrough'`);
+  return 'passthrough';
+}
 
 export type Provider = 'nvidia' | 'openrouter';
 
@@ -73,7 +84,7 @@ function createConfig() {
     dashboardUser: process.env.DASHBOARD_USER || '',
     dashboardPassword: process.env.DASHBOARD_PASSWORD || '',
     failoverWebhookUrl: process.env.FAILOVER_WEBHOOK_URL || '',
-    contextStripMode: (process.env.CONTEXT_STRIP_MODE || 'passthrough') as 'strip' | 'passthrough',
+    contextStripMode: validateContextStripMode(process.env.CONTEXT_STRIP_MODE || 'passthrough'),
     providerPriority: parsePriority(),
     providers: buildProviders(parsePriority()),
     get localProviders(): ProviderConfig[] { return localProviders; },
@@ -125,7 +136,7 @@ function createConfig() {
       this.dashboardUser = process.env.DASHBOARD_USER || '';
       this.dashboardPassword = process.env.DASHBOARD_PASSWORD || '';
       this.failoverWebhookUrl = process.env.FAILOVER_WEBHOOK_URL || '';
-      this.contextStripMode = (process.env.CONTEXT_STRIP_MODE || 'strip') as 'strip' | 'passthrough';
+      this.contextStripMode = validateContextStripMode(process.env.CONTEXT_STRIP_MODE || 'passthrough');
       this.providerPriority = parsePriority();
       this.providers = buildProviders(this.providerPriority, localProviders);
     },
