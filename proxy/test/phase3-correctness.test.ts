@@ -283,31 +283,41 @@ test('Phase 3 / A6: router.ts has a clarifying comment on the second-pass fallba
 // CONTEXT_STRIP_MODE passthrough: engine.ts should skip injection in passthrough
 // ---------------------------------------------------------------------------
 
-test('Passthrough: engine.ts streamResponse skips ANTIGRAVITY_CONTEXT injection when passthrough', () => {
+test('Passthrough: engine.ts uses injectContext which handles passthrough mode', () => {
   const engine = src('engine.ts');
-  // The ANTIGRAVITY_CONTEXT.enabled check must also require contextStripMode !== 'passthrough'
+  // engine.ts should import and use injectContext from context-injector.ts
   assert.ok(
-    /ANTIGRAVITY_CONTEXT\.enabled\s*&&\s*config\.contextStripMode\s*!==\s*'passthrough'/.test(engine),
-    'engine.ts streamResponse should skip ANTIGRAVITY_CONTEXT injection in passthrough mode',
+    /import.*injectContext.*from.*context-injector/.test(engine),
+    'engine.ts should import injectContext from context-injector.ts',
+  );
+  // engine.ts should call injectContext with contextStripMode
+  assert.ok(
+    /injectContext\(mapped,\s*config\.contextStripMode\)/.test(engine),
+    'engine.ts should call injectContext with contextStripMode',
   );
 });
 
-test('Passthrough: engine.ts streamResponse skips agent-context.md prompt when passthrough', () => {
-  const engine = src('engine.ts');
-  // The "Read the agent-context.md" injection must also check contextStripMode
+test('Passthrough: context-injector.ts handles passthrough mode correctly', () => {
+  const injector = src('context-injector.ts');
+  // context-injector.ts should check for passthrough mode
   assert.ok(
-    /config\.contextStripMode\s*!==\s*'passthrough'[\s\S]{0,200}Read the agent-context\.md/.test(engine),
-    'engine.ts streamResponse should skip agent-context.md prompt in passthrough mode',
+    /contextStripMode\s*!==\s*'passthrough'/.test(injector),
+    'context-injector.ts should check for passthrough mode',
+  );
+  // context-injector.ts should check ANTIGRAVITY_CONTEXT.enabled
+  assert.ok(
+    /ANTIGRAVITY_CONTEXT\.enabled/.test(injector),
+    'context-injector.ts should check ANTIGRAVITY_CONTEXT.enabled',
   );
 });
 
-test('Passthrough: engine.ts generateResponse also checks contextStripMode', () => {
+test('Passthrough: engine.ts generateResponse also uses injectContext', () => {
   const engine = src('engine.ts');
-  // Both functions must have the passthrough check. Count occurrences of the pattern.
-  const matches = engine.match(/ANTIGRAVITY_CONTEXT\.enabled\s*&&\s*config\.contextStripMode\s*!==\s*'passthrough'/g);
+  // Both streamResponse and generateResponse should use injectContext
+  const matches = engine.match(/injectContext\(mapped,\s*config\.contextStripMode\)/g);
   assert.ok(
     matches && matches.length >= 2,
-    `engine.ts should have contextStripMode check in both streamResponse and generateResponse (found ${matches?.length ?? 0})`,
+    `engine.ts should call injectContext in both streamResponse and generateResponse (found ${matches?.length ?? 0})`,
   );
 });
 

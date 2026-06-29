@@ -2,6 +2,7 @@ import type { OpenAIMessage } from '../mapper.js';
 import type { StreamChunk, ModelAdapter } from './types.js';
 import { poolFetch } from '../http-pool.js';
 import { getEffortForModel } from '../reasoning-effort.js';
+import { parseToolArgs } from '../utils/parse-tool-args.js';
 
 /**
  * Known field names that providers use to emit reasoning/thinking content.
@@ -275,6 +276,6 @@ export class OpenAICompatAdapter implements ModelAdapter {
   }
 
   protected parseToolArgs(raw: string): Record<string, unknown> {
-    try { return JSON.parse(raw); } catch { return {}; }
+    return parseToolArgs(raw);
   }
 }

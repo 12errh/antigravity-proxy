@@ -6,6 +6,7 @@ import { ANTIGRAVITY_CONTEXT } from './antigravity-context.js';
 import { registerBuiltinPlugins } from './plugins/builtin-plugins.js';
 import { toolCapabilityRegistry } from './tool-capabilities.js';
 import { normalizeToolCall } from './tool-normalizer.js';
+import { injectContext } from './context-injector.js';
 import type { MappedRequest } from './mapper.js';
 import type { OpenAIMessage } from './mapper.js';
 
@@ -17,16 +18,49 @@ export function extractConvId(requestId: string): string {
   return parts.length >= 2 ? parts.slice(0, 2).join('/') : requestId;
 }
 
-export const reasoningStore = new Map<string, string[]>();
+interface ReasoningEntry {
+  data: string[];
+  timestamp: number;
+}
+
+const REASONING_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const REASONING_MAX_SIZE = 1000;
+
+export const reasoningStore = new Map<string, ReasoningEntry>();
+
+export function cleanupReasoningStore(): void {
+  const now = Date.now();
+  for (const [key, entry] of reasoningStore) {
+    if (now - entry.timestamp > REASONING_TTL_MS) {
+      reasoningStore.delete(key);
+    }
+  }
+
+  // Enforce max size (delete oldest)
+  if (reasoningStore.size > REASONING_MAX_SIZE) {
+    const entries = Array.from(reasoningStore.entries())
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toDelete = entries.slice(0, entries.length - REASONING_MAX_SIZE);
+    for (const [key] of toDelete) {
+      reasoningStore.delete(key);
+    }
+  }
+}
 
 export function saveReasoning(convId: string, thoughtText: string): void {
-  if (!reasoningStore.has(convId)) reasoningStore.set(convId, []);
-  reasoningStore.get(convId)!.push(thoughtText);
+  cleanupReasoningStore();
+  const existing = reasoningStore.get(convId);
+  if (existing) {
+    existing.data.push(thoughtText);
+    existing.timestamp = Date.now();
+  } else {
+    reasoningStore.set(convId, { data: [thoughtText], timestamp: Date.now() });
+  }
 }
 
 export function injectReasoning(messages: OpenAIMessage[], convId: string): void {
-  const rcs = reasoningStore.get(convId);
-  if (!rcs) {
+  const entry = reasoningStore.get(convId);
+  if (!entry) {
     // Ensure all assistant messages have reasoning_content even when no store
     for (const msg of messages) {
       if (msg.role === 'assistant' && !msg.reasoning_content) {
@@ -46,12 +80,12 @@ export function injectReasoning(messages: OpenAIMessage[], convId: string): void
   // Assistant messages in the request are also chronological.
   // Each response adds one assistant message, so store[N] corresponds
   // to the (asstCount - storeLen + N)-th assistant message from the end.
-  const injectCount = Math.min(rcs.length, asstIdxs.length);
+  const injectCount = Math.min(entry.data.length, asstIdxs.length);
   const msgOffset = asstIdxs.length - injectCount;
-  const storeOffset = rcs.length - injectCount;
+  const storeOffset = entry.data.length - injectCount;
   for (let i = 0; i < injectCount; i++) {
     const msg = messages[asstIdxs[msgOffset + i]];
-    msg.reasoning_content = rcs[storeOffset + i];
+    msg.reasoning_content = entry.data[storeOffset + i];
   }
   // Old assistant messages (before this session) need a fallback
   for (let i = 0; i < msgOffset; i++) {
@@ -121,56 +155,19 @@ export async function* streamResponse(
   const r = getRouter();
   const providerIds = config.providerPriority;
 
-  logger.info(`Intercept: ${model}`, {
-    messageCount: mapped.messages.length,
-    hasTools: !!mapped.tools && Object.keys(mapped.tools).length > 0,
-    hasSystem: !!mapped.system,
-  });
+    logger.info(`Intercept: ${model}`, {
+      messageCount: mapped.messages.length,
+      hasTools: !!mapped.tools && Object.keys(mapped.tools).length > 0,
+      hasSystem: !!mapped.system,
+      contextStripMode: config.contextStripMode,
+    });
 
   try {
     // Sync per-request tools into the capability registry for normalization
     toolCapabilityRegistry.setDynamicTools(mapped.tools);
 
-    // Phase 2: Inject Antigravity runtime identity as a system message so
-    // external models receive the tool-discipline rules, decision tree,
-    // spawning guidelines, and verification requirements directly — without
-    // needing to call view_file first.
-    // SKIP in passthrough mode: the original Antigravity context already
-    // contains everything, and injecting on top causes duplication.
-    if (ANTIGRAVITY_CONTEXT.enabled && config.contextStripMode !== 'passthrough') {
-      const ctx = ANTIGRAVITY_CONTEXT.prompt;
-      const existing = mapped.system;
-      mapped.system = existing ? `${ctx}\n\n${existing}` : ctx;
-    }
-
-    // CRITICAL FIX: Inject mapped.system as a real system-role message so it
-    // reaches the model. Prior to this fix, mapped.system was set but never
-    // included in the messages array sent to the router/adapter — the model
-    // never saw its working directory, tool rules, or antigravity context.
-    if (mapped.system) {
-      // Only prepend if there isn't already a system message (avoid duplicates)
-      if (!mapped.messages.some(msg => msg.role === 'system')) {
-        mapped.messages.unshift({
-          role: 'system' as const,
-          content: mapped.system,
-        });
-      }
-    }
-
-    // Also inject a prompt telling the model to read agent-context.md for
-    // the full operating manual. This complements the system message with
-    // the complete file content when the model chooses to read it.
-    // SKIP in passthrough mode: the model already has the identity inline.
-    if (config.contextStripMode !== 'passthrough' &&
-      !mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
-        msg.content.includes('Read the agent-context.md file using the view_file tool')
-      )) {
-      const contextPath = process.env.AGENT_CONTEXT_PATH || 'agent-context.md';
-      mapped.messages.unshift({
-        role: 'user' as const,
-        content: `Read the agent-context.md file using the view_file tool to adopt the runtime identity. Use this tool to access the complete operating manual for external agents before proceeding with your task. The file is located at: ${contextPath}. This includes the critical tool selection rules, subagent doctrine, verification requirements, and confidence framework needed to use Antigravity correctly. You must read this file to understand when and how to use all available tools, including manage_task for background process management and when to spawn agents for parallel execution.`
-      });
-    }
+    // Inject Antigravity context and system message
+    injectContext(mapped, config.contextStripMode);
 
     const gen = r.execute(providerIds, model, mapped.messages, mapped.tools as any, {
       maxTokens: mapped.maxTokens,
@@ -222,42 +219,8 @@ export async function generateResponse(
   const providerIds = config.providerPriority;
 
   try {
-    // Phase 2: Inject Antigravity runtime identity as a system message so
-    // external models receive the tool-discipline rules, decision tree,
-    // spawning guidelines, and verification requirements directly — without
-    // needing to call view_file first.
-    // SKIP in passthrough mode: the original Antigravity context already
-    // contains everything, and injecting on top causes duplication.
-    if (ANTIGRAVITY_CONTEXT.enabled && config.contextStripMode !== 'passthrough') {
-      const ctx = ANTIGRAVITY_CONTEXT.prompt;
-      const existing = mapped.system;
-      mapped.system = existing ? `${ctx}\n\n${existing}` : ctx;
-    }
-
-    // CRITICAL FIX: Inject mapped.system as a real system-role message so it
-    // reaches the model (same fix as streamResponse above).
-    if (mapped.system) {
-      if (!mapped.messages.some(msg => msg.role === 'system')) {
-        mapped.messages.unshift({
-          role: 'system' as const,
-          content: mapped.system,
-        });
-      }
-    }
-
-    // Also inject a prompt telling the model to read agent-context.md for
-    // the full operating manual. Include explicit file path.
-    // SKIP in passthrough mode: the model already has the identity inline.
-    if (config.contextStripMode !== 'passthrough' &&
-      !mapped.messages.some(msg => msg.role === 'user' && typeof msg.content === 'string' &&
-        msg.content.includes('Read the agent-context.md file using the view_file tool')
-      )) {
-      const contextPath = process.env.AGENT_CONTEXT_PATH || 'agent-context.md';
-      mapped.messages.unshift({
-        role: 'user' as const,
-        content: `Read the agent-context.md file using the view_file tool to adopt the runtime identity. Use this tool to access the complete operating manual for external agents before proceeding with your task. The file is located at: ${contextPath}. This includes the critical tool selection rules, subagent doctrine, verification requirements, and confidence framework needed to use Antigravity correctly. You must read this file to understand when and how to use all available tools, including manage_task for background process management and when to spawn agents for parallel execution.`
-      });
-    }
+    // Inject Antigravity context and system message
+    injectContext(mapped, config.contextStripMode);
 
     const gen = r.execute(providerIds, model, mapped.messages, mapped.tools as any, {
       maxTokens: mapped.maxTokens,
@@ -278,3 +241,6 @@ export async function generateResponse(
     return { text: `Error: ${err.message}`, finishReason: 'ERROR' };
   }
 }
+
+// Auto-cleanup every 5 minutes
+setInterval(cleanupReasoningStore, 5 * 60 * 1000);

@@ -2,6 +2,7 @@ import { logger } from '../logger.js';
 import type { OpenAIMessage } from '../mapper.js';
 import type { StreamChunk, ModelAdapter } from './types.js';
 import { poolFetch } from '../http-pool.js';
+import { parseToolArgs } from '../utils/parse-tool-args.js';
 
 export class AnthropicAdapter implements ModelAdapter {
   provider = 'anthropic';
@@ -218,6 +219,6 @@ export class AnthropicAdapter implements ModelAdapter {
   }
 
   private parseToolArgs(raw: string): Record<string, unknown> {
-    try { return JSON.parse(raw); } catch { return {}; }
+    return parseToolArgs(raw);
   }
 }
