@@ -6,6 +6,42 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [1.0.3] — 2026-06-29
+
+### Added
+
+- **Lite context mode** — compressed `agent-context-lite.md` (~3.5K tokens) for 66% token reduction vs full context
+- **Browser tools in lite/strip modes** — `start_browser_session`, `browser_action`, `read_url_content`, `search_web` now available
+- **Server-side request timeout** — `REQUEST_TIMEOUT_MS` env var (default 5 minutes) prevents hanging requests
+- **Safe write utility** — graceful handling of response write failures in streaming
+- **Standardized error responses** — consistent `{ error: { message, code } }` format across all endpoints
+- **DB fallback warning** — logs warning when better-sqlite3 native module unavailable
+- **Token breakdown logging** — diagnostic log shows system/tools/contents token counts
+- **200+ tests** across 19 test files (up from 126 tests in 11 files)
+
+### Fixed
+
+- **Token counting** — dashboard now counts actual forwarded tokens, not original request size
+- **Duplicate context injection** — removed double injection of agent-context.md (was injected in both stripInlineContext and injectContext)
+- **Context mode defaults** — `CONTEXT_STRIP_MODE` now defaults to `passthrough` consistently across initial load and reload
+- **OPENCODE_GO_API_KEY** — added to KNOWN_ENV_KEYS so it shows in dashboard Config tab
+- **Config validation** — `CONTEXT_STRIP_MODE` now rejects invalid values with warning
+
+### Changed
+
+- **Default context mode** — CLI setup wizard now recommends `lite` as the default option
+- **Dashboard context dropdown** — shows `lite` (recommended), `strip`, and `passthrough` options
+- **Context injection moved** — `injectContext()` now runs in index.ts (before token counting) instead of engine.ts
+- **Aggressive system instruction stripping** — strip/lite modes now replace entire native system instruction with just workspace path
+- **Documentation updated** — all docs reflect new lite mode, token savings, and context architecture
+
+### Removed
+
+- **Old documentation files** — removed 9 completed planning/analysis docs (~5,800 lines)
+- **Duplicate "Read agent-context.md" prompt** — no longer injects user message telling model to read the file
+
+---
+
 ## [1.0.2] — 2026-06-29
 
 ### Added
