@@ -237,4 +237,4 @@ export async function generateResponse(
 }
 
 // Auto-cleanup every 5 minutes
-setInterval(cleanupReasoningStore, 5 * 60 * 1000);
+setInterval(cleanupReasoningStore, 5 * 60 * 1000).unref();

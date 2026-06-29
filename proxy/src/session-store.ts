@@ -49,4 +49,4 @@ export function clearSessionId(convId: string): void {
 }
 
 // Auto-cleanup every hour
-setInterval(cleanupSessionStore, 60 * 60 * 1000);
+setInterval(cleanupSessionStore, 60 * 60 * 1000).unref();
