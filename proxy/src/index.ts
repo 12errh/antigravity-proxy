@@ -400,6 +400,15 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     mapped.tools = mappedTools;
   }
 
+  // Diagnostic: log token breakdown
+  const systemTokens = mapped.system ? Math.round(mapped.system.length / 4) : 0;
+  const toolsJson = mapped.tools ? JSON.stringify(mapped.tools) : '';
+  const toolsTokens = Math.round(toolsJson.length / 4);
+  const contentsJson = JSON.stringify(mapped.messages);
+  const contentsTokens = Math.round(contentsJson.length / 4);
+  const toolCount = mapped.tools ? Object.keys(mapped.tools).length : 0;
+  logger.info(`[token-breakdown] system: ${systemTokens} tokens, tools: ${toolsTokens} tokens (${toolCount} tools), contents: ${contentsTokens} tokens, total input: ~${systemTokens + toolsTokens + contentsTokens} tokens`);
+
   // Inject saved reasoning_content from previous round (client strips thought:true parts)
   const convId = extractConvId(request.requestId);
   injectReasoning(mapped.messages, convId);
