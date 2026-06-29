@@ -400,6 +400,10 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
     mapped.tools = mappedTools;
   }
 
+  // Calculate actual tokens being sent to provider (post-stripping)
+  const actualPromptText = JSON.stringify({ system: mapped.system, messages: mapped.messages, tools: mapped.tools });
+  const actualPromptTokens = estTokens(actualPromptText);
+
   // Diagnostic: log token breakdown
   const systemTokens = mapped.system ? Math.round(mapped.system.length / 4) : 0;
   const toolsJson = mapped.tools ? JSON.stringify(mapped.tools) : '';
@@ -433,7 +437,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   requestStore.push({
     id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: '',
     direction: 'incoming', type: 'text', content: `Prompt: ${promptText.substring(0, 500)}${promptText.length > 500 ? '...' : ''}`,
-    promptTokens,
+    promptTokens: actualPromptTokens,
   });
 
   res.writeHead(200, {
@@ -504,7 +508,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
               index: 0, content: { role: 'model', parts: deltaParts },
               safetyRatings: SAFETY_RATINGS, groundingMetadata: GROUNDING_METADATA,
             }],
-            usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outTokens, totalTokenCount: promptTokens + outTokens },
+            usageMetadata: { promptTokenCount: actualPromptTokens, candidatesTokenCount: outTokens, totalTokenCount: actualPromptTokens + outTokens },
             modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
             responseId,
           }, traceId, metadata: {},
@@ -530,7 +534,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
 
     const duration = Date.now() - genStart;
     const outputTokens = estTokens(fullText + thoughtText);
-    const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, promptTokens, outputTokens) : 0;
+    const cost = usedProvider ? calculateCost(usedProvider, usedModel || model, actualPromptTokens, outputTokens) : 0;
     recordRequest(usedProvider);
 
     // Save reasoning_content for this conversation so it can be injected on the next request
@@ -555,7 +559,7 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
       safeWrite(res, `data: ${JSON.stringify({
         response: {
           candidates: [candidate],
-          usageMetadata: { promptTokenCount: promptTokens, candidatesTokenCount: outputTokens, totalTokenCount: promptTokens + outputTokens },
+          usageMetadata: { promptTokenCount: actualPromptTokens, candidatesTokenCount: outputTokens, totalTokenCount: actualPromptTokens + outputTokens },
           modelVersion: `${projectPath}/publishers/${config.provider}/models/${model}`,
           responseId,
         }, traceId, metadata: {},
@@ -571,14 +575,14 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'tool-call', content: fullText,
         toolCalls: toolCalls.map(tc => ({ name: tc.name, args: tc.args })),
-        promptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
+        promptTokens: actualPromptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
       });
     } else {
       logger.info(`<<< Completed: ${req.url} (${fullText.length} chars, model: ${model}, provider: ${usedProvider})`);
       requestStore.push({
         id: responseId, timestamp: new Date().toISOString(), model, resolvedModel: usedModel || model,
         provider: usedProvider, direction: 'outgoing', type: 'text', content: fullText,
-        promptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
+        promptTokens: actualPromptTokens, outputTokens, cost, duration, failoverEvents: JSON.stringify(failoverEvents),
       });
     }
   } catch (err: any) {
