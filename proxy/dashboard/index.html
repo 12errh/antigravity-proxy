@@ -229,12 +229,14 @@
           <div class="form-group">
             <label>Inline Context Mode</label>
             <select id="cfgContextStripMode">
-              <option value="strip">Strip (recommended) — removes skills/plugins/identity, injects compact agent-context.md reference</option>
+              <option value="lite">Lite (recommended) — compressed context, ~66% fewer tokens than full context</option>
+              <option value="strip">Strip — removes skills/plugins/identity, injects compact agent-context.md reference</option>
               <option value="passthrough">Passthrough — sends full Antigravity context to the model unchanged</option>
             </select>
             <div class="hint">
-              <strong>Strip:</strong> saves ~3,500–5,000 tokens per request by replacing Antigravity's massive inline context with a compact reference.
-              <strong>Passthrough:</strong> sends everything Antigravity sends — useful for debugging or if the model needs the full skills/plugins context.
+              <strong>Lite:</strong> uses compressed agent-context-lite.md with same behavior, ~3,500 tokens vs ~10,000.
+              <strong>Strip:</strong> removes bulk context, injects full agent-context.md (~10,000 tokens).
+              <strong>Passthrough:</strong> forwards everything Antigravity sends (~28,000 tokens).
             </div>
           </div>
         </div>

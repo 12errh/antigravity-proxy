@@ -137,12 +137,16 @@ export async function setupCommand(): Promise<void> {
 
   // 4. Context strip mode
   console.log('  Context strip mode:');
-  console.log('    1. passthrough  - send full Antigravity context (default)');
-  console.log('    2. strip        - remove skills/plugins, save tokens');
+  console.log('    1. lite (recommended) - compressed context, ~66% fewer tokens');
+  console.log('    2. strip              - remove skills/plugins, inject full agent-context.md');
+  console.log('    3. passthrough        - send full Antigravity context unchanged');
   console.log('');
   const currentMode = env['CONTEXT_STRIP_MODE'] || 'passthrough';
-  const stripChoice = parseInt(await ask(rl, `  Mode [${currentMode === 'strip' ? '2' : '1'}]: `), 10);
-  const contextMode = stripChoice === 2 ? 'strip' : currentMode;
+  let defaultChoice = '1';
+  if (currentMode === 'strip') defaultChoice = '2';
+  else if (currentMode === 'passthrough') defaultChoice = '3';
+  const stripChoice = parseInt(await ask(rl, `  Mode [${defaultChoice}]: `), 10) || 1;
+  const contextMode = stripChoice === 2 ? 'strip' : stripChoice === 3 ? 'passthrough' : 'lite';
   console.log(`  Mode: ${contextMode}`);
   console.log('');
 
