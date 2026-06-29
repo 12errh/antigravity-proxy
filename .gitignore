@@ -6,6 +6,9 @@ proxy/dist/
 proxy/logs/
 proxy/data/
 
+# ── Compose plans (local only) ───────────────────────────────────────────────
+docs/compose/
+
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
