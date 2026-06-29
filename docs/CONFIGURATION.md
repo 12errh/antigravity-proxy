@@ -41,12 +41,15 @@ LOG_LEVEL=info
 | `API_PORT` | HTTP REST forward port | `4000` |
 | `PROXY_RETRIES` | Max retry attempts per provider before failover | `10` |
 | `PROXY_BACKOFF_MS` | Initial backoff in ms (doubles each retry) | `1000` |
+| `REQUEST_TIMEOUT_MS` | Server-side request timeout in ms | `300000` |
 | `LOG_LEVEL` | Log verbosity | `info` |
-| `WORKSPACE_CONTEXT_ENVELOPE` | Controls how agent-context.md is wrapped to prevent context-confusion (`off`, `loose`, `strict`) | `strict` |
-| `AGENT_CONTEXT_PATH` | Absolute path to agent-context.md (defaults to two levels up from proxy/) | auto-detected |
-| `DASHBOARD_USER` | Basic auth username for dashboard (set from Config tab) | — |
-| `DASHBOARD_PASSWORD` | Basic auth password for dashboard (set from Config tab) | — |
-| `FAILOVER_WEBHOOK_URL` | URL to receive POST notifications on provider failover (set from Config tab) | — |
+| `CONTEXT_STRIP_MODE` | Context mode: `lite` (compressed, recommended), `strip` (full context), `passthrough` (native) | `passthrough` |
+| `AGENT_CONTEXT_PATH` | Path to agent-context.md | auto-detected |
+| `AGENT_CONTEXT_LITE_PATH` | Path to agent-context-lite.md | auto-detected |
+| `WORKSPACE_CONTEXT_ENVELOPE` | Context envelope mode (`off`, `loose`, `strict`) | `strict` |
+| `DASHBOARD_USER` | Basic auth username for dashboard | — |
+| `DASHBOARD_PASSWORD` | Basic auth password for dashboard | — |
+| `FAILOVER_WEBHOOK_URL` | URL for failover notifications | — |
 | `RATE_LIMIT_GLOBAL` | Max requests per window across all providers (`0` = unlimited) | `60` |
 | `RATE_LIMIT_PROVIDER` | Max requests per window per provider (`0` = unlimited) | `30` |
 | `RATE_LIMIT_WINDOW_MS` | Rate limit window in milliseconds | `60000` |

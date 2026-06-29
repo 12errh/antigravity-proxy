@@ -30,7 +30,7 @@ The proxy uses a self-signed cert that must be trusted by your OS/browser. The t
 
 ### 5. Context strip mode
 
-When `CONTEXT_STRIP_MODE=passthrough` (default), the full Antigravity request body (including your prompts, skills, and rules) is forwarded verbatim to the configured AI provider. In `strip` mode, only the user's actual request and metadata are forwarded — the full identity/skills/plugins context is replaced with a compact reference.
+When `CONTEXT_STRIP_MODE=passthrough`, the full Antigravity request body (including your prompts, skills, and rules) is forwarded verbatim to the configured AI provider. In `lite` mode (recommended), the native context is stripped and replaced with a compressed operating manual (~3.5K tokens). In `strip` mode, the full `agent-context.md` (~10K tokens) is injected instead. Lite and strip modes reduce the data forwarded to external providers while maintaining full tool coverage.
 
 ---
 

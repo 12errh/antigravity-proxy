@@ -226,9 +226,13 @@ All other traffic is forwarded transparently to Google's backend.
 
 ### Context Mode
 
-By default (`CONTEXT_STRIP_MODE=passthrough`), the proxy forwards the full native Antigravity context to external models — skills, plugins, identity, subagents, user rules, and tool definitions all pass through unchanged. This gives external models the same context that native Gemini receives.
+Three modes control how much context is forwarded to external models:
 
-In `strip` mode (`CONTEXT_STRIP_MODE=strip`), bulk context tags are removed and a compact reference is injected. This is a fallback for models that can't handle the XML-like context format.
+- **`lite` (recommended)** — Strips native Antigravity context, injects compressed `agent-context-lite.md` (~3.5K tokens). Same tool coverage as full context, 66% fewer tokens. Best for most use cases.
+- **`strip`** — Strips bulk context (skills/plugins/identity), injects full `agent-context.md` (~10K tokens). More verbose but complete.
+- **`passthrough`** — Forwards native Antigravity context unchanged (~28K tokens). Simplest approach, no injection overhead.
+
+Configure via `CONTEXT_STRIP_MODE` in `.env` or the dashboard Config tab. The CLI setup wizard (`antigravity setup`) guides you through selecting a mode.
 
 ### Model Resolution
 

@@ -34,7 +34,7 @@ Antigravity App → [port 443 TLS] → Proxy → [API call] → LLM Provider
 ```
 
 1. **TLS Intercept** (`proxy/src/index.ts`) — HTTPS server on port 443 captures Gemini-format requests
-2. **Context Stripping** — removes `<skills>/<plugins>/<user_rules>/<identity>` (~3500–5000 tokens saved per request), injects compact `agent-context.md` reference
+2. **Context Mode** — `lite` (recommended) strips native context, injects compressed `agent-context-lite.md` (~3.5K tokens); `strip` uses full `agent-context.md` (~10K tokens); `passthrough` forwards native context unchanged (~28K tokens)
 3. **Tool Normalization** (`proxy/src/tool-normalizer.ts`) — resolves tool name aliases (`manageTask`→`manage_task`), param aliases (`command`→`CommandLine`), coerces types (`"true"`→`true`), fills defaults
 4. **Format Mapping** (`proxy/src/mapper.ts`) — converts Google Gemini request format → OpenAI-compatible format
 5. **Routing** (`proxy/src/router.ts`) — failover orchestrator: tries model-specific providers first, then global fallback. Exponential backoff, max 2 retries per provider.
@@ -50,8 +50,8 @@ Antigravity App → [port 443 TLS] → Proxy → [API call] → LLM Provider
 ### Key Design Decisions
 
 - **Format translation is the core value**: Antigravity hardcodes the Google Gemini API. The proxy translates to any provider's format.
-- **`agent-context.md`** is the proxy's system prompt injection. It documents all of Antigravity's internal tools (`run_command`, `write_to_file`, `manage_task`, `manage_subagents`, etc.) with correct schemas so non-Gemini models can use them. This file is injected into every request.
-- **Context strip mode** (`CONTEXT_STRIP_MODE` env var): `passthrough` (default) forwards the full native Antigravity context to external models; `strip` removes bulk context tags and injects a compact reference. Controlled from the dashboard Config tab.
+- **Context compression** (`agent-context-lite.md`): compressed version of the operating manual (~3.5K tokens vs ~10K full). Injected in lite mode. Same tool coverage, fewer tokens. Browser tools included.
+- **Context strip mode** (`CONTEXT_STRIP_MODE` env var): `lite` (recommended) uses compressed context; `strip` uses full context; `passthrough` forwards native Antigravity context unchanged. Controlled from the dashboard Config tab.
 - **Workspace context hardening** (`proxy/src/workspace-context.ts`): anti-hallucination envelope system with `off`/`loose`/`strict` modes. Anonymizes file paths, wraps system instructions to prevent LLM confusion between documentation and runtime state.
 - **Plugin architecture** (`proxy/src/provider-registry.ts` + `proxy/src/provider-plugin.ts`): providers are registered as plugins via the `IProviderPlugin` interface. New providers can be added without modifying core code — just implement the interface and register.
 - **Tool normalization** (`proxy/src/tool-normalizer.ts` + `proxy/src/tool-capabilities.ts`): external LLM tool calls are normalized through alias resolution, type coercion, and default filling before being forwarded to Antigravity. This prevents failures from models that use different parameter names or types.

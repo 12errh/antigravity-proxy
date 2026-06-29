@@ -372,16 +372,16 @@ FAILOVER_WEBHOOK_URL=https://hooks.example.com/webhook
 WORKSPACE_CONTEXT_ENVELOPE=strict   # off | loose | strict
 
 # Inline context mode
-CONTEXT_STRIP_MODE=passthrough       # passthrough (default) | strip
+CONTEXT_STRIP_MODE=lite             # lite (recommended) | strip | passthrough
 ```
 
-> ### 💡 Why Passthrough is the Default
+> ### 💡 Context Mode Explained
 >
-> We originally built an external context system (`agent-context.md` + `antigravity-context.ts`) to teach external models about Antigravity's tools. But after implementation, we discovered the external context grew to **~28K tokens — the exact same size as the native Antigravity context** that Gemini receives.
+> **Lite (recommended):** Uses compressed `agent-context-lite.md` (~3.5K tokens) — same tool coverage as full context, 66% fewer tokens. Strips native Antigravity context, injects compressed version.
 >
-> Since both consume identical tokens, there's no benefit to stripping the native context and injecting our own. **Passthrough simply forwards what Antigravity already sends** — simpler, no injection overhead, and external models understand it natively (validated: 18/20 tools working with MiMo-v2.5).
+> **Strip:** Uses full `agent-context.md` (~10K tokens) — removes bulk context (skills/plugins/identity), injects complete operating manual.
 >
-> **Future goal:** Compress the external context to deliver the same native quality with fewer tokens, reducing the ~28K token overhead while maintaining full tool coverage.
+> **Passthrough:** Forwards native Antigravity context unchanged (~28K tokens) — simplest approach, no injection overhead.
 
 ---
 
@@ -390,7 +390,6 @@ CONTEXT_STRIP_MODE=passthrough       # passthrough (default) | strip
 - [Setup Guide](docs/SETUP.md)
 - [Configuration Reference](docs/CONFIGURATION.md)
 - [Developer Guide](docs/DEVELOPER.md) ← **For adding providers & plugin development**
-- [Antigravity v2 Protocol Analysis](docs/antigravity-v2-analysis.md)
 - [CHANGELOG](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)

@@ -83,7 +83,7 @@ New providers implement `IProviderPlugin` interface in `src/plugins/`, register 
 
 - **Framework**: `node:test` + `node:assert/strict` (no Jest/Vitest)
 - **Smoke test**: `npx tsx test/run.ts smoke` — hits health endpoint, skips gracefully if proxy not running
-- **126 tests** across 11 test files
+- **Tests across 19 test files**
 
 ## Gotchas
 
@@ -91,8 +91,9 @@ New providers implement `IProviderPlugin` interface in `src/plugins/`, register 
 - **Windows CI**: uses `npm ci --ignore-scripts` to avoid better-sqlite3 native build issues
 - **Dashboard is raw HTML** (`proxy/dashboard/index.html`) — no build step, edit directly and hard-refresh browser
 - **Config hot-reloads**: `.env` changes (API keys, priority, ports) take effect without restart
-- **`agent-context.md`** at repo root is injected into every request as system prompt for external models — contains Antigravity tool schemas and instructions
-- **`CONTEXT_STRIP_MODE`**: `passthrough` (default) forwards full native Antigravity context; `strip` removes context tags and injects compact reference
+- **`agent-context.md`** at repo root is the full operating manual (~10K tokens). Injected in strip/lite modes as system prompt.
+- **`agent-context-lite.md`** at repo root is the compressed version (~3.5K tokens). Used in lite mode.
+- **`CONTEXT_STRIP_MODE`**: `lite` (recommended) uses compressed context, `strip` uses full context, `passthrough` forwards native Antigravity context unchanged
 - **Model overrides**: `_provider_models` in `models.json` overrides global alias resolution for specific providers
 - **Provider priority**: First provider with valid API key wins. Set `ANTIGRAVITY_PROVIDER_PRIORITY` to reorder.
 

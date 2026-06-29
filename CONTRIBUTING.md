@@ -53,7 +53,7 @@ npm test
 
 Tests must all pass before you submit a PR.
 
-**Note:** The project has 199 tests across 12 test files. Run `npm test` to verify all pass.
+**Note:** The project has 200+ tests across 19 test files. Run `npm test` to verify all pass.
 
 ---
 
@@ -90,7 +90,7 @@ The dashboard is a single `proxy/dashboard/index.html` file — zero build step.
 ## Pull Request Checklist
 
 - [ ] `npm run typecheck` passes with no errors
-- [ ] `npm test` passes (all tests green — currently 199)
+- [ ] `npm test` passes (all tests green — currently 200+)
 - [ ] No `console.log` or debug code left in
 - [ ] No secrets or hardcoded credentials
 - [ ] PR description explains what changed and why
