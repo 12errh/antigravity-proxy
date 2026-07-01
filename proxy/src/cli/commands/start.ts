@@ -22,35 +22,26 @@ function promptForAdmin(): boolean {
 
   console.log('');
   console.log('  !! Administrator privileges required for port 443.');
-  console.log('  ?? Restart as Administrator? (Y/n)');
 
-  // Simple stdin read for Y/n
-  const buf = Buffer.alloc(1);
+  // Try to elevate: restart this CLI as admin in a new terminal window
+  // The original terminal stays alive with a message.
   try {
-    fs.readSync(0, buf, 0, 1, null);
-    const answer = buf.toString('utf-8').trim().toLowerCase();
-    if (answer === 'n') return false;
-  } catch {
-    // Non-interactive — default to attempting elevation
-  }
+    const cliPath = process.argv[1] || path.join(PROXY_DIR, 'bin', 'cli.js');
+    const nodeExe = process.execPath; // Full path to node.exe
+    const args = process.argv.slice(2).map(a => `'${a}'`).join(' ');
 
-  // Elevate via PowerShell UAC prompt
-  try {
-    const scriptPath = path.join(PROXY_DIR, '..', 'start.ps1');
-    if (fs.existsSync(scriptPath)) {
-      execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`, {
-        stdio: 'inherit',
-        timeout: 5000,
-      });
-    } else {
-      // Fallback: restart this CLI as admin
-      const cliPath = process.argv[1];
-      execSync(
-        `powershell -NoProfile -Command "Start-Process node -ArgumentList '${cliPath}','start' -Verb RunAs"`,
-        { stdio: 'inherit', timeout: 10000 }
-      );
-    }
-    process.exit(0);
+    // Start elevated process in a new CMD window that stays open
+    const cmd = `cmd /k "cd /d "${PROXY_DIR}" && "${nodeExe}" "${cliPath}" start ${args}"`;
+    execSync(
+      `powershell -NoProfile -Command "Start-Process cmd -ArgumentList '/k cd /d ${PROXY_DIR} && ${nodeExe} ${cliPath} start ${args}' -Verb RunAs"`,
+      { stdio: 'ignore', timeout: 10000 }
+    );
+
+    console.log('');
+    console.log('  >> Proxy started in Administrator terminal.');
+    console.log('  >> You can close this window.');
+    console.log('');
+    return true; // Don't exit — let user close manually
   } catch {
     console.log('  !! Could not elevate. Run this terminal as Administrator.');
     return false;
@@ -136,10 +127,12 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   if (proxyPort === 443 && platform() === 'win32' && !isAdmin()) {
     console.log('\n==> Checking Administrator privileges');
     const elevated = promptForAdmin();
-    if (!elevated) {
-      console.log('  !! Continuing without Admin — port 443 may fail.');
-      console.log('  !! Tip: Use --port 8443 to run without Admin.');
+    if (elevated) {
+      // Elevated process is starting in a new terminal. Exit this one.
+      return;
     }
+    console.log('  !! Continuing without Admin — port 443 may fail.');
+    console.log('  !! Tip: Use --port 8443 to run without Admin.');
   }
 
   const nodeModules = path.join(PROXY_DIR, 'node_modules');
