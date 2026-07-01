@@ -7,6 +7,7 @@ import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
 import { PROXY_DIR } from '../utils/paths.js';
+import { checkAndPromptUpdate } from '../utils/update-check.js';
 
 interface StartOptions {
   port?: string;
@@ -80,6 +81,15 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     process.exit(1);
   }
   console.log(`  OK Node.js ${nodeVersion}`);
+
+  // Check for updates (non-blocking, continues after brief pause)
+  try {
+    const pkgPath = path.join(PROXY_DIR, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    checkAndPromptUpdate(pkg.version);
+  } catch {
+    // Skip update check if package.json can't be read
+  }
 
   const nodeModules = path.join(PROXY_DIR, 'node_modules');
   if (!fs.existsSync(nodeModules)) {
