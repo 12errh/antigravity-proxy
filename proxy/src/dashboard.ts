@@ -29,6 +29,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dashboardHtml = path.resolve(__dirname, '..', 'dashboard', 'index.html');
 const loginHtml = path.resolve(__dirname, '..', 'dashboard', 'login.html');
 const logDir = path.resolve(__dirname, '..', 'logs');
+const MAX_BODY_SIZE = 1024 * 1024; // 1MB limit for dashboard POST bodies
+
+function collectBody(req: http.IncomingMessage, maxSize = MAX_BODY_SIZE): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    let totalBytes = 0;
+    req.on('data', (chunk: Buffer) => {
+      totalBytes += chunk.length;
+      if (totalBytes > maxSize) {
+        req.destroy();
+        reject(new Error('Request body too large'));
+        return;
+      }
+      body += chunk.toString();
+    });
+    req.on('end', () => resolve(body));
+    req.on('error', reject);
+  });
+}
 
 // ---- Session helpers (DB-backed, no raw log reads) ----
 
@@ -206,11 +225,21 @@ function readEnv(): Record<string, string> {
 
 function writeEnv(updates: Record<string, string>): boolean {
   try {
-    let raw = fs.readFileSync(USER_ENV_PATH, 'utf-8');
+    let raw = '';
+    try { raw = fs.readFileSync(USER_ENV_PATH, 'utf-8'); } catch { raw = '# Antigravity config\n'; }
     for (const [k, v] of Object.entries(updates)) {
-      const re = new RegExp(`^${k}=.*`, 'm');
-      if (re.test(raw)) raw = raw.replace(re, `${k}=${v}`);
-      else raw += `\n${k}=${v}`;
+      const prefix = `${k}=`;
+      const lines = raw.split('\n');
+      let found = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith(prefix)) {
+          lines[i] = `${k}=${v}`;
+          found = true;
+          break;
+        }
+      }
+      if (!found) lines.push(`${k}=${v}`);
+      raw = lines.join('\n');
     }
     fs.writeFileSync(USER_ENV_PATH, raw, 'utf-8');
     return true;
@@ -305,9 +334,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
     // ---- Auth API endpoints ----
     if (url.pathname === '/api/auth/login' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const { username, password } = JSON.parse(body || '{}');
           if (!verifyCredentials(username || '', password || '')) {
@@ -333,7 +360,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
         } catch (e: any) {
           jsonResp(res, { error: 'bad request: ' + e.message }, 400);
         }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -393,9 +420,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
     // Auth configure endpoint
     if (url.pathname === '/api/auth/configure' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const { username, password } = JSON.parse(body);
           if (!username || !password) { jsonResp(res, { ok: false, error: 'Username and password are required' }, 400); return; }
@@ -405,7 +430,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
             jsonResp(res, { ok: true });
           } else { jsonResp(res, { ok: false, error: 'Failed to write .env' }, 500); }
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -421,9 +446,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
     // Webhook configure endpoint
     if (url.pathname === '/api/webhook/configure' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const { url: webhookUrl } = JSON.parse(body);
           if (writeEnv({ FAILOVER_WEBHOOK_URL: webhookUrl || '' })) {
@@ -432,7 +455,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
             jsonResp(res, { ok: true });
           } else { jsonResp(res, { ok: false, error: 'Failed to write .env' }, 500); }
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -463,7 +486,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     if (url.pathname === '/' && method === 'GET') {
       if (fs.existsSync(dashboardHtml)) {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(fs.readFileSync(dashboardHtml, 'utf-8'));
+        fs.createReadStream(dashboardHtml).pipe(res);
       } else {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end('<h1>Dashboard</h1><p>Build dashboard/index.html</p>');
@@ -504,9 +527,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/config' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const updates = JSON.parse(body);
           if (writeEnv(updates)) {
@@ -521,7 +542,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
             jsonResp(res, { ok: true });
           } else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -531,9 +552,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/models' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const models = JSON.parse(body);
           if (writeModels(models)) {
@@ -541,7 +560,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
             jsonResp(res, { ok: true });
           } else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -570,16 +589,14 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/provider-models' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', async () => {
+      collectBody(req).then(async body => {
         try {
           const { provider, apiKey, force } = JSON.parse(body);
           if (!provider) { jsonResp(res, { error: 'provider required' }, 400); return; }
           const result = await fetchProviderModels(provider, apiKey, !!force);
           jsonResp(res, result);
         } catch (e: any) { jsonResp(res, { error: e.message }, 500); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -729,16 +746,14 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/models/flags' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const { model, pinned, note } = JSON.parse(body || '{}');
           if (!model) { jsonResp(res, { error: 'model required' }, 400); return; }
           db.setModelFlag(model, !!pinned, note || '');
           jsonResp(res, { ok: true });
         } catch (e: any) { jsonResp(res, { error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -748,15 +763,13 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/pricing' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const data = JSON.parse(body);
           if (savePricing(data)) { reloadPricing(); jsonResp(res, { ok: true }); }
           else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -817,9 +830,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
     }
 
     if (url.pathname === '/api/reasoning-effort' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const { model, effort } = JSON.parse(body);
           if (!model) { jsonResp(res, { ok: false, error: 'model required' }, 400); return; }
@@ -832,7 +843,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
           if (ok) jsonResp(res, { ok: true });
           else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -866,7 +877,14 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       requestStore.on('request', onRequest);
       requestStore.on('cleared', onClear);
 
-      const sent = setInterval(() => res.write(':keepalive\n\n'), 15000);
+      const sent = setInterval(() => {
+        if (res.destroyed || res.writableEnded) {
+          clearInterval(sent);
+          return;
+        }
+        res.write(':keepalive\n\n');
+      }, 15000);
+      sent.unref();
 
       req.on('close', () => {
         logBus.off('log', onLog);
@@ -884,15 +902,13 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
     if (url.pathname === '/api/rate-limit' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const data = JSON.parse(body);
           setRateLimitConfig({ globalMax: data.globalMax, providerMax: data.providerMax, windowMs: data.windowMs });
           jsonResp(res, { ok: true });
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
     if (url.pathname === '/api/rate-limit/reset' && method === 'POST') {
@@ -907,15 +923,13 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
     if (url.pathname === '/api/blocklist' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const data = JSON.parse(body);
           if (saveBlocklist(data)) { reloadBlocklist(); jsonResp(res, { ok: true }); }
           else jsonResp(res, { ok: false, error: 'write failed' }, 500);
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -931,16 +945,14 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
       return;
     }
     if (url.pathname === '/api/local/apply' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', () => {
+      collectBody(req).then(body => {
         try {
           const data = JSON.parse(body);
           config.setLocalProviders(data.providers || getCachedLocalProviders());
           reloadRouter();
           jsonResp(res, { ok: true, providers: config.providers.map(p => ({ id: p.id, priority: p.priority, hasKey: !!p.apiKey, enabled: p.enabled })) });
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 
@@ -956,9 +968,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
     // Replay a request
     if (url.pathname === '/api/replay' && method === 'POST') {
-      let body = '';
-      req.on('data', (c) => body += c);
-      req.on('end', async () => {
+      collectBody(req).then(async body => {
         try {
           const { model, messages } = JSON.parse(body);
           if (!model || !messages) { jsonResp(res, { ok: false, error: 'model and messages required' }, 400); return; }
@@ -971,7 +981,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
           }
           jsonResp(res, { ok: true, text });
         } catch (e: any) { jsonResp(res, { ok: false, error: e.message }, 400); }
-      });
+      }).catch(e => jsonResp(res, { error: e.message }, 400));
       return;
     }
 

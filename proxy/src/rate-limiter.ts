@@ -23,7 +23,14 @@ function prune(key: string, now: number): void {
   const cutoff = now - config.windowMs;
   let i = 0;
   while (i < timestamps.length && timestamps[i] < cutoff) i++;
-  if (i > 0) windows.set(key, timestamps.slice(i));
+  if (i > 0) {
+    const remaining = timestamps.slice(i);
+    if (remaining.length === 0) {
+      windows.delete(key);
+    } else {
+      windows.set(key, remaining);
+    }
+  }
 }
 
 export function checkRateLimit(provider?: string): { allowed: boolean; retryAfter: number } {

@@ -35,12 +35,10 @@ export function cleanupSessionStore(): void {
 }
 
 export function setSessionId(convId: string, sessionId: string): void {
-  cleanupSessionStore();
   sessionStore.set(convId, { sessionId, timestamp: Date.now() });
 }
 
 export function getSessionId(convId: string): string | undefined {
-  cleanupSessionStore();
   return sessionStore.get(convId)?.sessionId;
 }
 

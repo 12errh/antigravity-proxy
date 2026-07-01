@@ -125,7 +125,7 @@ export class Router {
       for (let attempt = 0; attempt <= perProviderRetries; attempt++) {
         yield { type: 'attempt', provider: providerId, resolvedModel, attempt: attempt + 1, status: attempt === 0 ? 'trying' : 'retrying' };
         try {
-          const gen = adapter.stream(resolvedModel, messages, tools, config, combinedSignal);
+          const gen = adapter.stream(resolvedModel, messages, tools, config, combinedSignal, system);
           for await (const chunk of gen) {
             if (chunk.type === 'error') throw new Error(chunk.content || 'provider error');
             hasStreamedData = true;
