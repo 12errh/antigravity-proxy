@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync, spawn, exec } from 'child_process';
 import { platform } from 'os';
-import { certExists, generateCerts, trustCert } from '../utils/cert.js';
+import { certExists, generateCerts, trustCert, isAdmin } from '../utils/cert.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
@@ -14,6 +14,47 @@ interface StartOptions {
   browser?: boolean;
   foreground?: boolean;
   trustCert?: boolean;
+}
+
+function promptForAdmin(): boolean {
+  if (platform() !== 'win32') return false;
+  if (isAdmin()) return true;
+
+  console.log('');
+  console.log('  !! Administrator privileges required for port 443.');
+  console.log('  ?? Restart as Administrator? (Y/n)');
+
+  // Simple stdin read for Y/n
+  const buf = Buffer.alloc(1);
+  try {
+    fs.readSync(0, buf, 0, 1, null);
+    const answer = buf.toString('utf-8').trim().toLowerCase();
+    if (answer === 'n') return false;
+  } catch {
+    // Non-interactive — default to attempting elevation
+  }
+
+  // Elevate via PowerShell UAC prompt
+  try {
+    const scriptPath = path.join(PROXY_DIR, '..', 'start.ps1');
+    if (fs.existsSync(scriptPath)) {
+      execSync(`powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`, {
+        stdio: 'inherit',
+        timeout: 5000,
+      });
+    } else {
+      // Fallback: restart this CLI as admin
+      const cliPath = process.argv[1];
+      execSync(
+        `powershell -NoProfile -Command "Start-Process node -ArgumentList '${cliPath}','start' -Verb RunAs"`,
+        { stdio: 'inherit', timeout: 10000 }
+      );
+    }
+    process.exit(0);
+  } catch {
+    console.log('  !! Could not elevate. Run this terminal as Administrator.');
+    return false;
+  }
 }
 
 function launchAntigravityDesktop(): boolean {
@@ -91,6 +132,16 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     // Skip update check if package.json can't be read
   }
 
+  // Admin check for port 443 on Windows
+  if (proxyPort === 443 && platform() === 'win32' && !isAdmin()) {
+    console.log('\n==> Checking Administrator privileges');
+    const elevated = promptForAdmin();
+    if (!elevated) {
+      console.log('  !! Continuing without Admin — port 443 may fail.');
+      console.log('  !! Tip: Use --port 8443 to run without Admin.');
+    }
+  }
+
   const nodeModules = path.join(PROXY_DIR, 'node_modules');
   if (!fs.existsSync(nodeModules)) {
     console.log('  Installing dependencies...');
@@ -103,12 +154,17 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   }
   console.log('  OK TLS certificates ready');
 
-  if (opts.trustCert) {
+  // Auto-trust certificate on first run (or if --trust-cert flag is set)
+  const certTrustedMarker = path.join(PROXY_DIR, 'certs', '.trusted');
+  const shouldTrust = opts.trustCert || !fs.existsSync(certTrustedMarker);
+  if (shouldTrust) {
     try {
       console.log('\n==> Trusting TLS certificate');
       trustCert();
+      fs.writeFileSync(certTrustedMarker, new Date().toISOString());
     } catch (e: any) {
       console.warn(`  !! ${e.message}`);
+      console.log('  !! You may need to trust the cert manually. Run: antigravity certs trust');
     }
   }
 

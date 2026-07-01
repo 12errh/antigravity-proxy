@@ -21,24 +21,70 @@ export function generateCerts(): void {
   }
 }
 
+export function isAdmin(): boolean {
+  if (platform() !== 'win32') return false;
+  try {
+    const out = execSync('net session', { stdio: 'pipe', timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isCertTrusted(): boolean {
+  if (platform() !== 'win32' || !certExists()) return false;
+  try {
+    const lines = fs.readFileSync(CERT_FILE, 'utf-8').split('\n').filter(l => !l.startsWith('-----') && l.trim());
+    const b64 = lines.join('');
+    const derBytes = Buffer.from(b64, 'base64');
+    const crypto = require('crypto');
+    const sha1 = crypto.createHash('sha1').update(derBytes).digest('hex').toUpperCase();
+    const out = execSync(
+      `powershell -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.Thumbprint -eq '${sha1}' } | Measure-Object | Select-Object -ExpandProperty Count"`,
+      { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    return out.trim() !== '0';
+  } catch {
+    return false;
+  }
+}
+
 export function trustCert(): void {
   if (!certExists()) {
     throw new Error('No certificate to trust. Run `antigravity certs generate` first.');
   }
 
+  // Check if already trusted (skip if so)
+  if (isCertTrusted()) {
+    return;
+  }
+
   const p = platform();
   if (p === 'win32') {
+    // Use PowerShell Import-Certificate (same as start.ps1)
+    // This matches the approach that works in the PowerShell launcher
     try {
-      // Try direct certutil first
-      execSync(`certutil -addstore -f Root "${CERT_FILE}"`, { stdio: 'pipe', timeout: 15000 });
+      execSync(
+        `powershell -NoProfile -Command "Import-Certificate -FilePath '${CERT_FILE}' -CertStoreLocation Cert:\\LocalMachine\\Root"`,
+        { stdio: 'pipe', timeout: 15000 }
+      );
+      return;
     } catch {
-      // If that fails, try PowerShell elevation
+      // If Import-Certificate fails (no admin), try certutil
       try {
-        execSync(`powershell -Command "Start-Process certutil -ArgumentList '-addstore','-f','Root','${CERT_FILE}' -Verb RunAs -Wait"`, {
-          stdio: 'inherit', timeout: 30000,
-        });
+        execSync(`certutil -addstore -f Root "${CERT_FILE}"`, { stdio: 'pipe', timeout: 15000 });
+        return;
       } catch {
-        throw new Error('Failed to add certificate to Windows trust store. Run as Administrator.');
+        // Both failed — try with UAC elevation
+        try {
+          execSync(
+            `powershell -NoProfile -Command "Start-Process certutil -ArgumentList '-addstore','-f','Root','${CERT_FILE}' -Verb RunAs -Wait"`,
+            { stdio: 'inherit', timeout: 30000 }
+          );
+          return;
+        } catch {
+          throw new Error('Failed to add certificate to Windows trust store. Run as Administrator.');
+        }
       }
     }
   } else if (p === 'darwin') {
