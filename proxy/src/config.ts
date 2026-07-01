@@ -3,11 +3,14 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from './logger.js';
+import { migrateConfig } from './cli/utils/config-migration.js';
 import type { ProviderConfig, ProviderId } from './adapter.js';
 import type { LocalProviderInfo } from './local-discovery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ENV_PATH = path.resolve(__dirname, '..', '.env');
+
+// Migrate config to user home and use that path
+const ENV_PATH = migrateConfig();
 
 dotenv.config({ path: ENV_PATH });
 
