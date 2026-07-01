@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as readline from 'readline';
-import { ENV_PATH, ENV_EXAMPLE } from '../utils/paths.js';
+import { USER_ENV_PATH as ENV_PATH, ENV_EXAMPLE } from '../utils/paths.js';
 
 const PROVIDERS = [
   { id: 'openrouter', name: 'OpenRouter', envKey: 'OPENROUTER_API_KEY', placeholder: 'sk-or-v1-...' },
