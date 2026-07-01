@@ -60,17 +60,28 @@ describe('Config Persistence', () => {
       fs.unlinkSync(USER_ENV_PATH);
     }
 
-    // Ensure package .env exists (it normally does in the repo)
-    assert.ok(fs.existsSync(ENV_PATH), 'Package .env should exist for this test');
+    // If package .env doesn't exist (CI), create a temporary one for this test
+    const envExisted = fs.existsSync(ENV_PATH);
+    const testContent = `TEST_KEY=ci_test_value\nPROXY_PORT=443\n`;
+    if (!envExisted) {
+      fs.writeFileSync(ENV_PATH, testContent, 'utf-8');
+    }
 
-    const result = migrateConfig();
+    try {
+      const result = migrateConfig();
 
-    assert.equal(result, USER_ENV_PATH);
-    assert.ok(fs.existsSync(USER_ENV_PATH), 'User config should have been created');
-    // Verify the copied content matches the package .env
-    const packageContent = fs.readFileSync(ENV_PATH, 'utf-8');
-    const userContent = fs.readFileSync(USER_ENV_PATH, 'utf-8');
-    assert.equal(userContent, packageContent, 'User config should be a copy of package .env');
+      assert.equal(result, USER_ENV_PATH);
+      assert.ok(fs.existsSync(USER_ENV_PATH), 'User config should have been created');
+      // Verify the copied content matches the package .env
+      const packageContent = fs.readFileSync(ENV_PATH, 'utf-8');
+      const userContent = fs.readFileSync(USER_ENV_PATH, 'utf-8');
+      assert.equal(userContent, packageContent, 'User config should be a copy of package .env');
+    } finally {
+      // Clean up temp .env if we created it
+      if (!envExisted && fs.existsSync(ENV_PATH)) {
+        fs.unlinkSync(ENV_PATH);
+      }
+    }
   });
 
   it('should copy .env.example when neither user config nor package .env exists', () => {
@@ -79,9 +90,12 @@ describe('Config Persistence', () => {
       fs.unlinkSync(USER_ENV_PATH);
     }
 
-    // Temporarily rename package .env so it appears missing
+    // Temporarily rename package .env so it appears missing (if it exists)
     const envBackup = ENV_PATH + '.test-backup';
-    fs.renameSync(ENV_PATH, envBackup);
+    const hadEnv = fs.existsSync(ENV_PATH);
+    if (hadEnv) {
+      fs.renameSync(ENV_PATH, envBackup);
+    }
 
     try {
       assert.ok(!fs.existsSync(ENV_PATH), 'Package .env should be absent during this test');
@@ -95,8 +109,10 @@ describe('Config Persistence', () => {
       const userContent = fs.readFileSync(USER_ENV_PATH, 'utf-8');
       assert.equal(userContent, exampleContent, 'User config should be a copy of .env.example');
     } finally {
-      // Always restore package .env
-      fs.renameSync(envBackup, ENV_PATH);
+      // Always restore package .env if we renamed it
+      if (hadEnv) {
+        fs.renameSync(envBackup, ENV_PATH);
+      }
     }
   });
 
