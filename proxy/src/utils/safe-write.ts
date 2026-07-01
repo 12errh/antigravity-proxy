@@ -2,12 +2,12 @@ import { logger } from '../logger.js';
 
 interface WritableResponse {
   destroyed?: boolean;
+  writableEnded?: boolean;
   write(data: string, encoding?: string): boolean;
 }
 
 export function safeWrite(res: WritableResponse, data: string): boolean {
-  if (res.destroyed) {
-    logger.debug('Attempted to write to destroyed response');
+  if (res.destroyed || res.writableEnded) {
     return false;
   }
 

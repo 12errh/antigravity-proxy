@@ -332,7 +332,12 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   try {
     request = JSON.parse(body.toString('utf-8'));
   } catch {
-    await forwardToGoogle(req, res, body);
+    // JSON parse failed — return error (can't forward since body was already consumed)
+    logger.error('Failed to parse request body');
+    if (!res.headersSent) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Invalid request body', code: 400 } }));
+    }
     return;
   }
 
@@ -634,11 +639,10 @@ async function handleStreamGenerate(req: http2.Http2ServerRequest, res: http2.Ht
   }
 }
 
-// Forward any request to real Google
+// Forward any request to real Google — streaming, no body buffering
 async function forwardToGoogle(
   req: http2.Http2ServerRequest,
   res: http2.Http2ServerResponse,
-  body: Buffer,
 ): Promise<void> {
   const url = req.url || '/';
   const method = req.method || 'GET';
@@ -655,20 +659,42 @@ async function forwardToGoogle(
   h1Headers['host'] = hostname;
 
   const proxyReq = https.request(
-    { hostname: backendIp, port: 443, path: url, method, servername: hostname, rejectUnauthorized: true, headers: h1Headers },
+    {
+      hostname: backendIp,
+      port: 443,
+      path: url,
+      method,
+      servername: hostname,
+      rejectUnauthorized: true,
+      headers: h1Headers,
+      // Disable response buffering for streaming
+      timeout: config.requestTimeoutMs,
+    },
     (proxyRes) => {
       const fwdHeaders: Record<string, string> = {};
       for (const [k, v] of Object.entries(proxyRes.headers)) fwdHeaders[k] = Array.isArray(v) ? v.join(', ') : String(v);
       res.writeHead(proxyRes.statusCode || 200, fwdHeaders);
-      proxyRes.pipe(res);
+
+      // Stream response — do NOT pipe (pipe buffers). Forward chunk by chunk.
+      proxyRes.on('data', (chunk: Buffer) => {
+        res.write(chunk);
+      });
+      proxyRes.on('end', () => { res.end(); });
+      proxyRes.on('error', (err) => {
+        logger.error('Forward response error', { url, error: err.message });
+        if (!res.writableEnded) res.end();
+      });
     },
   );
+
+  // Stream request body — do NOT collect first
   proxyReq.on('error', (err) => {
     logger.error('Forward error', { url, error: err.message });
     if (!res.headersSent) { res.writeHead(502); res.end(`Proxy error: ${err.message}`); }
   });
-  if (body.length > 0) proxyReq.write(body);
-  proxyReq.end();
+
+  // Pipe request body directly (streaming, no buffering)
+  req.pipe(proxyReq);
 }
 
 // Main TLS handler
@@ -679,17 +705,16 @@ async function handleTlsRequest(req: http2.Http2ServerRequest, res: http2.Http2S
   logger.debug(`>>> ${method} ${url}`);
 
   try {
-    // Collect body for POST
-    let body: Buffer = Buffer.alloc(0);
-    if (method === 'POST') {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      body = Buffer.concat(chunks);
-    }
-
     // Check if this is a model inference call we should intercept
     const pathOnly = url.split('?')[0];
     if (INTERCEPT_PATHS.has(pathOnly)) {
+      // Intercept: collect body for transformation
+      let body: Buffer = Buffer.alloc(0);
+      if (method === 'POST') {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        body = Buffer.concat(chunks);
+      }
       const req2 = { ...req, url, method } as any;
       // Re-create a readable stream from body for the handler
       const { Readable } = await import('stream');
@@ -702,8 +727,9 @@ async function handleTlsRequest(req: http2.Http2ServerRequest, res: http2.Http2S
       Object.assign(fakeReq, { headers: req.headers, url, method });
       await handleStreamGenerate(fakeReq as any, res, body);
     } else {
+      // Forward: stream directly, no body buffering
       logger.debug(`  PASS ${method} ${url}`);
-      await forwardToGoogle(req, res, body);
+      await forwardToGoogle(req, res);
     }
   } catch (error: any) {
     logger.error('Handler error', { url, error: error.message });
@@ -761,7 +787,19 @@ async function main(): Promise<void> {
 
   if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     const tlsServer = http2.createSecureServer(
-      { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath), allowHTTP1: true },
+      {
+        cert: fs.readFileSync(certPath),
+        key: fs.readFileSync(keyPath),
+        allowHTTP1: true,
+        // Optimize for streaming: small initial window, no push, enable padding control
+        settings: {
+          enablePush: false,
+          initialWindowSize: 65535,       // 64KB initial window (default is 64KB)
+          maxFrameSize: 16384,            // 16KB frames (smaller = lower latency)
+          headerTableSize: 4096,
+          maxConcurrentStreams: 100,
+        },
+      },
       handleTlsRequest,
     );
     tlsServer.on('sessionError', (err) => logger.debug('TLS session error', { error: err.message }));
