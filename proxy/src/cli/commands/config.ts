@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { ENV_PATH } from '../utils/paths.js';
+import { USER_ENV_PATH as ENV_PATH } from '../utils/paths.js';
 
 function readEnv(): Record<string, string> {
   const result: Record<string, string> = {};
