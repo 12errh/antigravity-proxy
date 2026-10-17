@@ -338,9 +338,9 @@ test('setConfiguredPath validates the target and round-trips through cli-config.
 });
 
 test('cli registers the `path` command and start hints at it when the desktop is missing', () => {
-  const cliJs = fs.readFileSync(path.resolve(PROXY_DIR, 'bin', 'cli.js'), 'utf-8');
-  assert.match(cliJs, /\.command\('path'\)/, 'bin/cli.js must register the path command');
-  assert.match(cliJs, /pathCommand/, 'the path command must be imported and wired');
+  const mainTs = src('cli/main.ts');
+  assert.match(mainTs, /\.command\('path'\)/, 'src/cli/main.ts must register the path command');
+  assert.match(mainTs, /pathCommand/, 'the path command must be imported and wired');
   const startTs = src('cli/commands/start.ts');
   assert.match(startTs, /antigravity path <binary>/, 'start must tell users how to pin the binary');
 });
@@ -367,9 +367,9 @@ test('process.ts passes resolved ports to the spawned proxy unconditionally', ()
   const processTs = src('cli/utils/process.ts');
   assert.match(processTs, /env\.PROXY_PORT = String\(options\.proxyPort\)/, 'resolved proxy port must be authoritative');
   assert.match(processTs, /env\.API_PORT = String\(options\.apiPort\)/, 'resolved api port must be authoritative');
-  const cliJs = fs.readFileSync(path.resolve(PROXY_DIR, 'bin', 'cli.js'), 'utf-8');
-  const startBlock = cliJs.match(/\.command\('start'\)[\s\S]*?\.action\(startCommand\)/)?.[0] || '';
-  assert.ok(startBlock.length > 0, 'start command block not found in bin/cli.js');
+  const mainTs = src('cli/main.ts');
+  const startBlock = mainTs.match(/\.command\('start'\)[\s\S]*?\.action\(startCommand\)/)?.[0] || '';
+  assert.ok(startBlock.length > 0, 'start command block not found in src/cli/main.ts');
   assert.ok(
     !/'443'/.test(startBlock),
     'commander must not default start --port to 443 — that flag would always override .env',
@@ -469,4 +469,38 @@ test('index.ts sanitizes forwarded headers and survives uncaught errors', () => 
   assert.match(indexTs, /sanitizeForwardHeaders\(req\.headers\)/, 'inbound request headers must be sanitized before the upstream https request');
   assert.match(indexTs, /process\.on\('uncaughtException'/, 'an unexpected throw must be logged, not a silent process death');
   assert.match(indexTs, /process\.on\('unhandledRejection'/);
+});
+
+// ── bin/cli.js: modern-Node bootstrap ────────────────────────────────────────
+
+test('bin/cli.js is an old-Node-safe bootstrap that re-execs under a modern Node', () => {
+  const boot = fs.readFileSync(path.resolve(PROXY_DIR, 'bin', 'cli.js'), 'utf-8');
+  assert.match(boot, /MIN_MAJOR = 20/);
+  assert.match(boot, /process\.env\.SUDO_USER/, 'must look at the invoking user under sudo (nvm home)');
+  assert.match(boot, /'\.nvm', 'versions', 'node'/, 'nvm installs must be discovered');
+  assert.match(boot, /ANTIGRAVITY_NODE/, 'escape hatch must exist');
+  assert.match(boot, /spawnSync\(modern, \[self, \.\.\.process\.argv\.slice\(2\)\]/, 'must re-exec self with inherited stdio');
+  assert.match(boot, /dist\/cli\/main\.js/, 'the real CLI must live behind the version gate');
+  assert.ok(!/\bwith\s*\{type:/.test(boot), 'bootstrap must avoid import attributes — old Node cannot parse them');
+});
+
+test('bootstrap re-exec works end-to-end when invoked with an old system node', (t) => {
+  const oldNode = '/usr/bin/node';
+  if (!fs.existsSync(oldNode)) return t.skip('no /usr/bin/node on this machine');
+  if (!fs.existsSync(path.resolve(PROXY_DIR, 'dist', 'cli', 'main.js'))) return t.skip('dist not built');
+  const ver = spawnSync(oldNode, ['--version'], { encoding: 'utf-8' });
+  const major = Number(String(ver.stdout).trim().replace(/^v/, '').split('.')[0]);
+  if (!(major < 20)) return t.skip('system node is already modern');
+  const env = { ...process.env } as Record<string, string | undefined>;
+  delete env.SUDO_USER;
+  const res = spawnSync(oldNode, [path.resolve(PROXY_DIR, 'bin', 'cli.js'), '--version'], {
+    encoding: 'utf-8',
+    env,
+    timeout: 20000,
+  });
+  assert.match(
+    `${res.stdout}${res.stderr}`,
+    /\d+\.\d+\.\d+/,
+    'the old node must transparently re-exec into the modern CLI',
+  );
 });

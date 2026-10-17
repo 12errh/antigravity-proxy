@@ -1,173 +1,112 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
-import { createRequire } from 'module';
-import { execSync, spawn } from 'child_process';
-import { platform } from 'os';
+// Bootstrap for the antigravity CLI.
+//
+// This file deliberately uses only Node built-ins and old-compatible syntax:
+// it is what runs first, possibly under an ancient `node` (e.g. Debian's
+// v18 in /usr/bin, selected by sudo's secure_path while the user's shell has
+// a modern nvm node). The real CLI lives in dist/cli/main.js (src/cli/main.ts)
+// and needs Node 20+.
+//
+// When the current Node is too old, a modern one is located (typically the
+// invoking user's nvm install, discovered via SUDO_USER) and this entrypoint
+// is re-executed under it with stdio inherited, so interactive sudo prompts
+// still work.
+import { spawnSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const pkg = require('../package.json');
+const MIN_MAJOR = 20;
+const self = fileURLToPath(import.meta.url);
 
-// Commands that need admin privileges on Windows
-const ADMIN_COMMANDS = ['start', 'switch', 'remove', 'setup', 'certs', 'stop'];
-
-function isAdmin() {
-  if (platform() !== 'win32') return true;
+function isModernNode(exe) {
   try {
-    execSync('net session', { stdio: 'pipe', timeout: 5000 });
-    return true;
+    const res = spawnSync(exe, ['--version'], { encoding: 'utf-8', timeout: 5000 });
+    if (res.status !== 0 || !res.stdout) return false;
+    const major = Number(String(res.stdout).trim().replace(/^v/, '').split('.')[0]);
+    return major >= MIN_MAJOR;
   } catch {
     return false;
   }
 }
 
-function elevateAndRun() {
-  const args = process.argv.slice(2);
-  const cmd = args[0] || '';
-
-  if (platform() !== 'win32' || !ADMIN_COMMANDS.includes(cmd)) return false;
-  // start --simple doesn't need admin (just launches desktop app)
-  if (cmd === 'start' && args.includes('--simple')) return false;
-  if (isAdmin()) return false;
-
-  console.log('');
-  console.log('  Requesting Administrator access...');
-  console.log('');
-
+function nvmNodes(home) {
+  const base = path.join(home, '.nvm', 'versions', 'node');
+  let entries;
   try {
-    // Simple, reliable elevation: write a .cmd file and run it with cmd /c start
-    const nodeExe = process.execPath;
-    const scriptPath = process.argv[1];
-    const cmdLine = `"${nodeExe}" "${scriptPath}" ${args.join(' ')}`;
-
-    const fs = require('fs');
-    const tmpFile = `${process.env.TEMP || ''}\\antigravity_elevate.cmd`;
-    fs.writeFileSync(tmpFile, `@echo off\n${cmdLine}\npause`, 'utf-8');
-
-    // Use Shell.Application via VBScript for reliable elevation
-    const vbsFile = `${process.env.TEMP || ''}\\antigravity_elevate.vbs`;
-    const vbs = `Set oShell = CreateObject("Shell.Application")\noShell.ShellExecute "cmd.exe", "/c ""${tmpFile}""", "", "runas", 1`;
-    fs.writeFileSync(vbsFile, vbs, 'ascii');
-
-    // Launch VBScript - this triggers UAC and runs elevated
-    const child = require('child_process').spawn('cscript', ['//nologo', vbsFile], {
-      stdio: 'ignore',
-      detached: true,
-    });
-    child.unref();
-
-    // Clean up VBScript file after a delay
-    setTimeout(() => {
-      try { fs.unlinkSync(vbsFile); } catch {}
-    }, 2000);
-
-    return true;
+    entries = readdirSync(base);
   } catch {
-    console.log('  Failed. Please run this terminal as Administrator.');
-    console.log('');
-    return true;
+    return [];
   }
+  const parse = v => String(v).replace(/^v/, '').split('.').map(Number);
+  entries.sort((a, b) => {
+    const A = parse(a);
+    const B = parse(b);
+    for (let i = 0; i < 3; i++) {
+      const diff = (B[i] || 0) - (A[i] || 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  });
+  return entries.slice(0, 5).map(v => path.join(base, v, 'bin', 'node'));
 }
 
-// Try to elevate if needed — exits the original terminal cleanly
-if (elevateAndRun()) {
-  process.exit(0);
+function findModernNode() {
+  const candidates = [];
+  if (process.env.ANTIGRAVITY_NODE) candidates.push(process.env.ANTIGRAVITY_NODE);
+
+  const homes = [];
+  if (process.env.SUDO_USER) {
+    homes.push(`/home/${process.env.SUDO_USER}`, `/Users/${process.env.SUDO_USER}`);
+  }
+  homes.push(homedir());
+
+  for (const home of homes) {
+    candidates.push(...nvmNodes(home));
+    candidates.push(path.join(home, '.volta', 'bin', 'node'));
+    candidates.push(path.join(home, '.local', 'bin', 'node'));
+    candidates.push(path.join(home, '.local', 'share', 'fnm', 'aliases', 'default', 'bin', 'node'));
+  }
+
+  candidates.push('/usr/local/bin/node', '/opt/homebrew/bin/node');
+
+  for (const candidate of candidates) {
+    if (isModernNode(candidate)) return candidate;
+  }
+  return null;
 }
 
-import { startCommand } from '../dist/cli/commands/start.js';
-import { stopCommand } from '../dist/cli/commands/stop.js';
-import { statusCommand } from '../dist/cli/commands/status.js';
-import { healthCommand } from '../dist/cli/commands/health.js';
-import { configCommand } from '../dist/cli/commands/config.js';
-import { logsCommand } from '../dist/cli/commands/logs.js';
-import { certsCommand } from '../dist/cli/commands/certs.js';
-import { setupCommand } from '../dist/cli/commands/setup.js';
-import { shellCommand } from '../dist/cli/commands/shell.js';
-import { switchCommand } from '../dist/cli/commands/switch.js';
-import { removeCommand } from '../dist/cli/commands/remove.js';
-import { pathCommand } from '../dist/cli/commands/path.js';
+function printVersionError() {
+  console.error('');
+  console.error(`  antigravity requires Node.js ${MIN_MAJOR}+ but the current node is v${process.versions.node}`);
+  console.error(`  (${process.execPath}) and no newer Node.js installation was found.`);
+  console.error('');
+  console.error('  Fixes:');
+  console.error('    - keep your shell PATH under sudo:  sudo env "PATH=$PATH" antigravity <command>');
+  console.error('    - or point at a modern node:       ANTIGRAVITY_NODE=/path/to/node antigravity <command>');
+  console.error('');
+}
 
-const program = new Command();
+async function main() {
+  const currentMajor = Number(process.versions.node.split('.')[0]);
+  if (currentMajor >= MIN_MAJOR) {
+    const { runCli } = await import('../dist/cli/main.js');
+    runCli();
+    return;
+  }
 
-program
-  .name('antigravity')
-  .description('LLM proxy for Antigravity — translate Google Gemini API calls to any provider')
-  .version(pkg.version);
+  const modern = findModernNode();
+  if (modern && path.resolve(modern) !== path.resolve(process.execPath)) {
+    const res = spawnSync(modern, [self, ...process.argv.slice(2)], { stdio: 'inherit' });
+    process.exit(res.status === null ? 1 : res.status);
+  }
 
-program
-  .command('start')
-  .description('Start the proxy and dashboard')
-  .option('-p, --port <port>', 'proxy port (overrides PROXY_PORT from .env)')
-  .option('--no-browser', 'do not open dashboard in browser')
-  .option('-f, --foreground', 'run in foreground (do not detach)')
-  .option('--trust-cert', 'auto-trust TLS certificate')
-  .option('-s, --simple', 'launch Antigravity directly without proxy')
-  .action(startCommand);
+  printVersionError();
+  process.exit(1);
+}
 
-program
-  .command('stop')
-  .description('Stop the running proxy')
-  .action(stopCommand);
-
-program
-  .command('status')
-  .description('Show proxy status and uptime')
-  .option('--json', 'output as JSON')
-  .action(statusCommand);
-
-program
-  .command('health')
-  .description('Check proxy health endpoint')
-  .option('--json', 'output as JSON')
-  .action(healthCommand);
-
-program
-  .command('config')
-  .description('Show or update configuration')
-  .argument('[action]', 'show, get, or set')
-  .argument('[key]', 'environment variable name')
-  .argument('[value]', 'value to set (for set action)')
-  .option('--json', 'output as JSON')
-  .action(configCommand);
-
-program
-  .command('logs')
-  .description('View proxy logs')
-  .argument('[action]', 'tail, list, or show')
-  .argument('[file]', 'log filename (for show action)')
-  .action(logsCommand);
-
-program
-  .command('certs')
-  .description('Manage TLS certificates')
-  .argument('[action]', 'show, generate, or trust')
-  .action(certsCommand);
-
-program
-  .command('setup')
-  .description('Run the onboarding wizard')
-  .action(setupCommand);
-
-program
-  .command('shell')
-  .description('Interactive monitoring shell')
-  .option('-p, --port <port>', 'proxy port', '443')
-  .action(shellCommand);
-
-program
-  .command('switch')
-  .description('Switch between proxy and simple mode')
-  .action(switchCommand);
-
-program
-  .command('path')
-  .description('Show or set the Antigravity desktop binary path')
-  .argument('[binary]', 'path to the Antigravity executable')
-  .option('--reset', 'clear the configured path and use auto-discovery')
-  .action(pathCommand);
-
-program
-  .command('remove')
-  .description('Remove proxy artifacts and clean up')
-  .action(removeCommand);
-
-program.parse();
+main().catch(err => {
+  console.error(err && err.stack ? err.stack : String(err));
+  process.exit(1);
+});
