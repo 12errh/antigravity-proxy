@@ -28,6 +28,7 @@ import {
   isOwnCliEntry, antigravityCandidates, getConfiguredPath, setConfiguredPath, clearConfiguredPath,
 } from '../src/cli/utils/antigravity-app.js';
 import { resolvePorts } from '../src/cli/commands/start.js';
+import { sanitizeForwardHeaders } from '../src/forward-headers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROXY_DIR = path.resolve(__dirname, '..');
@@ -440,4 +441,32 @@ test('start.ts corrects a non-443 PROXY_PORT when root with active hosts routing
   assert.match(startTs, /let proxyPort = ports\.proxyPort/, 'proxyPort must be reassignable for the correction');
   const certTs = src('cli/utils/cert.ts');
   assert.match(certTs, /export function hostsHasProxyEntries/);
+});
+
+// ── forward-headers.ts: h2 writeHead crash guard ─────────────────────────────
+
+test('sanitizeForwardHeaders strips hop-by-hop headers (h2 writeHead throw)', () => {
+  const out = sanitizeForwardHeaders({
+    'content-type': 'application/json',
+    'transfer-encoding': 'chunked',
+    connection: 'keep-alive',
+    'keep-alive': 'timeout=5',
+    te: 'trailers',
+    upgrade: 'websocket',
+    ':status': '200',
+    'set-cookie': ['a=1', 'b=2'],
+    'x-empty': undefined,
+  } as never);
+  assert.deepEqual(out, {
+    'content-type': 'application/json',
+    'set-cookie': 'a=1, b=2',
+  });
+});
+
+test('index.ts sanitizes forwarded headers and survives uncaught errors', () => {
+  const indexTs = src('index.ts');
+  assert.match(indexTs, /sanitizeForwardHeaders\(proxyRes\.headers\)/, 'upstream response headers must be sanitized — transfer-encoding makes h2 writeHead throw');
+  assert.match(indexTs, /sanitizeForwardHeaders\(req\.headers\)/, 'inbound request headers must be sanitized before the upstream https request');
+  assert.match(indexTs, /process\.on\('uncaughtException'/, 'an unexpected throw must be logged, not a silent process death');
+  assert.match(indexTs, /process\.on\('unhandledRejection'/);
 });

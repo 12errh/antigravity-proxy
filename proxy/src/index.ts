@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { logger } from './logger.js';
+import { sanitizeForwardHeaders } from './forward-headers.js';
 import { validateApiKey } from './auth.js';
 import { streamResponse, saveReasoning, injectReasoning, extractConvId, reloadRouter, getRouter } from './engine.js';
 import { mapContentsToMessages, mapTools, mapGenerationConfig } from './mapper.js';
@@ -172,8 +173,13 @@ function port4000Handler(req: http.IncomingMessage, res: http.ServerResponse): v
   const hostname = 'cloudcode-pa.googleapis.com';
   logger.debug('REST forward', { method: req.method, path: pathname });
   const proxyReq = https.request(
-    { hostname: backendIp, port: 443, path: req.url, method: req.method, servername: hostname, rejectUnauthorized: true, headers: { ...req.headers, host: hostname } },
-    (proxyRes) => { res.writeHead(proxyRes.statusCode || 200, proxyRes.headers); proxyRes.pipe(res); },
+    { hostname: backendIp, port: 443, path: req.url, method: req.method, servername: hostname, rejectUnauthorized: true, headers: { ...sanitizeForwardHeaders(req.headers), host: hostname } },
+    (proxyRes) => {
+      // HTTP/2 forbids HTTP/1 connection headers in responses (transfer-encoding,
+      // connection, …); writeHead throws on them and would crash the process.
+      res.writeHead(proxyRes.statusCode || 200, sanitizeForwardHeaders(proxyRes.headers));
+      proxyRes.pipe(res);
+    },
   );
   proxyReq.on('error', (err) => {
     logger.error('REST forward error', { path: pathname, error: err.message });
@@ -720,10 +726,8 @@ async function forwardToGoogle(
 
   logger.debug(`  FWD ${method} ${url} → ${hostname}`, { host });
 
-  const h1Headers: Record<string, string> = {};
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (!k.startsWith(':') && k !== 'host') h1Headers[k] = String(v);
-  }
+  const h1Headers = sanitizeForwardHeaders(req.headers);
+  delete h1Headers['host'];
   h1Headers['host'] = hostname;
 
   const proxyReq = https.request(
@@ -739,9 +743,7 @@ async function forwardToGoogle(
       timeout: config.requestTimeoutMs,
     },
     (proxyRes) => {
-      const fwdHeaders: Record<string, string> = {};
-      for (const [k, v] of Object.entries(proxyRes.headers)) fwdHeaders[k] = Array.isArray(v) ? v.join(', ') : String(v);
-      res.writeHead(proxyRes.statusCode || 200, fwdHeaders);
+      res.writeHead(proxyRes.statusCode || 200, sanitizeForwardHeaders(proxyRes.headers));
 
       // Stream response — do NOT pipe (pipe buffers). Forward chunk by chunk.
       proxyRes.on('data', (chunk: Buffer) => {
@@ -807,6 +809,16 @@ async function handleTlsRequest(req: http2.Http2ServerRequest, res: http2.Http2S
 
 // Main
 async function main(): Promise<void> {
+  // A proxy must never die silently: log unexpected errors with their stack so
+  // `antigravity logs` can explain the outage, then keep serving — one bad
+  // request must not take every other client down with it.
+  process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception', { error: err.message, stack: err.stack });
+  });
+  process.on('unhandledRejection', (reason: any) => {
+    logger.error('Unhandled rejection', { error: reason?.message || String(reason), stack: reason?.stack });
+  });
+
   // Install agent-context.md to ~/.antigravity/ for stable global access.
   // This runs every startup but the hash-based marker ensures the file is
   // only actually copied when the content changes (proxy upgrade).
