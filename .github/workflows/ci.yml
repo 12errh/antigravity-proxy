@@ -65,8 +65,9 @@ jobs:
         shell: bash
         run: |
           node --input-type=module -e "
+            import path from 'node:path';
             import { USER_CERT_FILE, USER_CERTS_DIR } from './dist/data-paths.js';
-            if (!USER_CERT_FILE.endsWith('certs/cert.pem')) throw new Error('runtime cert path: ' + USER_CERT_FILE);
+            if (!USER_CERT_FILE.endsWith(path.join('certs', 'cert.pem'))) throw new Error('runtime cert path: ' + USER_CERT_FILE);
             if (!USER_CERTS_DIR.endsWith('certs')) throw new Error('runtime cert dir: ' + USER_CERTS_DIR);
             console.log('runtime cert path:', USER_CERT_FILE);
           "
