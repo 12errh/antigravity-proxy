@@ -12,7 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Migrate config to user home and use that path
 const ENV_PATH = migrateConfig();
 
-dotenv.config({ path: ENV_PATH });
+dotenv.config({ path: ENV_PATH, quiet: true });
 
 const MODELS_JSON_PATH = path.resolve(__dirname, '..', 'models.json');
 
