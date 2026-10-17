@@ -8,6 +8,13 @@ import { USER_CERTS_DIR, USER_CERT_FILE, USER_KEY_FILE, REAL_HOME, chownIfRoot, 
 
 const CERT_DIR = USER_CERTS_DIR;
 const CERT_FILE = USER_CERT_FILE;
+
+/**
+ * Marker written after a successful trustCert(); lives next to the cert it
+ * describes (user-writable), not in the package dir which is often read-only
+ * for global installs. Only a hint — the source of truth is isCertTrusted().
+ */
+export const CERT_TRUST_MARKER = path.join(USER_CERTS_DIR, '.trusted');
 const KEY_FILE = USER_KEY_FILE;
 
 /** Nickname used when the cert is added to the NSS user database. */
@@ -441,6 +448,10 @@ export function untrustCert(): void {
 
   // Always clean up hosts file entries that route traffic to the proxy
   cleanHostsFile();
+  // The marker only records that a trust *succeeded*; once we untrust, a later
+  // `start` must re-trust instead of believing the stale marker (the proxy's
+  // certificate would otherwise be rejected with "unknown authority").
+  try { fs.rmSync(CERT_TRUST_MARKER, { force: true }); } catch { /* best-effort */ }
 }
 
 export interface CertInfo {

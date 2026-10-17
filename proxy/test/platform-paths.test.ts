@@ -178,15 +178,15 @@ test('dashboard logs/cert endpoints use the canonical user paths', () => {
   );
 });
 
-test('start.ts .trusted marker lives next to the served cert, not in the package dir', () => {
-  const startTs = src('cli/commands/start.ts');
+test('the .trusted marker lives next to the served cert, not in the package dir', () => {
+  const certTs = src('cli/utils/cert.ts');
   assert.match(
-    startTs,
-    /const certTrustedMarker = path\.join\(USER_CERTS_DIR, '\.trusted'\)/,
+    certTs,
+    /export const CERT_TRUST_MARKER = path\.join\(USER_CERTS_DIR, '\.trusted'\)/,
     'the .trusted marker must be user-writable and track the served cert',
   );
   assert.ok(
-    !/path\.join\(PROXY_DIR, 'certs', '\.trusted'\)/.test(startTs),
+    !/path\.join\(PROXY_DIR, 'certs', '\.trusted'\)/.test(certTs),
     'the .trusted marker must not live in the (often read-only) package dir',
   );
 });
@@ -549,5 +549,27 @@ test('launchAntigravity rebuilds the session env when dropping privileges under 
     app,
     /env: desktopSessionEnv\(REAL_UID, REAL_HOME, process\.env\)/,
     'the sudo launch path must pass the reconstructed env (sign-in opens no browser otherwise)',
+  );
+});
+
+// ── Cert trust marker desync (switch-to-simple then start) ───────────────────
+
+test('start.ts re-trusts whenever the real stores lost the cert, not just when the marker is missing', () => {
+  const startTs = src('cli/commands/start.ts');
+  assert.match(
+    startTs,
+    /opts\.trustCert \|\| !fs\.existsSync\(CERT_TRUST_MARKER\) \|\| !isCertTrusted\(\)/,
+    'a stale .trusted marker (switch to simple removes the cert but not the marker) must not skip re-trust',
+  );
+  assert.match(startTs, /const shouldTrust/, 'the decision must stay in one place');
+});
+
+test('untrustCert removes the .trusted marker so the next start re-trusts', () => {
+  const certTs = src('cli/utils/cert.ts');
+  assert.match(certTs, /export const CERT_TRUST_MARKER/, 'marker path must be single-sourced');
+  assert.match(
+    certTs,
+    /cleanHostsFile\(\);[\s\S]{0,400}fs\.rmSync\(CERT_TRUST_MARKER, \{ force: true \}\)/,
+    'untrust must clear the marker after cleaning hosts',
   );
 });

@@ -2,12 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { platform } from 'os';
-import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
+import { certExists, generateCerts, trustCert, isCertTrusted, CERT_TRUST_MARKER, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
 import { PROXY_DIR } from '../utils/paths.js';
-import { USER_DATA_DIR, USER_CERTS_DIR, USER_ENV_PATH, USER_LOGS_DIR, chownIfRoot, chownTreeIfRoot } from '../../data-paths.js';
+import { USER_DATA_DIR, USER_ENV_PATH, USER_LOGS_DIR, chownIfRoot, chownTreeIfRoot } from '../../data-paths.js';
 import { launchAntigravity } from '../utils/antigravity-app.js';
 import { checkAndPromptUpdate } from '../utils/update-check.js';
 import chalk from 'chalk';
@@ -139,16 +139,17 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   }
 
   const certTrustSpinner = startSpinner('Trusting TLS certificate');
-  // Marker lives next to the cert it describes (user-writable), not in the
-  // package dir which is often read-only for global installs.
-  const certTrustedMarker = path.join(USER_CERTS_DIR, '.trusted');
-  const shouldTrust = opts.trustCert || !fs.existsSync(certTrustedMarker);
+  // The marker is only a hint: a `switch` to simple mode removes the cert from
+  // the OS stores but may leave the marker behind, and believing it leaves the
+  // proxy's certificate rejected ("signed by unknown authority") at sign-in.
+  // Verify the actual stores so a start always repairs a lost trust.
+  const shouldTrust = opts.trustCert || !fs.existsSync(CERT_TRUST_MARKER) || !isCertTrusted();
   if (shouldTrust) {
     try {
       trustCert();
       try {
-        fs.writeFileSync(certTrustedMarker, new Date().toISOString());
-        chownIfRoot(certTrustedMarker);
+        fs.writeFileSync(CERT_TRUST_MARKER, new Date().toISOString());
+        chownIfRoot(CERT_TRUST_MARKER);
       } catch { /* non-fatal */ }
       succeedSpinner(certTrustSpinner, 'Certificate trusted');
     } catch (e: any) {
