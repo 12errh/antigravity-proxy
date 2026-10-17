@@ -244,6 +244,7 @@ function writeEnv(updates: Record<string, string>): boolean {
     let raw = '';
     try { raw = fs.readFileSync(USER_ENV_PATH, 'utf-8'); } catch { raw = '# Antigravity config\n'; }
     for (const [k, v] of Object.entries(updates)) {
+      if (/_API_KEY$/.test(k) && (!v || v.trim() === '' || v.includes('••'))) continue;
       const prefix = `${k}=`;
       const lines = raw.split('\n');
       let found = false;

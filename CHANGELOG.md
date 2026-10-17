@@ -12,6 +12,10 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 - **Native audio and video passthrough** — `audio/*` parts now map to OpenAI `input_audio` (raw base64 + format token) and `video/*` to `video_url` (URL or data URL). OpenRouter forwards both natively, the Google provider round-trips them to Gemini `inlineData`/`fileData`, and every other provider (Groq, NVIDIA, Anthropic, gateway) strips them cleanly instead of erroring. Closes #13.
 
+### Fixed
+
+- **Dashboard saves no longer clobber API keys** — writing `~/.antigravity/.env` now skips empty or masked `*_API_KEY` values, so saving settings from the dashboard can't overwrite existing provider keys with blanks.
+
 ---
 
 ## [1.0.12] — 2026-10-17
