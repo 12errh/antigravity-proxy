@@ -6,6 +6,26 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **First-class Linux support** — user-scoped data directory (`~/.antigravity/`), NSS DB + system CA trust, dual-stack hosts entries (IPv4 + IPv6), desktop-app launch, and automatic migration of certs, logs, and the SQLite DB from the old in-package locations.
+- **`antigravity path`** — show the detected Antigravity desktop binary, or pin one (`antigravity path /path/to/antigravity`). Useful on Linux where the app isn't auto-detected.
+- **Modern-Node re-exec** — the CLI bootstrap locates a Node 20+ install (nvm, fnm, volta, or system-wide) and re-execs itself under it, so `sudo antigravity start` works even when root's `PATH` contains an old Node or no Node at all. Override the binary with `ANTIGRAVITY_NODE=/path/to/node`.
+
+### Fixed
+
+- **Browser-based sign-in from a `sudo`-started desktop app** — the app is now launched as the invoking user with the user's session environment (`D-Bus`, `XDG_RUNTIME_DIR`, `XDG_DATA_DIRS` incl. Flatpak/Snap exports), so Chrome/Firefox opens for OAuth even when the desktop was launched via sudo.
+- **Certificate trust now self-heals** — `start` verifies the OS stores actually contain the cert instead of trusting a marker file, and re-trusts automatically; switching to simple mode also clears the marker. Fixes `x509: certificate signed by unknown authority` on sign-in after switching modes.
+- **Root starts never bind a non-443 port by accident** — a `PROXY_PORT=8443` from config is auto-corrected to 443 on root proxy starts (the desktop app only connects on 443); an explicit `--port` is respected but warns that app sign-in will fail.
+- **Engine stability** — forwarded headers are sanitized before forwarding (fixes HTTP/2 stream crashes from hop-by-hop headers like `connection`/`te`), and uncaught exceptions/rejections are logged instead of vanishing.
+- **`sudo antigravity` on legacy system Node** — the bootstrap no longer fails with a Node 18 syntax error when `/usr/bin/node` is too old.
+- **dotenv v17** — the tip/injection log line no longer pollutes CLI output.
+- **npm packaging** — `bin/cli.js` is shipped with the executable bit set.
+
+---
+
 ## [1.0.11] — 2026-07-06
 
 ### Added

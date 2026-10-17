@@ -46,7 +46,7 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 
 - **Antigravity 2.0 Desktop** (Windows, macOS, or Linux)
 - **Node.js 20+** 
-- **Administrator/root privileges** (port 443; can use 8443 without admin)
+- **Administrator/root privileges** (port 443) — on Linux/macOS run `sudo antigravity start`; the CLI re-execs under a Node 20+ it finds on your machine (nvm, fnm, volta, or system), so sudo doesn't need Node on root's `PATH`
 - At least one API key or local model server
 
 ### Platform Support
@@ -57,7 +57,7 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 | **macOS** | ✅ Supported | CLI trusts the cert in the System keychain (sudo prompt), port binding, and launch |
 | **Linux** | ✅ Supported | CLI trusts the cert in the NSS DB (`~/.pki/nssdb`, what the Electron app reads) **and** the system CA store; installs `libnss3-tools` via apt/dnf/pacman when `certutil` is missing |
 
-> Prerequisite differs per platform: **port 443 needs Administrator** on Windows (the CLI raises UAC automatically) and **root/sudo** on Linux/macOS. Use `--port 8443` to run without elevation, or pass `PROXY_PORT=8443` in the config.
+> Prerequisite differs per platform: **port 443 needs Administrator** on Windows (the CLI raises UAC automatically) and **root/sudo** on Linux/macOS. The desktop app always connects on 443 (routed to the proxy via the hosts file), so proxy mode must bind 443 to intercept app traffic — a `PROXY_PORT` of e.g. 8443 is auto-corrected back to 443 on root starts. `--port 8443` runs the proxy without elevation for direct API testing only; the desktop app's sign-in won't be intercepted on other ports.
 
 ### Launch via CLI (recommended)
 
@@ -65,7 +65,7 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 npm install -g @12errh/antigravity-proxy
 antigravity start                    # background mode — runs silently, launches desktop
 antigravity start --foreground       # foreground mode — see live logs in terminal
-antigravity start --port 8443        # no admin needed
+antigravity start --port 8443        # no admin needed (testing only — app sign-in needs 443)
 antigravity start --trust-cert       # auto-trust TLS certificate
 antigravity start --simple           # launch Antigravity directly (no proxy, no admin)
 antigravity stop                     # stop everything cleanly
@@ -95,11 +95,13 @@ chmod +x start.sh
 ./start.sh
 ```
 
-**Without admin (port 8443)**
+**Without admin (port 8443 — testing only)**
 
 ```bash
 ./start.sh --port 8443
 ```
+
+> The desktop app always connects on 443; use `--simple` to launch the app with no proxy, or run with sudo/Administrator for app interception.
 
 Then open **http://localhost:4000** in your browser to configure providers, model mappings, and view live stats.
 
@@ -111,7 +113,7 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 |---------|-------------|
 | `antigravity start` | Start proxy + dashboard + launch Antigravity desktop |
 | `antigravity start --foreground` | Run in foreground with live logs |
-| `antigravity start --port 8443` | Use port 8443 (no admin needed) |
+| `antigravity start --port 8443` | Run the proxy on 8443 without admin (testing only — the app connects on 443) |
 | `antigravity start --no-browser` | Don't open dashboard in browser |
 | `antigravity start --trust-cert` | Auto-trust TLS certificate |
 | `antigravity start --simple` | Launch Antigravity directly without proxy (no admin) |
@@ -133,6 +135,8 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 | `antigravity remove` | Remove proxy artifacts and clean up |
 
 > **Admin elevation:** Commands requiring privileges (`start`, `stop`, `switch`, `remove`, `setup`, `certs`) automatically request UAC elevation on Windows. The `start --simple` flag skips elevation since it doesn't need admin. **Running from an Administrator terminal is recommended** for seamless flow — avoids repeated UAC prompts.
+>
+> **Linux/macOS:** run privileged commands with `sudo` (e.g. `sudo antigravity start`). The CLI re-execs under a Node 20+ install it locates itself — nvm, fnm, volta, or system-wide — so it works even when sudo's `PATH` has no user-managed Node. Set `ANTIGRAVITY_NODE=/path/to/node` to force a specific binary.
 
 ---
 
@@ -308,7 +312,6 @@ graph TD
     E --> G[SETUP.md]
     E --> H[CONFIGURATION.md]
     E --> I[DEVELOPER.md]
-    E --> J[antigravity-v2-analysis.md]
     
     %% proxy/ directory
     F --> K[src/]
@@ -380,7 +383,7 @@ OPENCODE_API_KEY=sk-...
 OPENCODE_GO_API_KEY=sk-opencode-go-...
 
 # Ports
-PROXY_PORT=443          # TLS port Antigravity connects to
+PROXY_PORT=443          # TLS port the desktop app connects to (root starts auto-correct other values)
 API_PORT=4000           # Dashboard + REST API port
 
 # Retry & failover

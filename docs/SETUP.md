@@ -4,7 +4,7 @@
 
 - **Node.js 20+** — [nodejs.org](https://nodejs.org) or via a package manager (Node 18 is EOL)
 - **npm** (included with Node.js)
-- **Administrator / root privileges** — required to bind port 443 (can use port 8443 instead)
+- **Administrator / root privileges** — required to bind port 443 (can run the proxy on port 8443 instead, but the desktop app only connects on 443)
 - At least one API key from a supported provider (or a local model server)
 
 ## Quick Start
@@ -30,13 +30,11 @@ This will guide you through selecting a provider, entering your API key, choosin
 .\start.ps1
 ```
 
-If you can't run as Administrator, use port 8443:
+If you can't run as Administrator, you can still test the proxy on port 8443 — but the desktop app connects on 443, so use `antigravity start --simple` to run the app without proxying:
 
 ```powershell
-# In %USERPROFILE%\.antigravity\.env, set:
-PROXY_PORT=8443
-# Then start normally — no elevation needed
-.\start.ps1
+.\start.ps1 --port 8443   # proxy only, for direct API testing
+antigravity start --simple    # launch the desktop app with no proxy
 ```
 
 ### macOS / Linux
@@ -46,19 +44,21 @@ chmod +x start.sh
 ./start.sh
 ```
 
-Use a high port to avoid needing `sudo`:
+Use a high port to run without `sudo` (direct API testing only — the desktop app connects on 443):
 
 ```bash
 ./start.sh --port 8443
-# the port is passed through to the CLI; set PROXY_PORT=8443 in the config
-# (~/.antigravity/.env) to make it permanent
 ```
 
 Or run with sudo for port 443:
 
 ```bash
 sudo ./start.sh
+# or, when installed via npm:
+sudo antigravity start
 ```
+
+> **Node under sudo:** the CLI locates a Node 20+ install (nvm, fnm, volta, or system-wide) and re-execs under it, so `sudo antigravity start` works even when root's `PATH` has an older Node or none at all. Force a specific binary with `ANTIGRAVITY_NODE=/path/to/node`.
 
 ### Manual Start (all platforms)
 
@@ -79,12 +79,14 @@ npm run build && npm run start:prod   # compiled (production)
 After installing globally, use these commands:
 
 > **Recommended:** Run from an **Administrator terminal** (PowerShell/CMD as Admin) for seamless flow — avoids repeated UAC prompts when switching modes, managing certs, or starting/stopping the proxy.
+>
+> **Linux/macOS:** run privileged commands with `sudo` (e.g. `sudo antigravity start`). The CLI re-execs under a Node 20+ install it locates itself, so nvm/fnm/volta setups work fine under sudo (`ANTIGRAVITY_NODE` overrides the binary).
 
 | Command | Description |
 |---------|-------------|
 | `antigravity start` | Start proxy + dashboard + launch Antigravity desktop |
 | `antigravity start --foreground` | Run in foreground with live logs |
-| `antigravity start --port 8443` | Use port 8443 (no admin needed) |
+| `antigravity start --port 8443` | Run the proxy on 8443 without admin (testing only — the desktop app connects on 443) |
 | `antigravity start --no-browser` | Don't open dashboard in browser |
 | `antigravity start --trust-cert` | Auto-trust TLS certificate |
 | `antigravity start --simple` | Launch Antigravity directly without proxy (no admin) |
@@ -101,6 +103,8 @@ After installing globally, use these commands:
 | `antigravity certs trust` | Install cert to OS trust store |
 | `antigravity setup` | Interactive onboarding wizard |
 | `antigravity switch` | Toggle between proxy and simple mode |
+| `antigravity path` | Show the detected Antigravity desktop binary |
+| `antigravity path <binary>` | Pin the desktop binary path (useful on Linux) |
 | `antigravity remove` | Remove proxy artifacts and clean up |
 
 ---
@@ -157,10 +161,17 @@ Antigravity is an Electron/Chromium app: it validates TLS against the **NSS data
    sudo trust anchor --store ~/.antigravity/certs/cert.pem
    ```
 
-To remove trust again, run `antigravity certs untrust` (or use `antigravity remove`).
+Every `antigravity start` verifies the certificate is **actually present** in the stores (not just that it was trusted once) and re-trusts it automatically if missing — for example after `antigravity switch` to simple mode removed it. If sign-in reports `certificate signed by unknown authority`, just start again; `antigravity certs trust` does the same repair manually.
 
-### Using port 8443 instead
-If you set `PROXY_PORT=8443` in the config (`~/.antigravity/.env`), Antigravity must also be configured to connect to port 8443 instead of 443. This avoids the need for root/Administrator and certificate trust in most setups.
+To remove trust again, run `antigravity switch` (to simple mode) or `antigravity remove`.
+
+### Ports other than 443
+The desktop app always connects on **port 443** (the CLI routes the Google API hostnames to `127.0.0.1` via the hosts file), so proxy mode must bind 443 to intercept app traffic and complete sign-in:
+
+- If `PROXY_PORT` in `~/.antigravity/.env` is set to something else (e.g. 8443), a root start **auto-corrects it to 443** and prints a note. Pass `--port` explicitly to override (you'll get a warning that app sign-in will fail).
+- Running on another port is only useful for testing the proxy directly (e.g. `curl -k https://localhost:8443/...`) without root.
+
+The CLI does not redirect the desktop app to another port — use `antigravity start --simple` to run the app with no proxy at all.
 
 ---
 
@@ -168,13 +179,13 @@ If you set `PROXY_PORT=8443` in the config (`~/.antigravity/.env`), Antigravity 
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| 443 (default) | HTTPS / HTTP2 | TLS proxy — intercepts Antigravity → AI provider |
-| 8443 (alternative) | HTTPS / HTTP2 | Same, but no root required |
+| 443 (default) | HTTPS / HTTP2 | TLS proxy — intercepts Antigravity → AI provider. The desktop app only connects here |
+| 8443 (alternative) | HTTPS / HTTP2 | Same proxy, no root required — for direct API testing; the desktop app is not intercepted |
 | 4000 (default) | HTTP | Dashboard + REST API |
 
 Change ports in `~/.antigravity/.env`:
 ```env
-PROXY_PORT=8443
+PROXY_PORT=443          # leave at 443 for app interception (root starts auto-correct other values)
 API_PORT=4001
 ```
 
@@ -218,10 +229,13 @@ npm run build      # recompile if running from dist/
 
 | Problem | Likely Cause | Fix |
 |---------|-------------|-----|
-| `EACCES` on port 443 | No root/admin privileges | Use `sudo` / Administrator, or `antigravity start --port 8443` |
+| `EACCES` on port 443 | No root/admin privileges | Use `sudo` / Administrator, or `antigravity start --port 8443` (testing only — the app needs 443) |
 | `EADDRINUSE` on port 443/4000 | Old process still running | `antigravity stop` kills it automatically; or `lsof -ti :443 \| xargs kill` |
 | "API key not configured" | Missing `.env` | Run `antigravity setup` or copy `.env.example` → `.env` and add keys |
-| TLS error in Antigravity | Cert not trusted | Run `antigravity certs trust` or follow manual steps below |
+| TLS error in Antigravity | Cert not trusted | `antigravity certs trust`, or just `sudo antigravity start` — every start re-verifies and repairs trust automatically |
+| Sign-in spinner, or `certificate signed by unknown authority` | Trust was lost (e.g. switched to simple mode), or proxy isn't on 443 | `sudo antigravity start` re-trusts and binds 443; a `PROXY_PORT` other than 443 breaks app sign-in |
+| Browser doesn't open for sign-in | Desktop app launched via sudo without the session environment | Update to the latest version and restart with `sudo antigravity start` |
+| `sudo antigravity` fails (old-Node syntax error / no node) | Bootstrap couldn't find a Node 20+ install | Install Node 20+ anywhere (nvm/fnm/volta fine), or set `ANTIGRAVITY_NODE=/path/to/node` |
 | Language Server crashes | API returned error (429, 5xx) | Check `antigravity logs` for details; try a different model or provider |
 | "Provider returned error" / 429 | Rate limit hit | Proxy retries automatically; add a second provider as fallback |
 | Model not found / 404 | Wrong model ID in Models tab | Use the Browse Models tab to fetch the provider's real catalog |

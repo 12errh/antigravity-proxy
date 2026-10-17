@@ -83,11 +83,14 @@ New providers implement `IProviderPlugin` interface in `src/plugins/`, register 
 
 - **Framework**: `node:test` + `node:assert/strict` (no Jest/Vitest)
 - **Smoke test**: `npx tsx test/run.ts smoke` — hits health endpoint, skips gracefully if proxy not running
-- **Tests across 19 test files**
+- **Tests across 38 test files**
 
 ## Gotchas
 
-- **Port 443 requires admin/root** — use `--port 8443` for non-admin, or `PROXY_PORT=8443`
+- **Port 443 requires admin/root** — the desktop app only dials 443 (routed via hosts file), so root starts auto-correct a `PROXY_PORT` other than 443 back to 443. `--port 8443` is for running the proxy without elevation (direct API testing; app sign-in won't be intercepted).
+- **`sudo antigravity ...`** — `bin/cli.js` is a Node-18-parseable bootstrap that locates a Node 20+ install (nvm/fnm/volta/system) and re-execs under it; `ANTIGRAVITY_NODE` overrides the binary. The real CLI lives in `src/cli/main.ts` (`runCli()`).
+- **Desktop launch under sudo** — `launchAntigravity` drops to the invoking user and injects session env (`D-Bus`, `XDG_RUNTIME_DIR`, `XDG_DATA_DIRS` incl. Flatpak/Snap exports) via `desktopSessionEnv()`; without it `shell.openExternal` silently fails and sign-in spins forever.
+- **Cert trust is repaired on every `start`** — `start` checks `isCertTrusted()` (real OS stores), not just the `.trusted` marker; `switch`/`remove` clear the marker when they untrust.
 - **Windows CI**: uses `npm ci --ignore-scripts` to avoid better-sqlite3 native build issues
 - **Dashboard is raw HTML** (`proxy/dashboard/index.html`) — no build step, edit directly and hard-refresh browser
 - **Config hot-reloads**: `.env` changes (API keys, priority, ports) take effect without restart

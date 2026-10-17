@@ -18,7 +18,7 @@ GOOGLE_API_KEY=AIza...
 OPENCODE_API_KEY=sk-abc123...
 
 # Proxy ports
-PROXY_PORT=443
+PROXY_PORT=443          # desktop app only connects on 443; root starts auto-correct other values
 API_PORT=4000
 
 # Retry & failover
@@ -37,7 +37,7 @@ LOG_LEVEL=info
 | `PROVIDER` | Legacy single-provider (backward compat) | `openrouter` |
 | `{PROVIDER}_API_KEY` | API key per provider (e.g. `NVIDIA_API_KEY`) | — |
 | `{PROVIDER}_BASE_URL` | Optional base URL override per provider | See adapter defaults |
-| `PROXY_PORT` | HTTPS intercept port | `443` |
+| `PROXY_PORT` | HTTPS intercept port. The desktop app only connects on 443 (via hosts-file routing); root starts auto-correct other values to 443 | `443` |
 | `API_PORT` | HTTP REST forward port | `4000` |
 | `PROXY_RETRIES` | Max retry attempts per provider before failover | `10` |
 | `PROXY_BACKOFF_MS` | Initial backoff in ms (doubles each retry) | `1000` |

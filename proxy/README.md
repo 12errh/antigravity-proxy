@@ -43,18 +43,18 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 
 - **Antigravity 2.0 Desktop** (Windows, macOS, or Linux)
 - **Node.js 20+** 
-- **Administrator/root privileges** (port 443; can use 8443 without admin)
+- **Administrator/root privileges** (port 443) — on Linux/macOS run `sudo antigravity start`; the CLI re-execs under a Node 20+ it finds on your machine (nvm, fnm, volta, or system), so sudo doesn't need Node on root's `PATH`
 - At least one API key or local model server
 
 ### Platform Support
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| **Windows 10/11** | ✅ Tested | CLI handles cert install, port binding, and launch |
-| **macOS** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
-| **Linux** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
+| **Windows 10/11** | ✅ Tested | CLI handles cert install (UAC), port binding, and launch |
+| **macOS** | ✅ Supported | CLI trusts the cert in the System keychain (sudo prompt), port binding, and launch |
+| **Linux** | ✅ Supported | CLI trusts the cert in the NSS DB (`~/.pki/nssdb`, what the Electron app reads) **and** the system CA store; installs `libnss3-tools` via apt/dnf/pacman when `certutil` is missing |
 
-> TypeScript code is cross-platform. Only TLS cert trust is platform-specific.
+> Prerequisite differs per platform: **port 443 needs Administrator** on Windows (the CLI raises UAC automatically) and **root/sudo** on Linux/macOS. The desktop app always connects on 443 (routed to the proxy via the hosts file), so proxy mode must bind 443 to intercept app traffic — a `PROXY_PORT` of e.g. 8443 is auto-corrected back to 443 on root starts. `--port 8443` runs the proxy without elevation for direct API testing only; the desktop app's sign-in won't be intercepted on other ports.
 
 ### Launch via CLI (recommended)
 
@@ -62,7 +62,7 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 npm install -g @12errh/antigravity-proxy
 antigravity start                    # background mode — runs silently, launches desktop
 antigravity start --foreground       # foreground mode — see live logs in terminal
-antigravity start --port 8443        # no admin needed
+antigravity start --port 8443        # no admin needed (testing only — app sign-in needs 443)
 antigravity start --trust-cert       # auto-trust TLS certificate
 antigravity stop                     # stop everything cleanly
 ```
@@ -89,11 +89,13 @@ chmod +x start.sh
 ./start.sh
 ```
 
-**Without admin (port 8443)**
+**Without admin (port 8443 — testing only)**
 
 ```bash
 ./start.sh --port 8443
 ```
+
+> The desktop app always connects on 443; use `--simple` to launch the app with no proxy, or run with sudo/Administrator for app interception.
 
 Then open **http://localhost:4000** in your browser to configure providers, model mappings, and view live stats.
 
@@ -273,7 +275,6 @@ graph TD
     E --> G[SETUP.md]
     E --> H[CONFIGURATION.md]
     E --> I[DEVELOPER.md]
-    E --> J[antigravity-v2-analysis.md]
     
     %% proxy/ directory
     F --> K[src/]
@@ -345,7 +346,7 @@ OPENCODE_API_KEY=sk-...
 OPENCODE_GO_API_KEY=sk-opencode-go-...
 
 # Ports
-PROXY_PORT=443          # TLS port Antigravity connects to
+PROXY_PORT=443          # TLS port the desktop app connects to (root starts auto-correct other values)
 API_PORT=4000           # Dashboard + REST API port
 
 # Retry & failover
