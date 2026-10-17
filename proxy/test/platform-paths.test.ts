@@ -431,3 +431,13 @@ test('start.ts warns when the proxy is not on 443 (desktop app dials 443)', () =
   assert.match(startTs, /antigravity switch \(simple mode\)/, 'opting out of interception must be offered');
   assert.match(startTs, /antigravity start --port 443/, 'root users on a custom port must be told to use 443');
 });
+
+// ── start.ts: root + hosts interception port correction ──────────────────────
+
+test('start.ts corrects a non-443 PROXY_PORT when root with active hosts routing', () => {
+  const startTs = src('cli/commands/start.ts');
+  assert.match(startTs, /isRootUser && !opts\.port && proxyPort !== 443 && hostsHasProxyEntries\(\)/);
+  assert.match(startTs, /let proxyPort = ports\.proxyPort/, 'proxyPort must be reassignable for the correction');
+  const certTs = src('cli/utils/cert.ts');
+  assert.match(certTs, /export function hostsHasProxyEntries/);
+});

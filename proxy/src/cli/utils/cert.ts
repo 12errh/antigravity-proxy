@@ -531,6 +531,20 @@ export function lineMapsAny(line: string, names: Set<string>): boolean {
   return fields.some(f => names.has(f.toLowerCase()));
 }
 
+/**
+ * True when the hosts file currently routes the proxy hostnames to localhost.
+ * Used by `start` to detect an active interception setup.
+ */
+export function hostsHasProxyEntries(): boolean {
+  try {
+    const content = fs.readFileSync(hostsPath(), 'utf-8');
+    const names = new Set(PROXY_HOSTS_ENTRIES.map(e => e.trim().split(/\s+/).pop()!.toLowerCase()));
+    return content.split('\n').some(line => lineMapsAny(line, names));
+  } catch {
+    return false;
+  }
+}
+
 /** Write hosts content atomically (temp + rename), backing up the original once. */
 function writeHosts(content: string): void {
   const target = hostsPath();

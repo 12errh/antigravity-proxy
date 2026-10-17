@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { platform } from 'os';
-import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
+import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile, hostsHasProxyEntries } from '../utils/cert.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
@@ -43,7 +43,21 @@ export function resolvePorts(opts: { port?: string }): ResolvedPorts {
 }
 
 export async function startCommand(opts: StartOptions): Promise<void> {
-  const { proxyPort, apiPort } = resolvePorts(opts);
+  const ports = resolvePorts(opts);
+  let proxyPort = ports.proxyPort;
+  const apiPort = ports.apiPort;
+
+  // Interception is port-bound: hosts entries redirect the hostname, not the
+  // port, so the desktop app always dials 443. A PROXY_PORT=8443 in .env is a
+  // non-root leftover; when running as root (where 443 is bindable) and hosts
+  // routing is already installed, staying on 8443 breaks every sign-in. Only
+  // correct this exact combination — an explicit --port, a hosts-less setup
+  // (e.g. an external 443→8443 redirect) or a non-root run is left alone.
+  const isRootUser = typeof process.getuid === 'function' && process.getuid() === 0;
+  if (isRootUser && !opts.port && proxyPort !== 443 && hostsHasProxyEntries()) {
+    console.log(`  ${info(`PROXY_PORT=${proxyPort} is a non-root setting — using 443 for app interception (pass --port ${proxyPort} to override)`)}`);
+    proxyPort = 443;
+  }
 
   // After a `sudo antigravity start`, files created as root in ~/.antigravity
   // (logs, PID, SQLite DB) would break every later non-root run. Hand any
