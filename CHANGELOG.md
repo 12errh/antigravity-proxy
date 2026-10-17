@@ -6,7 +6,7 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
-## [Unreleased]
+## [1.0.12] — 2026-10-17
 
 ### Added
 
