@@ -10,6 +10,7 @@ import { requestStore } from './request-store.js';
 import { reloadRouter, streamResponse } from './engine.js';
 import * as db from './db.js';
 import { USER_ENV_PATH } from './cli/utils/paths.js';
+import { USER_LOGS_DIR, USER_CERT_FILE } from './data-paths.js';
 import { getAllPricing, savePricing, reload as reloadPricing } from './pricing.js';
 import { setRateLimitConfig, getRateLimitConfig, getRateLimitStats, resetRateLimits } from './rate-limiter.js';
 import { getBlocklist, saveBlocklist, reload as reloadBlocklist } from './blocklist.js';
@@ -43,7 +44,7 @@ function findDashboardDir(): string {
 const dashboardDir = findDashboardDir();
 const dashboardHtml = path.join(dashboardDir, 'index.html');
 const loginHtml = path.join(dashboardDir, 'login.html');
-const logDir = path.resolve(__dirname, '..', 'logs');
+const logDir = USER_LOGS_DIR;
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB limit for dashboard POST bodies
 
 function collectBody(req: http.IncomingMessage, maxSize = MAX_BODY_SIZE): Promise<string> {
@@ -413,7 +414,7 @@ export function createDashboardHandler(): (req: http.IncomingMessage, res: http.
 
     // Cert info endpoint
     if (url.pathname === '/api/cert' && method === 'GET') {
-      const certPath = path.resolve(__dirname, '..', 'certs', 'cert.pem');
+      const certPath = USER_CERT_FILE;
       try {
         if (!fs.existsSync(certPath)) { jsonResp(res, { status: 'missing' }); return; }
         const pem = fs.readFileSync(certPath, 'utf-8');

@@ -35,7 +35,11 @@ export function isProxyRunning(): boolean {
       process.kill(pid, 0);
       return true;
     }
-  } catch {
+  } catch (e: any) {
+    // EPERM means the process exists but belongs to another user (e.g. a proxy
+    // started with sudo). Treat it as running, so we don't report "stopped" and
+    // delete the PID file of a live process.
+    if (e?.code === 'EPERM') return true;
     try { fs.unlinkSync(PID_FILE); } catch {}
     return false;
   }
@@ -64,16 +68,20 @@ export function startProxy(options: StartProxyOptions): number | null {
   if (!env.PROXY_PORT) env.PROXY_PORT = String(options.proxyPort);
   if (!env.API_PORT) env.API_PORT = String(options.apiPort);
 
+  // Spawn the Node that is running this CLI (process.execPath) rather than
+  // relying on `node` being on PATH. Under nvm, or when the CLI was invoked via
+  // sudo (whose secure_path excludes nvm/volta shims), a bare 'node' resolves to
+  // a different or missing interpreter.
   if (options.foreground) {
     const args = buildNodeArgs(entryPoint, useTsx);
-    const child = spawn('node', args, { cwd: proxyDir, env, stdio: 'inherit' });
+    const child = spawn(process.execPath, args, { cwd: proxyDir, env, stdio: 'inherit' });
     fs.writeFileSync(PID_FILE, String(child.pid));
     child.on('exit', () => { try { fs.unlinkSync(PID_FILE); } catch {} });
     return child.pid ?? null;
   }
 
   const args = buildNodeArgs(entryPoint, useTsx);
-  const child = spawn('node', args, {
+  const child = spawn(process.execPath, args, {
     cwd: proxyDir,
     env,
     detached: true,

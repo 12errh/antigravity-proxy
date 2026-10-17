@@ -1,7 +1,7 @@
-import { execSync, spawn } from 'child_process';
 import { platform } from 'os';
 import { isProxyRunning, stopProxy, startProxy, waitForHealth } from '../utils/process.js';
 import { isCertTrusted, trustCert, untrustCert, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
+import { launchAntigravity } from '../utils/antigravity-app.js';
 import { header, section, ok, warn, info, confirm, divider } from '../ui.js';
 
 type Mode = 'proxy' | 'simple';
@@ -15,30 +15,14 @@ function detectMode(): Mode {
   return 'simple';
 }
 
-function launchAntigravity(): void {
-  const p = platform();
-  const paths = p === 'win32'
-    ? [
-        `${process.env.LOCALAPPDATA}\\Programs\\Antigravity\\Antigravity.exe`,
-        `${process.env.ProgramFiles}\\Antigravity\\Antigravity.exe`,
-        `${process.env['ProgramFiles(x86)']}\\Antigravity\\Antigravity.exe`,
-      ]
-    : p === 'darwin'
-    ? ['/Applications/Antigravity.app']
-    : ['/usr/bin/antigravity', '/usr/local/bin/antigravity'];
+function elevationHint(): string {
+  return platform() === 'win32' ? 'Run as Administrator' : 'Run with sudo';
+}
 
-  for (const appPath of paths) {
-    try {
-      if (appPath.endsWith('.app')) {
-        execSync(`open "${appPath}"`, { stdio: 'ignore' });
-      } else {
-        spawn(appPath, [], { stdio: 'ignore', detached: true }).unref();
-      }
-      return;
-    } catch {}
+function launchAntigravityOrWarn(): void {
+  if (!launchAntigravity()) {
+    console.log(`  ${warn('Antigravity not found. Launch it manually.')}`);
   }
-
-  console.log(`  ${warn('Antigravity not found. Launch it manually.')}`);
 }
 
 export async function switchCommand(): Promise<void> {
@@ -80,7 +64,7 @@ export async function switchCommand(): Promise<void> {
       console.log(`  ${ok('Proxy routing entries removed from hosts file')}`);
     } else if (hostsResult.found && !hostsResult.cleaned) {
       console.log(`  ${warn(`Found proxy entries but could not remove: ${hostsResult.error}`)}`);
-      console.log(`  ${info('Run as Administrator to clean hosts file, or manually edit C:\\Windows\\System32\\drivers\\etc\\hosts')}`);
+      console.log(`  ${info(`${elevationHint()} to clean the hosts file`)}`);
     } else {
       console.log(`  ${ok('No proxy routing entries found in hosts file')}`);
     }
@@ -91,7 +75,7 @@ export async function switchCommand(): Promise<void> {
 
     const launch = await confirm('Launch Antigravity now?', true);
     if (launch) {
-      launchAntigravity();
+      launchAntigravityOrWarn();
     }
   } else {
     section('Current Mode: Simple');
@@ -124,7 +108,7 @@ export async function switchCommand(): Promise<void> {
       console.log(`  ${ok('Proxy routing entries added to hosts file')}`);
     } else if (hostsResult.found && !hostsResult.cleaned) {
       console.log(`  ${warn(`Could not add routing entries: ${hostsResult.error}`)}`);
-      console.log(`  ${info('Run as Administrator to update hosts file')}`);
+      console.log(`  ${info(`${elevationHint()} to update the hosts file`)}`);
     } else {
       console.log(`  ${ok('Hosts file already configured')}`);
     }
@@ -151,7 +135,7 @@ export async function switchCommand(): Promise<void> {
 
     const launch = await confirm('Launch Antigravity now?', true);
     if (launch) {
-      launchAntigravity();
+      launchAntigravityOrWarn();
     }
   }
 }

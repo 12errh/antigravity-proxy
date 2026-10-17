@@ -3,6 +3,8 @@ import path from 'path';
 import http from 'http';
 import https from 'https';
 import http2 from 'http2';
+import dns from 'dns';
+import net from 'net';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
@@ -82,13 +84,59 @@ function readAgentContextFull(): string | null {
   return null;
 }
 
+function isLoopbackAddress(ip: string): boolean {
+  return ip === '::1' || ip.startsWith('127.');
+}
+
 async function resolveBackend(hostname: string): Promise<string> {
   if (process.env.GOOGLE_BACKEND_IP) return process.env.GOOGLE_BACKEND_IP;
   const { Resolver } = await import('dns/promises');
+
+  // Try the system resolver first: it respects /etc/hosts, systemd-resolved and
+  // split-horizon/VPN DNS, which the hardcoded public resolvers ignore. A
+  // loopback answer means our own hosts-file routing entry is installed —
+  // forwarding there would make the proxy loop back into itself, so that
+  // answer is rejected and public DNS is used instead.
+  try {
+    const sys = await dns.promises.lookup(hostname, { family: 4 });
+    if (sys?.address && !isLoopbackAddress(sys.address)) return sys.address;
+  } catch {
+    // System resolver unavailable — fall through to public resolvers.
+  }
+
   const r = new Resolver();
   r.setServers(['8.8.8.8', '1.1.1.1']);
   const [ip] = await r.resolve4(hostname);
   return ip;
+}
+
+/**
+ * Bind a server dual-stack so IPv4 (127.0.0.1) and IPv6 (::1) clients both
+ * connect. `::` with the default `ipv6Only: false` accepts both on
+ * Linux/macOS/Windows; on hosts with IPv6 disabled the bind fails with
+ * EADDRNOTAVAIL/EAFNOSUPPORT, so fall back to IPv4-only.
+ */
+function listenDualStack(
+  server: net.Server,
+  port: number,
+  onListening: () => void,
+  onError: (err: NodeJS.ErrnoException) => void,
+): void {
+  const onListenError = (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRNOTAVAIL' || err.code === 'EAFNOSUPPORT') {
+      logger.info(`IPv6 unavailable — binding port ${port} to IPv4 only`);
+      server.listen(port, '0.0.0.0');
+      return;
+    }
+    onError(err);
+  };
+  server.once('error', onListenError);
+  server.once('listening', () => {
+    server.removeListener('error', onListenError);
+    server.on('error', onError);
+    onListening();
+  });
+  server.listen(port, '::');
 }
 
 // Dashboard handler for port 4000
@@ -799,12 +847,17 @@ async function main(): Promise<void> {
     logger.info('Google backend resolved', { ip: backendIp });
   } catch (e: any) {
     logger.error('DNS resolution failed', { error: e.message });
-    process.exit(1);
+    logger.error('Interception is disabled until the backend resolves. Set GOOGLE_BACKEND_IP=<ip> in .env to skip DNS.');
+    // Keep serving the dashboard instead of exiting: on networks where public
+    // DNS is blocked an exit here made `antigravity start` look like a crash.
   }
 
   // HTTP server on port 4000 (dashboard + language_server init calls)
   const restServer = http.createServer(port4000Handler);
-  restServer.on('error', (err: NodeJS.ErrnoException) => {
+  listenDualStack(restServer, config.apiPort, () => {
+    logger.info(`Port ${config.apiPort} (HTTP) → Dashboard + init calls`);
+    logger.info(`Dashboard: http://localhost:${config.apiPort}`);
+  }, (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       logger.error(`Port ${config.apiPort} already in use. Kill the old process or set API_PORT in .env`);
     } else if (err.code === 'EACCES') {
@@ -812,10 +865,6 @@ async function main(): Promise<void> {
     } else {
       logger.error('Dashboard server error', { error: err.message });
     }
-  });
-  restServer.listen(config.apiPort, '0.0.0.0', () => {
-    logger.info(`Port ${config.apiPort} (HTTP) → Dashboard + init calls`);
-    logger.info(`Dashboard: http://localhost:${config.apiPort}`);
   });
 
   // TLS server on port 443 (model inference + all other traffic)
@@ -840,7 +889,9 @@ async function main(): Promise<void> {
       handleTlsRequest,
     );
     tlsServer.on('sessionError', (err) => logger.debug('TLS session error', { error: err.message }));
-    tlsServer.on('error', (err: NodeJS.ErrnoException) => {
+    listenDualStack(tlsServer, config.proxyPort, () => {
+      logger.info(`Port ${config.proxyPort} (HTTPS) → Intercept: [${Array.from(INTERCEPT_PATHS).join(', ')}]`);
+    }, (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
         logger.error(`Port ${config.proxyPort} already in use. Kill the old process or set PROXY_PORT in .env`);
       } else if (err.code === 'EACCES') {
@@ -851,11 +902,8 @@ async function main(): Promise<void> {
         logger.error('TLS server error', { error: err.message });
       }
     });
-    tlsServer.listen(config.proxyPort, '0.0.0.0', () => {
-      logger.info(`Port ${config.proxyPort} (HTTPS) → Intercept: [${Array.from(INTERCEPT_PATHS).join(', ')}]`);
-    });
   } else {
-    logger.warn('TLS certs missing — run: node scripts/gen-certs.mjs');
+    logger.warn(`TLS certs missing — run: antigravity certs generate (expected ${certPath})`);
   }
 
   logger.info(`${config.provider}: ${config.baseUrl}`);

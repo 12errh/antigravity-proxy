@@ -4,7 +4,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const certsDir = path.resolve(__dirname, '..', 'certs');
+
+// Output directory: first CLI arg, else the package-relative certs/ dir.
+// Callers that know the runtime location (the CLI) pass it explicitly so the
+// generated certs land where the proxy actually reads them.
+const outArg = process.argv[2];
+const certsDir = outArg ? path.resolve(outArg) : path.resolve(__dirname, '..', 'certs');
 
 // Create the certs directory if it doesn't exist (needed on first run on any OS)
 if (!fs.existsSync(certsDir)) {
@@ -37,6 +42,7 @@ cert.setExtensions([
       { type: 2, value: 'cloudcode-pa.googleapis.com' },
       { type: 2, value: 'daily-cloudcode-pa.googleapis.com' },
       { type: 7, ip: '127.0.0.1' },
+      { type: 7, ip: '::1' },
     ],
   },
 ]);
@@ -47,7 +53,7 @@ const certPem = forge.pki.certificateToPem(cert);
 const keyPem = forge.pki.privateKeyToPem(keys.privateKey);
 
 fs.writeFileSync(path.join(certsDir, 'cert.pem'), certPem);
-fs.writeFileSync(path.join(certsDir, 'key.pem'), keyPem);
+fs.writeFileSync(path.join(certsDir, 'key.pem'), keyPem, { mode: 0o600 });
 
 console.log('TLS certs generated:');
 console.log(`  cert: ${path.join(certsDir, 'cert.pem')}`);

@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { execSync, spawn, exec } from 'child_process';
+import { execSync } from 'child_process';
 import { platform } from 'os';
 import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
 import { PROXY_DIR } from '../utils/paths.js';
+import { USER_CERTS_DIR, USER_ENV_PATH, USER_LOGS_DIR } from '../../data-paths.js';
+import { launchAntigravity } from '../utils/antigravity-app.js';
 import { checkAndPromptUpdate } from '../utils/update-check.js';
 import chalk from 'chalk';
 import { section, ok, fail, warn, info, header, startSpinner, succeedSpinner, failSpinner, warnSpinner, arrow, error } from '../ui.js';
@@ -19,56 +21,11 @@ interface StartOptions {
   simple?: boolean;
 }
 
-function launchAntigravityDesktop(): boolean {
-  const p = platform();
-  let exePath = '';
+const launchAntigravityDesktop = launchAntigravity;
 
-  if (p === 'win32') {
-    const candidates = [
-      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Antigravity', 'Antigravity.exe'),
-      path.join(process.env.ProgramFiles || '', 'Antigravity', 'Antigravity.exe'),
-      path.join(process.env['ProgramFiles(x86)'] || '', 'Antigravity', 'Antigravity.exe'),
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) { exePath = c; break; }
-    }
-    if (exePath) {
-      try {
-        exec(`start "" "${exePath}"`, { timeout: 5000, windowsHide: false }, () => {});
-        return true;
-      } catch {}
-    }
-  } else if (p === 'darwin') {
-    const candidates = [
-      '/Applications/Antigravity.app',
-      path.join(process.env.HOME || '', 'Applications', 'Antigravity.app'),
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) { exePath = c; break; }
-    }
-    if (exePath) {
-      try {
-        spawn('open', [exePath], { detached: true, stdio: 'ignore' }).unref();
-        return true;
-      } catch {}
-    }
-  } else {
-    const candidates = [
-      '/usr/bin/antigravity',
-      '/usr/local/bin/antigravity',
-      path.join(process.env.HOME || '', '.local', 'bin', 'antigravity'),
-    ];
-    for (const c of candidates) {
-      if (fs.existsSync(c)) { exePath = c; break; }
-    }
-    if (exePath) {
-      try {
-        spawn(exePath, [], { detached: true, stdio: 'ignore' }).unref();
-        return true;
-      } catch {}
-    }
-  }
-  return false;
+/** Platform-appropriate wording for "we need elevated privileges here". */
+function elevationHint(): string {
+  return platform() === 'win32' ? 'Run as Administrator' : 'Run with sudo';
 }
 
 export async function startCommand(opts: StartOptions): Promise<void> {
@@ -89,7 +46,7 @@ export async function startCommand(opts: StartOptions): Promise<void> {
       console.log(`  ${ok('Proxy routing entries removed from hosts file')}`);
     } else if (hostsResult.found && !hostsResult.cleaned) {
       console.log(`  ${warn(`Found proxy entries but could not remove: ${hostsResult.error}`)}`);
-      console.log(`  ${info('Run as Administrator to clean hosts file')}`);
+      console.log(`  ${info(`${elevationHint()} to clean the hosts file`)}`);
     } else {
       console.log(`  ${ok('No proxy routing entries found in hosts file')}`);
     }
@@ -149,12 +106,14 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   }
 
   const certTrustSpinner = startSpinner('Trusting TLS certificate');
-  const certTrustedMarker = path.join(PROXY_DIR, 'certs', '.trusted');
+  // Marker lives next to the cert it describes (user-writable), not in the
+  // package dir which is often read-only for global installs.
+  const certTrustedMarker = path.join(USER_CERTS_DIR, '.trusted');
   const shouldTrust = opts.trustCert || !fs.existsSync(certTrustedMarker);
   if (shouldTrust) {
     try {
       trustCert();
-      fs.writeFileSync(certTrustedMarker, new Date().toISOString());
+      try { fs.writeFileSync(certTrustedMarker, new Date().toISOString()); } catch { /* non-fatal */ }
       succeedSpinner(certTrustSpinner, 'Certificate trusted');
     } catch (e: any) {
       warnSpinner(certTrustSpinner, `Certificate not auto-trusted: ${e.message}`);
@@ -177,22 +136,26 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     succeedSpinner(hostsSpinner, 'Proxy routing entries added to hosts file');
   } else if (hostsResult.found && !hostsResult.cleaned) {
     warnSpinner(hostsSpinner, `Could not add routing entries: ${hostsResult.error}`);
-    console.log(`  ${info('Run as Administrator to update hosts file')}`);
+    console.log(`  ${info(`${elevationHint()} to update the hosts file`)}`);
   } else {
     succeedSpinner(hostsSpinner, 'Hosts file already configured');
   }
 
-  const envDir = PROXY_DIR;
-  const envPath = path.join(envDir, '.env');
-  const envExample = path.join(envDir, '.env.example');
-  if (!fs.existsSync(envPath) && fs.existsSync(envExample)) {
-    fs.copyFileSync(envExample, envPath);
-    console.log(`  ${warn('.env created from template — add API keys in dashboard Config tab')}`);
+  // Config lives in the user directory (that is where config.ts reads it from),
+  // so create it there rather than in the package dir where it would be ignored.
+  const envExample = path.join(PROXY_DIR, '.env.example');
+  if (!fs.existsSync(USER_ENV_PATH) && fs.existsSync(envExample)) {
+    try {
+      fs.mkdirSync(path.dirname(USER_ENV_PATH), { recursive: true });
+      fs.copyFileSync(envExample, USER_ENV_PATH);
+      console.log(`  ${warn(`.env created at ${USER_ENV_PATH} — add API keys in the dashboard Config tab`)}`);
+    } catch { /* non-fatal */ }
   }
 
-  const logsDir = path.join(PROXY_DIR, 'logs');
-  if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir, { recursive: true });
+  // The logger and dashboard both use the user logs dir; create the same one
+  // here so `--foreground` output and the dashboard Sessions/Logs tabs agree.
+  if (!fs.existsSync(USER_LOGS_DIR)) {
+    fs.mkdirSync(USER_LOGS_DIR, { recursive: true });
   }
 
   const distDir = path.join(PROXY_DIR, 'dist');

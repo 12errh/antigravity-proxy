@@ -1,13 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import crypto from 'crypto';
+import { execSync, execFileSync } from 'child_process';
 import { platform } from 'os';
 import { PROXY_DIR } from './paths.js';
-import { USER_CERTS_DIR, USER_CERT_FILE, USER_KEY_FILE } from '../../data-paths.js';
+import { USER_CERTS_DIR, USER_CERT_FILE, USER_KEY_FILE, REAL_HOME } from '../../data-paths.js';
 
 const CERT_DIR = USER_CERTS_DIR;
 const CERT_FILE = USER_CERT_FILE;
 const KEY_FILE = USER_KEY_FILE;
+
+/** Nickname used when the cert is added to the NSS user database. */
+const NSS_NICKNAME = 'Antigravity Proxy';
+
+/** Path of the cert when installed into the system CA store (Linux). */
+const LINUX_SYSTEM_CERT = '/usr/local/share/ca-certificates/antigravity-proxy.crt';
 
 export function certExists(): boolean {
   return fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE);
@@ -15,39 +22,299 @@ export function certExists(): boolean {
 
 export function generateCerts(): void {
   const scriptPath = path.resolve(PROXY_DIR, 'scripts', 'gen-certs.mjs');
-  if (fs.existsSync(scriptPath)) {
-    execSync(`node "${scriptPath}"`, { stdio: 'inherit', timeout: 30000 });
-  } else {
+  if (!fs.existsSync(scriptPath)) {
     throw new Error('Certificate generation script not found');
+  }
+  // Pass the runtime cert directory so generated certs land where the proxy reads them.
+  execFileSync(process.execPath, [scriptPath, CERT_DIR], { stdio: 'inherit', timeout: 30000 });
+}
+
+/** Read the local cert as PEM and return its DER bytes, or null. */
+function readCertDer(): Buffer | null {
+  try {
+    const pem = fs.readFileSync(CERT_FILE, 'utf-8');
+    const b64 = pem.split('\n').filter(l => !l.startsWith('-----') && l.trim()).join('');
+    return Buffer.from(b64, 'base64');
+  } catch {
+    return null;
   }
 }
 
-export function isAdmin(): boolean {
-  if (platform() !== 'win32') return false;
+/** SHA-256 fingerprint of the local cert (colon-separated uppercase hex). */
+function localCertFingerprintSha256(): string | null {
+  const der = readCertDer();
+  if (!der) return null;
+  return crypto.createHash('sha256').update(der).digest('hex').toUpperCase().match(/../g)!.join(':');
+}
+
+/** SHA-1 thumbprint of the local cert (bare uppercase hex, Windows format). */
+function localCertThumbprintSha1(): string | null {
+  const der = readCertDer();
+  if (!der) return null;
+  return crypto.createHash('sha1').update(der).digest('hex').toUpperCase();
+}
+
+/** True when we can prompt the user interactively (vs. a detached daemon). */
+function canPrompt(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+/** True when sudo exists and can run without an interactive password prompt. */
+function hasPasswordlessSudo(): boolean {
   try {
-    const out = execSync('net session', { stdio: 'pipe', timeout: 5000 });
+    execSync('sudo -n true', { stdio: 'ignore', timeout: 5000 });
     return true;
   } catch {
     return false;
   }
 }
 
-export function isCertTrusted(): boolean {
-  if (platform() !== 'win32' || !certExists()) return false;
+/**
+ * Run a command under sudo, but only when it cannot hang waiting for a password.
+ * Returns true on success. When sudo would need a password and we are not on a
+ * TTY, returns false so the caller can print the manual command instead.
+ */
+function runSudo(args: string[], opts: { timeout?: number } = {}): boolean {
+  const timeout = opts.timeout ?? 30000;
   try {
-    const lines = fs.readFileSync(CERT_FILE, 'utf-8').split('\n').filter(l => !l.startsWith('-----') && l.trim());
-    const b64 = lines.join('');
-    const derBytes = Buffer.from(b64, 'base64');
-    const crypto = require('crypto');
-    const sha1 = crypto.createHash('sha1').update(derBytes).digest('hex').toUpperCase();
-    const out = execSync(
-      `powershell -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.Thumbprint -eq '${sha1}' } | Measure-Object | Select-Object -ExpandProperty Count"`,
-      { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] }
-    );
-    return out.trim() !== '0';
+    if (hasPasswordlessSudo()) {
+      execFileSync('sudo', ['-n', ...args], { stdio: 'ignore', timeout });
+      return true;
+    }
+    if (!canPrompt()) return false;
+    execFileSync('sudo', args, { stdio: 'inherit', timeout });
+    return true;
   } catch {
     return false;
   }
+}
+
+export function isAdmin(): boolean {
+  const p = platform();
+  if (p === 'win32') {
+    try {
+      execSync('net session', { stdio: 'pipe', timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return process.getuid?.() === 0;
+}
+
+// ── NSS (Chromium / Electron) user database ──────────────────────────────────
+
+/**
+ * Electron and Chromium on Linux validate TLS against NSS databases, not the
+ * OpenSSL ca-certificates bundle. Unless the proxy cert is added to the user's
+ * NSS DB, the Antigravity desktop app rejects the intercepted connection.
+ */
+function nssDbDir(): string {
+  return path.join(REAL_HOME, '.pki', 'nssdb');
+}
+
+function hasCertutil(): boolean {
+  try {
+    execSync('certutil -H', { stdio: 'ignore', timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install libnss3-tools (which provides `certutil`) via the system package
+ * manager. Only attempted when a supported manager and sudo are available.
+ */
+function ensureCertutil(): boolean {
+  if (hasCertutil()) return true;
+
+  const managers: Array<{ bin: string; args: string[] }> = [
+    { bin: 'apt-get', args: ['install', '-y', 'libnss3-tools'] },
+    { bin: 'dnf', args: ['install', '-y', 'nss-tools'] },
+    { bin: 'yum', args: ['install', '-y', 'nss-tools'] },
+    { bin: 'pacman', args: ['-S', '--noconfirm', 'nss'] },
+    { bin: 'zypper', args: ['install', '-y', 'mozilla-nss-tools'] },
+  ];
+
+  for (const m of managers) {
+    let present = false;
+    try {
+      execSync(`command -v ${m.bin}`, { stdio: 'ignore', timeout: 5000 });
+      present = true;
+    } catch {
+      present = false;
+    }
+    if (!present) continue;
+    // apt needs an index refresh before install on a cold container/VM.
+    if (m.bin === 'apt-get') runSudo(['apt-get', 'update'], { timeout: 120000 });
+    if (runSudo([m.bin, ...m.args], { timeout: 180000 })) {
+      return hasCertutil();
+    }
+  }
+  return false;
+}
+
+function isCertInNssDb(): boolean {
+  if (!hasCertutil()) return false;
+  try {
+    const out = execSync(`certutil -d sql:"${nssDbDir()}" -L`, {
+      encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return out.split('\n').some(l => l.trim().startsWith(NSS_NICKNAME));
+  } catch {
+    return false;
+  }
+}
+
+function trustCertNss(): { ok: boolean; detail: string } {
+  const dbDir = nssDbDir();
+  try {
+    fs.mkdirSync(dbDir, { recursive: true });
+    const hasDb = fs.existsSync(path.join(dbDir, 'cert9.db'));
+    if (!hasDb) {
+      execFileSync('certutil', ['-N', '--empty-password', '-d', `sql:${dbDir}`], { stdio: 'ignore', timeout: 15000 });
+    }
+    // Remove any prior entry with our nickname so re-trust replaces it.
+    try {
+      execFileSync('certutil', ['-d', `sql:${dbDir}`, '-D', '-n', NSS_NICKNAME], { stdio: 'ignore', timeout: 10000 });
+    } catch { /* not present */ }
+    execFileSync('certutil', ['-d', `sql:${dbDir}`, '-A', '-t', 'C,,', '-n', NSS_NICKNAME, '-i', CERT_FILE], {
+      stdio: 'ignore', timeout: 15000,
+    });
+    return { ok: true, detail: dbDir };
+  } catch (e: any) {
+    return { ok: false, detail: e?.message || 'certutil failed' };
+  }
+}
+
+function untrustCertNss(): void {
+  if (!hasCertutil()) return;
+  try {
+    execFileSync('certutil', ['-d', `sql:${nssDbDir()}`, '-D', '-n', NSS_NICKNAME], { stdio: 'ignore', timeout: 10000 });
+  } catch { /* not present */ }
+}
+
+function isCertInNssSystemDb(): boolean {
+  if (!hasCertutil()) return false;
+  try {
+    const out = execSync('certutil -d sql:/etc/pki/nssdb -L', {
+      encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return out.split('\n').some(l => l.trim().startsWith(NSS_NICKNAME));
+  } catch {
+    return false;
+  }
+}
+
+// ── System trust store ───────────────────────────────────────────────────────
+
+/** Which system CA mechanism this distro provides, if any. */
+type LinuxTrustTool = 'update-ca-certificates' | 'update-ca-trust' | 'trust-anchor' | 'none';
+
+function detectLinuxTrustTool(): LinuxTrustTool {
+  const has = (bin: string) => {
+    try { execSync(`command -v ${bin}`, { stdio: 'ignore', timeout: 5000 }); return true; } catch { return false; }
+  };
+  if (has('update-ca-certificates')) return 'update-ca-certificates';
+  if (has('update-ca-trust')) return 'update-ca-trust';
+  if (has('trust')) return 'trust-anchor';
+  return 'none';
+}
+
+function linuxTrustManualHint(): string[] {
+  const tool = detectLinuxTrustTool();
+  if (tool === 'update-ca-certificates') {
+    return [
+      `  sudo cp "${CERT_FILE}" ${LINUX_SYSTEM_CERT}`,
+      '  sudo update-ca-certificates',
+    ];
+  }
+  if (tool === 'update-ca-trust') {
+    return [
+      `  sudo cp "${CERT_FILE}" /etc/pki/ca-trust/source/anchors/antigravity-proxy.crt`,
+      '  sudo update-ca-trust',
+    ];
+  }
+  return [`  sudo trust anchor --store "${CERT_FILE}"`];
+}
+
+function isCertInLinuxSystemStore(): boolean {
+  const tool = detectLinuxTrustTool();
+  const want = localCertFingerprintSha256();
+  if (!want) return false;
+
+  const candidates: string[] = [];
+  if (tool === 'update-ca-certificates') candidates.push(LINUX_SYSTEM_CERT);
+  if (tool === 'update-ca-trust') candidates.push('/etc/pki/ca-trust/source/anchors/antigravity-proxy.crt');
+  for (const c of candidates) {
+    try {
+      const pem = fs.readFileSync(c, 'utf-8');
+      const der = Buffer.from(pem.split('\n').filter(l => !l.startsWith('-----') && l.trim()).join(''), 'base64');
+      const fp = crypto.createHash('sha256').update(der).digest('hex').toUpperCase().match(/../g)!.join(':');
+      if (fp === want) return true;
+    } catch { /* try next */ }
+  }
+  return false;
+}
+
+function trustCertLinuxSystem(): boolean {
+  const tool = detectLinuxTrustTool();
+  if (tool === 'update-ca-certificates') {
+    const dir = path.dirname(LINUX_SYSTEM_CERT);
+    if (!fs.existsSync(dir)) return false;
+    return runSudo(['cp', CERT_FILE, LINUX_SYSTEM_CERT]) && runSudo(['update-ca-certificates']);
+  }
+  if (tool === 'update-ca-trust') {
+    const anchorDir = '/etc/pki/ca-trust/source/anchors';
+    return runSudo(['cp', CERT_FILE, path.join(anchorDir, 'antigravity-proxy.crt')]) && runSudo(['update-ca-trust']);
+  }
+  if (tool === 'trust-anchor') {
+    return runSudo(['trust', 'anchor', '--store', CERT_FILE]);
+  }
+  return false;
+}
+
+// ── Public trust API ─────────────────────────────────────────────────────────
+
+export function isCertTrusted(): boolean {
+  if (!certExists()) return false;
+  const p = platform();
+
+  if (p === 'win32') {
+    const sha1 = localCertThumbprintSha1();
+    if (!sha1) return false;
+    try {
+      const out = execSync(
+        `powershell -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.Thumbprint -eq '${sha1}' } | Measure-Object | Select-Object -ExpandProperty Count"`,
+        { encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'] },
+      );
+      return out.trim() !== '0';
+    } catch {
+      return false;
+    }
+  }
+
+  if (p === 'darwin') {
+    const want = localCertFingerprintSha256();
+    if (!want) return false;
+    try {
+      const out = execSync('security find-certificate -a -c localhost -Z /Library/Keychains/System.keychain', {
+        encoding: 'utf-8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      // `-Z` prints "SHA-256 hash: <hex>" lines; compare on hex with colons stripped.
+      const wantHex = want.replace(/:/g, '');
+      return out.split('\n').some(l => l.replace(/[^0-9A-Fa-f]/g, '').toUpperCase() === wantHex);
+    } catch {
+      return false;
+    }
+  }
+
+  // Linux: trusted only when BOTH the NSS user DB (what Electron reads) and the
+  // system store hold the cert.
+  if (isCertInNssDb() && isCertInLinuxSystemStore()) return true;
+  if (isCertInNssSystemDb() && isCertInLinuxSystemStore()) return true;
+  return false;
 }
 
 export function trustCert(): void {
@@ -55,32 +322,26 @@ export function trustCert(): void {
     throw new Error('No certificate to trust. Run `antigravity certs generate` first.');
   }
 
-  // Check if already trusted (skip if so)
-  if (isCertTrusted()) {
-    return;
-  }
+  if (isCertTrusted()) return;
 
   const p = platform();
+
   if (p === 'win32') {
-    // Use PowerShell Import-Certificate (same as start.ps1)
-    // This matches the approach that works in the PowerShell launcher
     try {
       execSync(
         `powershell -NoProfile -Command "Import-Certificate -FilePath '${CERT_FILE}' -CertStoreLocation Cert:\\LocalMachine\\Root"`,
-        { stdio: 'pipe', timeout: 15000 }
+        { stdio: 'pipe', timeout: 15000 },
       );
       return;
     } catch {
-      // If Import-Certificate fails (no admin), try certutil
       try {
         execSync(`certutil -addstore -f Root "${CERT_FILE}"`, { stdio: 'pipe', timeout: 15000 });
         return;
       } catch {
-        // Both failed — try with UAC elevation
         try {
           execSync(
             `powershell -NoProfile -Command "Start-Process certutil -ArgumentList '-addstore','-f','Root','${CERT_FILE}' -Verb RunAs -Wait"`,
-            { stdio: 'inherit', timeout: 30000 }
+            { stdio: 'inherit', timeout: 30000 },
           );
           return;
         } catch {
@@ -88,7 +349,9 @@ export function trustCert(): void {
         }
       }
     }
-  } else if (p === 'darwin') {
+  }
+
+  if (p === 'darwin') {
     try {
       execSync(`sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${CERT_FILE}"`, {
         stdio: 'inherit', timeout: 30000,
@@ -96,141 +359,73 @@ export function trustCert(): void {
     } catch {
       throw new Error('Failed to add certificate to macOS keychain. Run with sudo.');
     }
+    return;
+  }
+
+  // Linux — trust in both stores and report precisely what happened.
+  const notes: string[] = [];
+
+  if (!hasCertutil()) {
+    if (ensureCertutil()) {
+      notes.push('Installed libnss3-tools (certutil)');
+    } else {
+      notes.push('certutil not available — Antigravity (Electron) may still reject the certificate');
+    }
+  }
+  if (hasCertutil()) {
+    const nss = trustCertNss();
+    notes.push(nss.ok ? `NSS user DB: ${nss.detail}` : `NSS user DB failed: ${nss.detail}`);
+  }
+
+  if (trustCertLinuxSystem()) {
+    notes.push('System CA store updated');
   } else {
-    // Linux
-    const trustDir = '/usr/local/share/ca-certificates';
-    try {
-      execSync(`sudo cp "${CERT_FILE}" "${trustDir}/antigravity-proxy.crt" && sudo update-ca-certificates`, {
-        stdio: 'inherit', timeout: 15000,
-      });
-    } catch {
-      throw new Error('Failed to trust certificate. Run: sudo update-ca-certificates');
-    }
+    notes.push('System CA store could not be updated (needs sudo)');
   }
-}
 
-const PROXY_HOSTS_ENTRIES = [
-  '127.0.0.1 cloudcode-pa.googleapis.com',
-  '127.0.0.1 daily-cloudcode-pa.googleapis.com',
-  '127.0.0.1  runtime.us-east-1.kiro.dev',
-  '127.0.0.1  kiro.dev',
-  '127.0.0.1  app.kiro.dev',
-];
-
-export interface HostsCleanResult {
-  found: boolean;
-  cleaned: boolean;
-  error?: string;
-}
-
-export function cleanHostsFile(): HostsCleanResult {
-  const hostsPath = platform() === 'win32'
-    ? 'C:\\Windows\\System32\\drivers\\etc\\hosts'
-    : '/etc/hosts';
-
-  try {
-    let content = fs.readFileSync(hostsPath, 'utf-8');
-    let found = false;
-
-    for (const entry of PROXY_HOSTS_ENTRIES) {
-      const domain = entry.trim().split(' ').pop() || '';
-      const lines = content.split('\n');
-      const newLines = lines.filter(line => {
-        const trimmed = line.trim();
-        if (trimmed.includes(domain) && !trimmed.startsWith('#')) {
-          found = true;
-          return false;
-        }
-        return true;
-      });
-      content = newLines.join('\n');
-    }
-
-    if (!found) {
-      return { found: false, cleaned: false };
-    }
-
-    // Clean up multiple blank lines
-    content = content.replace(/\n{3,}/g, '\n\n');
-
-    fs.writeFileSync(hostsPath, content, 'utf-8');
-    return { found: true, cleaned: true };
-  } catch {
-    return { found: true, cleaned: false, error: 'Could not modify hosts file. Run as Administrator.' };
+  if (!isCertTrusted()) {
+    throw new Error(
+      [
+        'Certificate could not be fully trusted.',
+        ...notes.map(n => `  - ${n}`),
+        'To trust manually, run:',
+        `  certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "${NSS_NICKNAME}" -i "${CERT_FILE}"`,
+        ...linuxTrustManualHint(),
+      ].join('\n'),
+    );
   }
-}
 
-export function setupHostsFile(): HostsCleanResult {
-  const hostsPath = platform() === 'win32'
-    ? 'C:\\Windows\\System32\\drivers\\etc\\hosts'
-    : '/etc/hosts';
-
-  try {
-    let content = fs.readFileSync(hostsPath, 'utf-8');
-    const entriesToAdd: string[] = [];
-
-    for (const entry of PROXY_HOSTS_ENTRIES) {
-      const domain = entry.trim().split(' ').pop() || '';
-      const domainExists = content.split('\n').some(line => {
-        const trimmed = line.trim();
-        return trimmed.includes(domain) && !trimmed.startsWith('#');
-      });
-
-      if (!domainExists) {
-        entriesToAdd.push(entry);
-      }
-    }
-
-    if (entriesToAdd.length === 0) {
-      return { found: true, cleaned: true };
-    }
-
-    const marker = '# Antigravity Proxy';
-    if (!content.includes(marker)) {
-      content = content.trimEnd() + '\n\n' + marker + '\n';
-    }
-    content = content.trimEnd() + '\n' + entriesToAdd.join('\n') + '\n';
-
-    fs.writeFileSync(hostsPath, content, 'utf-8');
-    return { found: true, cleaned: true };
-  } catch {
-    return { found: true, cleaned: false, error: 'Could not modify hosts file. Run as Administrator.' };
-  }
+  for (const n of notes) console.log(`  ${n}`);
 }
 
 export function untrustCert(): void {
   const p = platform();
   if (certExists()) {
     if (p === 'win32') {
-      try {
-        const lines = fs.readFileSync(CERT_FILE, 'utf-8').split('\n').filter(l => !l.startsWith('-----') && l.trim());
-        const b64 = lines.join('');
-        const derBytes = Buffer.from(b64, 'base64');
-        const crypto = require('crypto');
-        const sha1 = crypto.createHash('sha1').update(derBytes).digest('hex').toUpperCase();
-
-        execSync(
-          `powershell -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.Thumbprint -eq '${sha1}' } | Remove-Item"`,
-          { stdio: 'pipe', timeout: 15000 }
-        );
-      } catch {
-        // Certificate may not be trusted — continue silently
+      const sha1 = localCertThumbprintSha1();
+      if (sha1) {
+        try {
+          execSync(
+            `powershell -NoProfile -Command "Get-ChildItem Cert:\\LocalMachine\\Root | Where-Object { $_.Thumbprint -eq '${sha1}' } | Remove-Item"`,
+            { stdio: 'pipe', timeout: 15000 },
+          );
+        } catch { /* may not be trusted */ }
       }
     } else if (p === 'darwin') {
       try {
         execSync('sudo security delete-certificate -c "localhost" -t /Library/Keychains/System.keychain', {
           stdio: 'inherit', timeout: 15000,
         });
-      } catch {
-        // Certificate may not be in keychain — continue silently
-      }
+      } catch { /* may not be in keychain */ }
     } else {
-      try {
-        execSync('sudo rm -f /usr/local/share/ca-certificates/antigravity-proxy.crt && sudo update-ca-certificates', {
-          stdio: 'inherit', timeout: 15000,
-        });
-      } catch {
-        // Certificate may not exist — continue silently
+      untrustCertNss();
+      const tool = detectLinuxTrustTool();
+      if (tool === 'update-ca-certificates') {
+        runSudo(['rm', '-f', LINUX_SYSTEM_CERT]) && runSudo(['update-ca-certificates']);
+      } else if (tool === 'update-ca-trust') {
+        runSudo(['rm', '-f', '/etc/pki/ca-trust/source/anchors/antigravity-proxy.crt']) && runSudo(['update-ca-trust']);
+      } else if (tool === 'trust-anchor') {
+        runSudo(['trust', 'anchor', '--remove', '--store', CERT_FILE]);
       }
     }
   }
@@ -253,29 +448,167 @@ export function getCertInfo(): CertInfo {
   if (!certExists()) return { exists: false };
 
   try {
-    const pem = fs.readFileSync(CERT_FILE, 'utf-8');
-    const lines = pem.split('\n').filter(l => !l.startsWith('-----') && l.trim());
-    const b64 = lines.join('');
-    const der = Buffer.from(b64, 'base64');
+    const fp = localCertFingerprintSha256();
 
-    // Parse basic info from openssl if available
+    // Prefer Node's built-in X509 parser so this works without openssl (e.g. Windows).
     try {
-      const out = execSync(`openssl x509 -in "${CERT_FILE}" -noout -subject -issuer -dates -fingerprint`, {
-        encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      const subject = out.match(/subject=(.*)/)?.[1]?.trim() || '';
-      const issuer = out.match(/issuer=(.*)/)?.[1]?.trim() || '';
-      const validFrom = out.match(/notBefore=(.*)/)?.[1]?.trim() || '';
-      const validTo = out.match(/notAfter=(.*)/)?.[1]?.trim() || '';
-      const fingerprint = out.match(/ingerprint=(.*)/)?.[1]?.trim() || '';
-      const daysRemaining = Math.floor((new Date(validTo).getTime() - Date.now()) / 86400000);
-
-      return { exists: true, subject, issuer, validFrom, validTo, fingerprint, daysRemaining };
+      const pem = fs.readFileSync(CERT_FILE, 'utf-8');
+      const cert = new crypto.X509Certificate(pem);
+      const validTo = new Date(cert.validTo);
+      return {
+        exists: true,
+        subject: cert.subject.replace(/\n/g, ', '),
+        issuer: cert.issuer.replace(/\n/g, ', '),
+        validFrom: cert.validFrom,
+        validTo: cert.validTo,
+        fingerprint: fp ? `SHA256 ${fp}` : undefined,
+        daysRemaining: Math.floor((validTo.getTime() - Date.now()) / 86400000),
+      };
     } catch {
-      // openssl not available — return basic info
-      return { exists: true };
+      return { exists: true, fingerprint: fp ? `SHA256 ${fp}` : undefined };
     }
   } catch {
     return { exists: true };
+  }
+}
+
+// ── Hosts file ───────────────────────────────────────────────────────────────
+
+const PROXY_HOSTS_ENTRIES = [
+  '127.0.0.1 cloudcode-pa.googleapis.com',
+  '127.0.0.1 daily-cloudcode-pa.googleapis.com',
+  '::1 cloudcode-pa.googleapis.com',
+  '::1 daily-cloudcode-pa.googleapis.com',
+  '127.0.0.1 runtime.us-east-1.kiro.dev',
+  '127.0.0.1 kiro.dev',
+  '127.0.0.1 app.kiro.dev',
+];
+
+const HOSTS_MARKER = '# Antigravity Proxy';
+
+export interface HostsCleanResult {
+  found: boolean;
+  cleaned: boolean;
+  error?: string;
+}
+
+function hostsPath(): string {
+  return platform() === 'win32'
+    ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'drivers', 'etc', 'hosts')
+    : '/etc/hosts';
+}
+
+/**
+ * Parse a hosts line into its hostname fields.
+ * Returns null for blank lines, comments and lines with no hostname.
+ * Exported for regression tests.
+ */
+export function parseHostnameFields(line: string): string[] | null {
+  const withoutComment = line.split('#')[0];
+  const trimmed = withoutComment.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) return null;
+  return parts.slice(1); // drop the address, keep hostnames
+}
+
+/**
+ * True when the line maps one of `names` (exact hostname match, not substring).
+ * Exported for regression tests.
+ */
+export function lineMapsAny(line: string, names: Set<string>): boolean {
+  const fields = parseHostnameFields(line);
+  if (!fields) return false;
+  return fields.some(f => names.has(f.toLowerCase()));
+}
+
+/** Write hosts content atomically (temp + rename), backing up the original once. */
+function writeHosts(content: string): void {
+  const target = hostsPath();
+  const tmp = `${target}.antigravity.tmp`;
+  const backup = `${target}.antigravity.bak`;
+
+  let mode: number | undefined;
+  try { mode = fs.statSync(target).mode & 0o777; } catch { /* new file */ }
+
+  if (!fs.existsSync(backup)) {
+    try { fs.copyFileSync(target, backup); } catch { /* best-effort */ }
+  }
+
+  try {
+    fs.writeFileSync(tmp, content, { encoding: 'utf-8', mode });
+    fs.renameSync(tmp, target);
+  } catch {
+    // Some systems (Docker bind mounts, hardened /etc) cannot rename over the
+    // hosts file. Fall back to an in-place write — still backed up above.
+    try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    fs.writeFileSync(target, content, { encoding: 'utf-8', mode });
+  }
+}
+
+export function cleanHostsFile(): HostsCleanResult {
+  const target = hostsPath();
+  const domains = new Set(
+    PROXY_HOSTS_ENTRIES.map(e => e.trim().split(/\s+/).pop()!.toLowerCase()),
+  );
+
+  try {
+    let content = fs.readFileSync(target, 'utf-8');
+    const lines = content.split('\n');
+    const kept = lines.filter(line => !lineMapsAny(line, domains));
+    const found = kept.length !== lines.length;
+
+    if (!found) return { found: false, cleaned: false };
+
+    content = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+    writeHosts(content);
+    return { found: true, cleaned: true };
+  } catch {
+    return { found: true, cleaned: false, error: hostsPermissionError() };
+  }
+}
+
+function hostsPermissionError(): string {
+  if (platform() === 'win32') return 'Could not modify hosts file. Run as Administrator.';
+  return `Could not modify hosts file. Run: sudo sed -i "/Antigravity Proxy/d" ${hostsPath()}`;
+}
+
+export function setupHostsFile(): HostsCleanResult {
+  const target = hostsPath();
+
+  try {
+    const content = fs.readFileSync(target, 'utf-8');
+
+    // Exact hostname matching: "daily-cloudcode-pa.googleapis.com" must NOT be
+    // treated as satisfying the plain "cloudcode-pa.googleapis.com" entry.
+    const entriesToAdd = PROXY_HOSTS_ENTRIES.filter(entry => {
+      const [addr, ...names] = entry.trim().split(/\s+/);
+      const wanted = new Set(names.map(n => n.toLowerCase()));
+      return !content.split('\n').some(line => {
+        const fields = parseHostnameFields(line);
+        if (!fields) return false;
+        const hasName = fields.some(f => wanted.has(f.toLowerCase()));
+        if (!hasName) return false;
+        // Same address required too, so a 127.0.0.1 entry is not considered
+        // present when only an ::1 entry exists (and vice versa).
+        const lineAddr = line.split('#')[0].trim().split(/\s+/)[0];
+        return lineAddr === addr;
+      });
+    });
+
+    if (entriesToAdd.length === 0) {
+      return { found: true, cleaned: true };
+    }
+
+    let out = content;
+    if (!out.includes(HOSTS_MARKER)) {
+      out = out.trimEnd() + '\n\n' + HOSTS_MARKER + '\n';
+    }
+    out = out.trimEnd() + '\n' + entriesToAdd.join('\n') + '\n';
+
+    writeHosts(out);
+    return { found: true, cleaned: true };
+  } catch {
+    return { found: true, cleaned: false, error: hostsPermissionError() };
   }
 }

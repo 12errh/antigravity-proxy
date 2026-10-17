@@ -33,7 +33,7 @@ This will guide you through selecting a provider, entering your API key, choosin
 If you can't run as Administrator, use port 8443:
 
 ```powershell
-# In proxy/.env, set:
+# In %USERPROFILE%\.antigravity\.env, set:
 PROXY_PORT=8443
 # Then start normally — no elevation needed
 .\start.ps1
@@ -50,7 +50,8 @@ Use a high port to avoid needing `sudo`:
 
 ```bash
 ./start.sh --port 8443
-# start.sh automatically writes PROXY_PORT=8443 to proxy/.env
+# the port is passed through to the CLI; set PROXY_PORT=8443 in the config
+# (~/.antigravity/.env) to make it permanent
 ```
 
 Or run with sudo for port 443:
@@ -63,9 +64,10 @@ sudo ./start.sh
 
 ```bash
 cd proxy
-npm install                     # first time only
-node scripts/gen-certs.mjs      # first time only
-npm start                       # runs via tsx (development)
+npm install                        # first time only
+npm run gen-certs                  # first time only (certs land in proxy/certs,
+                                   #  auto-migrated to ~/.antigravity/certs)
+npm start                          # runs via tsx (development)
 # or
 npm run build && npm run start:prod   # compiled (production)
 ```
@@ -118,38 +120,47 @@ The proxy hot-reloads — no restart needed after saving config.
 
 ## TLS Certificate Trust
 
-The proxy uses a self-signed certificate for port 443. Antigravity needs to trust it.
+The proxy uses a self-signed certificate for port 443. Antigravity needs to trust it. The CLI generates certs into `~/.antigravity/certs/` (`%USERPROFILE%\.antigravity\certs\` on Windows) and trusts that exact file.
 
 ### Windows (automatic)
-`start.ps1` installs the certificate to the Windows Trusted Root store automatically.  
-Manual fallback:
+`antigravity start` installs the certificate to the Windows Trusted Root store automatically (UAC prompt). Manual fallback:
 ```powershell
-certutil -addstore -f Root proxy\certs\cert.pem
+certutil -addstore -f Root "$env:USERPROFILE\.antigravity\certs\cert.pem"
 ```
 
 ### macOS (automatic with sudo)
-`start.sh` runs:
+`antigravity certs trust` runs:
 ```bash
 sudo security add-trusted-cert -d -r trustRoot \
-  -k /Library/Keychains/System.keychain proxy/certs/cert.pem
+  -k /Library/Keychains/System.keychain ~/.antigravity/certs/cert.pem
 ```
-Manual (via UI): Open **Keychain Access**, drag `proxy/certs/cert.pem` into **System** keychain, double-click → **Always Trust**.
+Manual (via UI): Open **Keychain Access**, drag `~/.antigravity/certs/cert.pem` into **System** keychain, double-click → **Always Trust**.
 
-### Linux (automatic best-effort)
-```bash
-# Ubuntu / Debian
-sudo cp proxy/certs/cert.pem /usr/local/share/ca-certificates/antigravity-proxy.crt
-sudo update-ca-certificates
+### Linux (NSS + system CA store)
+Antigravity is an Electron/Chromium app: it validates TLS against the **NSS database** (`~/.pki/nssdb`), not the OpenSSL bundle. `antigravity certs trust` therefore does both:
 
-# Fedora / RHEL
-sudo trust anchor --store proxy/certs/cert.pem
+1. **NSS user DB** (required for the desktop app) — uses `certutil`, which comes from `libnss3-tools` (`nss-tools` on Fedora). If `certutil` is missing the CLI installs it via apt/dnf/yum/pacman/zypper when possible. Manual equivalent:
+   ```bash
+   certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n "Antigravity Proxy" -i ~/.antigravity/certs/cert.pem
+   ```
+2. **System CA store** — whichever this distro provides:
+   ```bash
+   # Ubuntu / Debian
+   sudo cp ~/.antigravity/certs/cert.pem /usr/local/share/ca-certificates/antigravity-proxy.crt
+   sudo update-ca-certificates
 
-# Any distro — Chrome / Chromium only
-# Settings → Privacy → Manage certificates → Authorities → Import cert.pem
-```
+   # Fedora / RHEL
+   sudo cp ~/.antigravity/certs/cert.pem /etc/pki/ca-trust/source/anchors/antigravity-proxy.crt
+   sudo update-ca-trust
+
+   # Any distro (p11-kit)
+   sudo trust anchor --store ~/.antigravity/certs/cert.pem
+   ```
+
+To remove trust again, run `antigravity certs untrust` (or use `antigravity remove`).
 
 ### Using port 8443 instead
-If you set `PROXY_PORT=8443` in `proxy/.env`, Antigravity must also be configured to connect to port 8443 instead of 443. This avoids the need for root/Administrator and certificate trust in most setups.
+If you set `PROXY_PORT=8443` in the config (`~/.antigravity/.env`), Antigravity must also be configured to connect to port 8443 instead of 443. This avoids the need for root/Administrator and certificate trust in most setups.
 
 ---
 
@@ -161,7 +172,7 @@ If you set `PROXY_PORT=8443` in `proxy/.env`, Antigravity must also be configure
 | 8443 (alternative) | HTTPS / HTTP2 | Same, but no root required |
 | 4000 (default) | HTTP | Dashboard + REST API |
 
-Change ports in `proxy/.env`:
+Change ports in `~/.antigravity/.env`:
 ```env
 PROXY_PORT=8443
 API_PORT=4001
@@ -171,10 +182,10 @@ API_PORT=4001
 
 ## Logs
 
-All proxy logs go to `proxy/logs/` with timestamped filenames:
+All proxy logs go to `~/.antigravity/logs/` with timestamped filenames:
 
 ```
-proxy/logs/proxy_20260531_143000.log
+~/.antigravity/logs/proxy_20260531_143000.log
 ```
 
 Enable debug-level logging:

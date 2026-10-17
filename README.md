@@ -53,11 +53,11 @@ antigravity start    # starts proxy + dashboard + launches Antigravity desktop
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| **Windows 10/11** | ✅ Tested | CLI handles cert install, port binding, and launch |
-| **macOS** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
-| **Linux** | ⚠️ Untested | CLI with best-effort cert trust. Report issues on GitHub. |
+| **Windows 10/11** | ✅ Tested | CLI handles cert install (UAC), port binding, and launch |
+| **macOS** | ✅ Supported | CLI trusts the cert in the System keychain (sudo prompt), port binding, and launch |
+| **Linux** | ✅ Supported | CLI trusts the cert in the NSS DB (`~/.pki/nssdb`, what the Electron app reads) **and** the system CA store; installs `libnss3-tools` via apt/dnf/pacman when `certutil` is missing |
 
-> TypeScript code is cross-platform. Only TLS cert trust is platform-specific.
+> Prerequisite differs per platform: **port 443 needs Administrator** on Windows (the CLI raises UAC automatically) and **root/sudo** on Linux/macOS. Use `--port 8443` to run without elevation, or pass `PROXY_PORT=8443` in the config.
 
 ### Launch via CLI (recommended)
 

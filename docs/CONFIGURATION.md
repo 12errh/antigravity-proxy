@@ -1,8 +1,8 @@
 # Configuration Guide
 
-## Provider Configuration: `proxy/.env`
+## Provider Configuration: `~/.antigravity/.env`
 
-Edit this file from the dashboard Config tab or directly.
+Edit this file from the dashboard Config tab or directly. (On Windows: `%USERPROFILE%\.antigravity\.env`.)
 
 ```ini
 # Provider priority order (comma-separated, first = primary)

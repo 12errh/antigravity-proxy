@@ -60,3 +60,13 @@ jobs:
           test -f certs/cert.pem || (echo "cert.pem missing" && exit 1)
           test -f certs/key.pem || (echo "key.pem missing" && exit 1)
           echo "Certs generated successfully"
+
+      - name: Verify runtime cert path is user-scoped
+        shell: bash
+        run: |
+          node --input-type=module -e "
+            import { USER_CERT_FILE, USER_CERTS_DIR } from './dist/data-paths.js';
+            if (!USER_CERT_FILE.endsWith('certs/cert.pem')) throw new Error('runtime cert path: ' + USER_CERT_FILE);
+            if (!USER_CERTS_DIR.endsWith('certs')) throw new Error('runtime cert dir: ' + USER_CERTS_DIR);
+            console.log('runtime cert path:', USER_CERT_FILE);
+          "
