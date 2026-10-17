@@ -421,3 +421,13 @@ test('start.sh delegates to the CLI and keeps no duplicated platform logic', () 
   assert.ok(!/lsof|update-ca-certificates|add-trusted-cert/.test(sh), 'trust/port logic belongs to the CLI');
   assert.ok(!/sudo cp|sudo security/.test(sh), 'trust installation belongs to the CLI');
 });
+
+// ── start.ts: port-443 interception guard ────────────────────────────────────
+
+test('start.ts warns when the proxy is not on 443 (desktop app dials 443)', () => {
+  const startTs = src('cli/commands/start.ts');
+  assert.match(startTs, /proxyPort !== 443/, 'a non-443 port breaks desktop-app sign-in and must be flagged');
+  assert.match(startTs, /sudo antigravity start/, 'non-root users must be told the sudo path');
+  assert.match(startTs, /antigravity switch \(simple mode\)/, 'opting out of interception must be offered');
+  assert.match(startTs, /antigravity start --port 443/, 'root users on a custom port must be told to use 443');
+});

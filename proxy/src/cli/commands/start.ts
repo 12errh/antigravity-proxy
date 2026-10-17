@@ -163,6 +163,20 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     succeedSpinner(hostsSpinner, 'Hosts file already configured');
   }
 
+  // The desktop app hardcodes https://...googleapis.com, which dials port 443.
+  // Hosts entries only redirect the hostname, not the port — so whenever the
+  // proxy is not on 443 the app gets "connection refused" at sign-in.
+  if (proxyPort !== 443) {
+    const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+    console.log(`  ${warn(`Proxy listens on port ${proxyPort}, but the desktop app connects to port 443 — sign-in will fail with "connection refused".`)}`);
+    if (isRoot) {
+      console.log(`  ${info(`For app interception: antigravity start --port 443`)}`);
+    } else {
+      console.log(`  ${info(`For app interception: sudo antigravity start (binds 443)`)}`);
+      console.log(`  ${info(`To disable interception: antigravity switch (simple mode)`)}`);
+    }
+  }
+
   // Config lives in the user directory (that is where config.ts reads it from),
   // so create it there rather than in the package dir where it would be ignored.
   const envExample = path.join(PROXY_DIR, '.env.example');
