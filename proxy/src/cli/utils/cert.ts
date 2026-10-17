@@ -2,9 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { execSync, execFileSync } from 'child_process';
-import { platform } from 'os';
+import os, { platform } from 'os';
 import { PROXY_DIR } from './paths.js';
-import { USER_CERTS_DIR, USER_CERT_FILE, USER_KEY_FILE, REAL_HOME } from '../../data-paths.js';
+import { USER_CERTS_DIR, USER_CERT_FILE, USER_KEY_FILE, REAL_HOME, chownIfRoot, chownTreeIfRoot } from '../../data-paths.js';
 
 const CERT_DIR = USER_CERTS_DIR;
 const CERT_FILE = USER_CERT_FILE;
@@ -27,6 +27,9 @@ export function generateCerts(): void {
   }
   // Pass the runtime cert directory so generated certs land where the proxy reads them.
   execFileSync(process.execPath, [scriptPath, CERT_DIR], { stdio: 'inherit', timeout: 30000 });
+  // If generation ran under sudo, the files must belong to the invoking user —
+  // the desktop app and later non-root runs read them from ~/.antigravity.
+  chownTreeIfRoot(CERT_DIR);
 }
 
 /** Read the local cert as PEM and return its DER bytes, or null. */
@@ -115,7 +118,9 @@ function nssDbDir(): string {
 
 function hasCertutil(): boolean {
   try {
-    execSync('certutil -H', { stdio: 'ignore', timeout: 5000 });
+    // `certutil -H` exits 1 (usage-as-error), so it must NOT be used as a
+    // presence check — that made every trust run reinstall libnss3-tools.
+    execSync('command -v certutil', { stdio: 'ignore', timeout: 5000 });
     return true;
   } catch {
     return false;
@@ -171,6 +176,7 @@ function trustCertNss(): { ok: boolean; detail: string } {
   const dbDir = nssDbDir();
   try {
     fs.mkdirSync(dbDir, { recursive: true });
+    chownIfRoot(dbDir);
     const hasDb = fs.existsSync(path.join(dbDir, 'cert9.db'));
     if (!hasDb) {
       execFileSync('certutil', ['-N', '--empty-password', '-d', `sql:${dbDir}`], { stdio: 'ignore', timeout: 15000 });
@@ -182,6 +188,9 @@ function trustCertNss(): { ok: boolean; detail: string } {
     execFileSync('certutil', ['-d', `sql:${dbDir}`, '-A', '-t', 'C,,', '-n', NSS_NICKNAME, '-i', CERT_FILE], {
       stdio: 'ignore', timeout: 15000,
     });
+    // certutil ran as root when invoked via sudo — hand the NSS DB back to the
+    // user, otherwise their browser/Electron profile can no longer update it.
+    chownTreeIfRoot(dbDir);
     return { ok: true, detail: dbDir };
   } catch (e: any) {
     return { ok: false, detail: e?.message || 'certutil failed' };
@@ -546,6 +555,46 @@ function writeHosts(content: string): void {
   }
 }
 
+/**
+ * Fallback for non-root users: write the content to a temp file and copy it
+ * into place with sudo (which prompts for a password on a TTY, or uses a
+ * cached credential). Returns true when the copy succeeded.
+ */
+function writeHostsViaSudo(content: string): boolean {
+  if (platform() === 'win32' || isAdmin()) return false;
+
+  const target = hostsPath();
+  const tmp = path.join(os.tmpdir(), `antigravity-hosts-${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(tmp, content, 'utf-8');
+
+    let mode: number | undefined;
+    try { mode = fs.statSync(target).mode & 0o777; } catch { /* default */ }
+
+    const backup = `${target}.antigravity.bak`;
+    if (!fs.existsSync(backup)) {
+      runSudo(['cp', target, backup]); // best-effort
+    }
+    if (!runSudo(['cp', tmp, target])) return false;
+    if (mode !== undefined) runSudo(['chmod', mode.toString(8), target]); // best-effort
+    return true;
+  } catch {
+    return false;
+  } finally {
+    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
+  }
+}
+
+/** Direct write when possible, sudo copy otherwise. */
+function writeHostsOrSudo(content: string): boolean {
+  try {
+    writeHosts(content);
+    return true;
+  } catch {
+    return writeHostsViaSudo(content);
+  }
+}
+
 export function cleanHostsFile(): HostsCleanResult {
   const target = hostsPath();
   const domains = new Set(
@@ -561,8 +610,8 @@ export function cleanHostsFile(): HostsCleanResult {
     if (!found) return { found: false, cleaned: false };
 
     content = kept.join('\n').replace(/\n{3,}/g, '\n\n');
-    writeHosts(content);
-    return { found: true, cleaned: true };
+    if (writeHostsOrSudo(content)) return { found: true, cleaned: true };
+    return { found: true, cleaned: false, error: hostsPermissionError() };
   } catch {
     return { found: true, cleaned: false, error: hostsPermissionError() };
   }
@@ -597,7 +646,9 @@ export function setupHostsFile(): HostsCleanResult {
     });
 
     if (entriesToAdd.length === 0) {
-      return { found: true, cleaned: true };
+      // Nothing was added — report "not found" so callers print the
+      // "already configured" message instead of claiming they added entries.
+      return { found: false, cleaned: false };
     }
 
     let out = content;
@@ -606,8 +657,8 @@ export function setupHostsFile(): HostsCleanResult {
     }
     out = out.trimEnd() + '\n' + entriesToAdd.join('\n') + '\n';
 
-    writeHosts(out);
-    return { found: true, cleaned: true };
+    if (writeHostsOrSudo(out)) return { found: true, cleaned: true };
+    return { found: true, cleaned: false, error: hostsPermissionError() };
   } catch {
     return { found: true, cleaned: false, error: hostsPermissionError() };
   }

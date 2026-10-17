@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { platform } from 'os';
-import { stopProxy, isProxyRunning } from '../utils/process.js';
+import { stopProxy, isProxyRunning, getProxyPid } from '../utils/process.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { resolveAntigravityApp } from '../utils/antigravity-app.js';
 import { header, section, ok, warn, info, error, divider } from '../ui.js';
@@ -136,11 +136,18 @@ export async function stopCommand(): Promise<void> {
 
   section('Killing proxy');
   const proxyRunning = isProxyRunning();
+  let proxyStillRunning = false;
   if (proxyRunning) {
     console.log(`  ${info('Stopping proxy...')}`);
     const stopped = stopProxy();
     if (stopped) {
       console.log(`  ${ok('Proxy stopped by PID')}`);
+    } else if (getProxyPid() !== null) {
+      // The PID file is still there and we could not signal the process — it
+      // belongs to another user (typically started with sudo).
+      proxyStillRunning = true;
+      console.log(`  ${warn('Proxy was started by another user (sudo?) — not permitted to stop it')}`);
+      console.log(`  ${info('Run: sudo antigravity stop')}`);
     } else {
       console.log(`  ${warn('PID file not found — killing by port')}`);
       killProcessesOnPorts([443, 8443, 4000]);
@@ -153,7 +160,11 @@ export async function stopCommand(): Promise<void> {
   }
 
   divider();
-  console.log(`  ${ok('All stopped')}`);
-  console.log(`  ${info('Run')} ${info('antigravity start')} ${info('to start again.')}`);
+  if (proxyStillRunning) {
+    console.log(`  ${warn('Proxy is still running.')} ${info('Run: sudo antigravity stop')}`);
+  } else {
+    console.log(`  ${ok('All stopped')}`);
+    console.log(`  ${info('Run')} ${info('antigravity start')} ${info('to start again.')}`);
+  }
   console.log('');
 }

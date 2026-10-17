@@ -21,7 +21,7 @@ function elevationHint(): string {
 
 function launchAntigravityOrWarn(): void {
   if (!launchAntigravity()) {
-    console.log(`  ${warn('Antigravity not found. Launch it manually.')}`);
+    console.log(`  ${warn('Antigravity not found — set its path with: antigravity path <binary>')}`);
   }
 }
 

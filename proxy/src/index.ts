@@ -21,7 +21,7 @@ import { checkRateLimit, recordRequest, setRateLimitConfig } from './rate-limite
 import { checkBlocked } from './blocklist.js';
 import { scanLocalProviders } from './local-discovery.js';
 import { installAgentContext } from './install-context.js';
-import { USER_CERT_FILE, USER_KEY_FILE } from './data-paths.js';
+import { USER_CERT_FILE, USER_KEY_FILE, USER_DATA_DIR, chownTreeIfRoot } from './data-paths.js';
 import { getWorkspaceContextEnvelope, wrapToolResultForContextFile, isWorkspaceContextFile } from './workspace-context.js';
 import { getSessionId, setSessionId } from './session-store.js';
 import { modelResolver } from './models.js';
@@ -818,6 +818,11 @@ async function main(): Promise<void> {
     process.env.AGENT_CONTEXT_PATH = installedPath;
   }
 
+  // A sudo-root run writes logs/DB/PID as root inside the invoking user's data
+  // dir. Hand anything root-owned back to the real user (no-op otherwise), so
+  // a later non-root run can still read and write its own state.
+  chownTreeIfRoot(USER_DATA_DIR);
+
   db.init();
   db.clearLogs();
   setRateLimitConfig({ globalMax: config.rateLimitGlobal, providerMax: config.rateLimitProvider, windowMs: config.rateLimitWindow });
@@ -930,6 +935,7 @@ async function main(): Promise<void> {
 
 async function shutdown(): Promise<void> {
   logger.info('Shutdown');
+  db.chownDbFiles();
   await httpPool.closeAll();
   process.exit(0);
 }

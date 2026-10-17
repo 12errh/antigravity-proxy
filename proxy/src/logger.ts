@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { EventEmitter } from 'events';
 import { config } from './config.js';
 import * as db from './db.js';
-import { USER_LOGS_DIR } from './data-paths.js';
+import { USER_LOGS_DIR, chownIfRoot } from './data-paths.js';
 
 const LOG_LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
 
@@ -79,14 +79,23 @@ function rotateIfNeeded(): void {
 
 function ensureStream(): fs.WriteStream {
   if (logStream) return logStream;
-  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+  if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, { recursive: true });
+    chownIfRoot(logDir);
+  }
   pruneOldLogs();
   const name = makeLogFilename();
   const filepath = path.join(logDir, name);
   currentLogFile = filepath;
   try { currentLogSize = fs.statSync(filepath).size; } catch { currentLogSize = 0; }
+  // Create the file synchronously so a sudo-root run can hand ownership back
+  // to the invoking user before writing to it.
+  try { fs.writeFileSync(filepath, '', { flag: 'a' }); } catch { /* stream error handler below */ }
+  chownIfRoot(filepath);
   logStream = fs.createWriteStream(filepath, { flags: 'a', encoding: 'utf-8' });
-  logStream.on('drain', () => { /* noop */ });
+  // Without an 'error' listener an open failure (e.g. EACCES on a log file
+  // left root-owned by an earlier sudo run) would crash the whole proxy.
+  logStream.on('error', () => { logStream = null; });
   return logStream;
 }
 

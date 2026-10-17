@@ -1,9 +1,22 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Extract a user's home directory from passwd-format content.
+ * Returns null when the user has no entry. Exported for regression tests.
+ */
+export function parsePasswdHome(passwdContent: string, user: string): string | null {
+  for (const line of passwdContent.split('\n')) {
+    const fields = line.split(':');
+    if (fields[0] === user && fields[5]) return fields[5];
+  }
+  return null;
+}
 
 /**
  * Resolve the home directory of the real (invoking) user.
@@ -17,21 +30,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function resolveRealHome(): string {
   const sudoUser = process.env.SUDO_USER;
   if (process.getuid?.() === 0 && sudoUser && sudoUser !== 'root') {
+    // NOTE: do NOT use os.userInfo({ username }) here. Node's userInfo ignores
+    // unknown options and silently returns the *current* user (root), which
+    // sent all state to /root. Resolve from the passwd database instead.
     try {
-      const uid = process.env.SUDO_UID ? parseInt(process.env.SUDO_UID, 10) : NaN;
-      // os.userInfo({ username }) resolves from passwd, independent of HOME.
-      const info = os.userInfo({ username: sudoUser } as any);
-      if (info?.homedir) return info.homedir;
-      void uid;
+      const home = parsePasswdHome(fs.readFileSync('/etc/passwd', 'utf-8'), sudoUser);
+      if (home) return home;
     } catch {
-      // Fall through to the passwd lookup below
+      // Fall through to the getent lookup below
     }
+    // NSS/LDAP/SSSD-backed users are not listed in /etc/passwd — ask getent.
     try {
-      const passwd = fs.readFileSync('/etc/passwd', 'utf-8');
-      for (const line of passwd.split('\n')) {
-        const fields = line.split(':');
-        if (fields[0] === sudoUser && fields[5]) return fields[5];
-      }
+      const out = execFileSync('getent', ['passwd', sudoUser], { encoding: 'utf-8', timeout: 5000 });
+      const home = out.trim().split(':')[5];
+      if (home) return home;
     } catch {
       // Fall through to os.homedir()
     }
@@ -40,6 +52,45 @@ function resolveRealHome(): string {
 }
 
 export const REAL_HOME = resolveRealHome();
+
+/**
+ * UID/GID of the invoking user when running under sudo, else undefined.
+ * Used to hand root-created files back to the real user.
+ */
+export const REAL_UID: number | undefined = (() => {
+  if (process.getuid?.() !== 0) return undefined;
+  const uid = parseInt(process.env.SUDO_UID ?? '', 10);
+  return Number.isInteger(uid) && uid > 0 ? uid : undefined;
+})();
+
+export const REAL_GID: number | undefined = (() => {
+  if (REAL_UID === undefined) return undefined;
+  const gid = parseInt(process.env.SUDO_GID ?? '', 10);
+  return Number.isInteger(gid) && gid > 0 ? gid : undefined;
+})();
+
+/**
+ * Hand a file/dir created by a sudo-root run back to the invoking user.
+ * Without this, root-owned files in ~/.antigravity (logs, PID file, SQLite
+ * DB) break every later non-root run. Best-effort, no-op when not root.
+ */
+export function chownIfRoot(target: string): void {
+  if (REAL_UID === undefined) return;
+  try { fs.chownSync(target, REAL_UID, REAL_GID ?? -1); } catch { /* best-effort */ }
+}
+
+/** Recursively hand a directory tree back to the invoking user. */
+export function chownTreeIfRoot(dir: string): void {
+  if (REAL_UID === undefined) return;
+  let entries: fs.Dirent[] = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { /* missing/unreadable */ }
+  for (const entry of entries) {
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) chownTreeIfRoot(p);
+    else chownIfRoot(p);
+  }
+  chownIfRoot(dir);
+}
 export const USER_DATA_DIR = path.join(REAL_HOME, '.antigravity');
 export const USER_DB_DIR = path.join(USER_DATA_DIR, 'data');
 export const USER_DB_PATH = path.join(USER_DB_DIR, 'proxy.db');
@@ -63,6 +114,8 @@ export function copyFileIfMissing(src: string, dest: string): boolean {
     if (!fs.existsSync(src) || fs.existsSync(dest)) return false;
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(src, dest);
+    chownIfRoot(path.dirname(dest));
+    chownIfRoot(dest);
     return true;
   } catch {
     return false;
@@ -74,6 +127,7 @@ function copyDirIfMissing(srcDir: string, destDir: string): boolean {
   if (!fs.existsSync(srcDir)) return false;
   let copied = false;
   fs.mkdirSync(destDir, { recursive: true });
+  chownIfRoot(destDir);
   for (const f of fs.readdirSync(srcDir)) {
     if (copyFileIfMissing(path.join(srcDir, f), path.join(destDir, f))) copied = true;
   }
@@ -102,6 +156,7 @@ export function migrateUserData(): void {
   if (migrated || fs.existsSync(USER_DATA_DIR)) {
     try {
       fs.writeFileSync(MIGRATION_MARKER, new Date().toISOString(), 'utf-8');
+      chownIfRoot(MIGRATION_MARKER);
     } catch { /* best-effort */ }
   }
 }

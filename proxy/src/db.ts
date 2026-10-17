@@ -2,11 +2,22 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'node:module';
-import { migrateUserData, USER_DB_DIR, USER_DB_PATH } from './data-paths.js';
+import { migrateUserData, USER_DB_DIR, USER_DB_PATH, chownIfRoot } from './data-paths.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 migrateUserData();
+
+/**
+ * Hand the SQLite files back to the invoking user after a sudo-root run.
+ * A root-owned proxy.db/-wal/-shm makes every later non-root run fail to open
+ * the database. No-op when not running as root via sudo.
+ */
+export function chownDbFiles(): void {
+  for (const f of [USER_DB_PATH, `${USER_DB_PATH}-wal`, `${USER_DB_PATH}-shm`]) {
+    chownIfRoot(f);
+  }
+}
 
 // Try to load better-sqlite3. If the native module isn't compiled
 // (e.g. CI with --ignore-scripts on Windows), all DB functions become
@@ -14,7 +25,10 @@ migrateUserData();
 let db: any = null;
 try {
   const dbDir = USER_DB_DIR;
-  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+    chownIfRoot(dbDir);
+  }
   const dbPath = USER_DB_PATH;
   // @ts-ignore - better-sqlite3 types conflict with ESM declaration emit
   const _require = createRequire(import.meta.url);
@@ -22,6 +36,7 @@ try {
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
+  chownDbFiles();
 } catch {
   // Native module not available — provide a safe no-op stub so callers
   // can import db.ts without crashing (important for CI tests).

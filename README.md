@@ -128,6 +128,8 @@ Then open **http://localhost:4000** in your browser to configure providers, mode
 | `antigravity certs trust` | Install cert to OS trust store |
 | `antigravity setup` | Interactive onboarding wizard |
 | `antigravity switch` | Toggle between proxy and simple mode |
+| `antigravity path` | Show the detected Antigravity desktop binary |
+| `antigravity path <binary>` | Pin the desktop binary path (useful on Linux) |
 | `antigravity remove` | Remove proxy artifacts and clean up |
 
 > **Admin elevation:** Commands requiring privileges (`start`, `stop`, `switch`, `remove`, `setup`, `certs`) automatically request UAC elevation on Windows. The `start --simple` flag skips elevation since it doesn't need admin. **Running from an Administrator terminal is recommended** for seamless flow — avoids repeated UAC prompts.

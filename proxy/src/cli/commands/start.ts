@@ -7,7 +7,7 @@ import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
 import { PROXY_DIR } from '../utils/paths.js';
-import { USER_CERTS_DIR, USER_ENV_PATH, USER_LOGS_DIR } from '../../data-paths.js';
+import { USER_DATA_DIR, USER_CERTS_DIR, USER_ENV_PATH, USER_LOGS_DIR, chownIfRoot, chownTreeIfRoot } from '../../data-paths.js';
 import { launchAntigravity } from '../utils/antigravity-app.js';
 import { checkAndPromptUpdate } from '../utils/update-check.js';
 import chalk from 'chalk';
@@ -28,9 +28,28 @@ function elevationHint(): string {
   return platform() === 'win32' ? 'Run as Administrator' : 'Run with sudo';
 }
 
+export interface ResolvedPorts { proxyPort: number; apiPort: number }
+
+/**
+ * Resolve the effective ports. Precedence: explicit --port flag (or the
+ * wizard passing `port`) wins, then PROXY_PORT from the config (.env is
+ * loaded into process.env), then 443. Exported for regression tests.
+ */
+export function resolvePorts(opts: { port?: string }): ResolvedPorts {
+  return {
+    proxyPort: parseInt(opts.port ?? process.env.PROXY_PORT ?? '443', 10),
+    apiPort: parseInt(process.env.API_PORT ?? '4000', 10),
+  };
+}
+
 export async function startCommand(opts: StartOptions): Promise<void> {
-  const proxyPort = parseInt(opts.port || '443', 10);
-  const apiPort = 4000;
+  const { proxyPort, apiPort } = resolvePorts(opts);
+
+  // After a `sudo antigravity start`, files created as root in ~/.antigravity
+  // (logs, PID, SQLite DB) would break every later non-root run. Hand any
+  // root-owned state back to the invoking user before doing anything else.
+  // No-op when not running as root via sudo.
+  chownTreeIfRoot(USER_DATA_DIR);
 
   header('Antigravity Proxy', `v${JSON.parse(fs.readFileSync(path.join(PROXY_DIR, 'package.json'), 'utf-8')).version}`);
 
@@ -55,7 +74,7 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     if (launchAntigravityDesktop()) {
       console.log(`  ${ok('Antigravity launched')}`);
     } else {
-      console.log(`  ${warn('Antigravity not found — launch it manually')}`);
+      console.log(`  ${warn('Antigravity not found — set its path with: antigravity path <binary>')}`);
     }
 
     console.log('');
@@ -113,7 +132,10 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   if (shouldTrust) {
     try {
       trustCert();
-      try { fs.writeFileSync(certTrustedMarker, new Date().toISOString()); } catch { /* non-fatal */ }
+      try {
+        fs.writeFileSync(certTrustedMarker, new Date().toISOString());
+        chownIfRoot(certTrustedMarker);
+      } catch { /* non-fatal */ }
       succeedSpinner(certTrustSpinner, 'Certificate trusted');
     } catch (e: any) {
       warnSpinner(certTrustSpinner, `Certificate not auto-trusted: ${e.message}`);
@@ -147,7 +169,9 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   if (!fs.existsSync(USER_ENV_PATH) && fs.existsSync(envExample)) {
     try {
       fs.mkdirSync(path.dirname(USER_ENV_PATH), { recursive: true });
+      chownIfRoot(path.dirname(USER_ENV_PATH));
       fs.copyFileSync(envExample, USER_ENV_PATH);
+      chownIfRoot(USER_ENV_PATH);
       console.log(`  ${warn(`.env created at ${USER_ENV_PATH} — add API keys in the dashboard Config tab`)}`);
     } catch { /* non-fatal */ }
   }
@@ -156,6 +180,7 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   // here so `--foreground` output and the dashboard Sessions/Logs tabs agree.
   if (!fs.existsSync(USER_LOGS_DIR)) {
     fs.mkdirSync(USER_LOGS_DIR, { recursive: true });
+    chownIfRoot(USER_LOGS_DIR);
   }
 
   const distDir = path.join(PROXY_DIR, 'dist');
@@ -181,7 +206,7 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     if (launchAntigravityDesktop()) {
       console.log(`  ${ok('Antigravity launched')}`);
     } else {
-      console.log(`  ${warn('Antigravity not found — launch it manually')}`);
+      console.log(`  ${warn('Antigravity not found — set its path with: antigravity path <binary>')}`);
     }
 
     console.log(`  ${arrow('Starting proxy in foreground')}`);
@@ -204,6 +229,9 @@ export async function startCommand(opts: StartOptions): Promise<void> {
     succeedSpinner(healthSpinner, 'Dashboard ready');
   } else {
     warnSpinner(healthSpinner, 'Dashboard not yet responding — check logs');
+    if (!isProxyRunning()) {
+      console.log(`  ${info('The proxy process exited during startup. Run: antigravity start --foreground to see the error.')}`);
+    }
   }
 
   if (opts.browser !== false) {
@@ -214,7 +242,7 @@ export async function startCommand(opts: StartOptions): Promise<void> {
   if (launchAntigravityDesktop()) {
     console.log(`  ${ok('Antigravity launched')}`);
   } else {
-    console.log(`  ${warn('Antigravity not found — launch it manually')}`);
+    console.log(`  ${warn('Antigravity not found — set its path with: antigravity path <binary>')}`);
   }
 
   console.log('');

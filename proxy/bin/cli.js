@@ -84,6 +84,7 @@ import { setupCommand } from '../dist/cli/commands/setup.js';
 import { shellCommand } from '../dist/cli/commands/shell.js';
 import { switchCommand } from '../dist/cli/commands/switch.js';
 import { removeCommand } from '../dist/cli/commands/remove.js';
+import { pathCommand } from '../dist/cli/commands/path.js';
 
 const program = new Command();
 
@@ -95,7 +96,7 @@ program
 program
   .command('start')
   .description('Start the proxy and dashboard')
-  .option('-p, --port <port>', 'proxy port', '443')
+  .option('-p, --port <port>', 'proxy port (overrides PROXY_PORT from .env)')
   .option('--no-browser', 'do not open dashboard in browser')
   .option('-f, --foreground', 'run in foreground (do not detach)')
   .option('--trust-cert', 'auto-trust TLS certificate')
@@ -156,6 +157,13 @@ program
   .command('switch')
   .description('Switch between proxy and simple mode')
   .action(switchCommand);
+
+program
+  .command('path')
+  .description('Show or set the Antigravity desktop binary path')
+  .argument('[binary]', 'path to the Antigravity executable')
+  .option('--reset', 'clear the configured path and use auto-discovery')
+  .action(pathCommand);
 
 program
   .command('remove')

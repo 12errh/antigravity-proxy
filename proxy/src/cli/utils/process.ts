@@ -3,7 +3,7 @@ import path from 'path';
 import { spawn, execSync } from 'child_process';
 import { platform } from 'os';
 import { PROXY_DIR } from './paths.js';
-import { USER_DATA_DIR } from '../../data-paths.js';
+import { USER_DATA_DIR, chownIfRoot } from '../../data-paths.js';
 
 const PID_DIR = USER_DATA_DIR;
 const PID_FILE = path.join(PID_DIR, 'proxy.pid');
@@ -65,8 +65,11 @@ export function startProxy(options: StartProxyOptions): number | null {
   const useTsx = entryPoint.endsWith('.ts');
 
   const env = { ...process.env };
-  if (!env.PROXY_PORT) env.PROXY_PORT = String(options.proxyPort);
-  if (!env.API_PORT) env.API_PORT = String(options.apiPort);
+  // The caller (start.ts) already resolved precedence (--port flag > .env >
+  // default), so these values are authoritative — do not let a stale .env
+  // silently re-override an explicitly requested port.
+  env.PROXY_PORT = String(options.proxyPort);
+  env.API_PORT = String(options.apiPort);
 
   // Spawn the Node that is running this CLI (process.execPath) rather than
   // relying on `node` being on PATH. Under nvm, or when the CLI was invoked via
@@ -76,6 +79,7 @@ export function startProxy(options: StartProxyOptions): number | null {
     const args = buildNodeArgs(entryPoint, useTsx);
     const child = spawn(process.execPath, args, { cwd: proxyDir, env, stdio: 'inherit' });
     fs.writeFileSync(PID_FILE, String(child.pid));
+    chownIfRoot(PID_FILE);
     child.on('exit', () => { try { fs.unlinkSync(PID_FILE); } catch {} });
     return child.pid ?? null;
   }
@@ -93,6 +97,7 @@ export function startProxy(options: StartProxyOptions): number | null {
   const pid = child.pid || null;
   if (pid) {
     fs.writeFileSync(PID_FILE, String(pid));
+    chownIfRoot(PID_FILE);
   }
   return pid;
 }
@@ -109,7 +114,10 @@ export function stopProxy(): boolean {
     }
     try { fs.unlinkSync(PID_FILE); } catch {}
     return true;
-  } catch {
+  } catch (e: any) {
+    // A proxy started with sudo is not ours to kill. Keep the PID file so a
+    // later `sudo antigravity stop` can still find the process.
+    if (e?.code === 'EPERM') return false;
     try { fs.unlinkSync(PID_FILE); } catch {}
     return true;
   }
