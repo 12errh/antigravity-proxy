@@ -231,7 +231,9 @@ export function desktopSessionEnv(
   const env: NodeJS.ProcessEnv = { ...base, HOME: home };
   const runtimeDir = `/run/user/${uid}`;
   env.XDG_RUNTIME_DIR = runtimeDir;
-  const bus = path.join(runtimeDir, 'bus');
+  // D-Bus addresses are POSIX paths by spec — never build this with path.join,
+  // which yields backslashes when tests (or code paths) run on Windows.
+  const bus = `${runtimeDir}/bus`;
   if (exists(bus)) env.DBUS_SESSION_BUS_ADDRESS = `unix:path=${bus}`;
 
   const dataDirs: string[] = [];
