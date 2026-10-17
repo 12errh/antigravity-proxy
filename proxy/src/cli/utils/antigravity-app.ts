@@ -206,6 +206,53 @@ export function resolveAntigravityApp(): string | null {
 }
 
 /**
+ * Environment for the desktop app when it is launched from a root/sudo
+ * context. sudo's env_reset strips the session-critical variables:
+ *
+ *  - DBUS_SESSION_BUS_ADDRESS — without it the desktop portal cannot open the
+ *    sign-in page in the browser and the LS keyring access fails
+ *    ("dbus: invalid bus address" in language_server.log).
+ *  - XDG_RUNTIME_DIR — flatpak, PulseAudio and portals need it.
+ *  - XDG_DATA_DIRS — sudo resets it, dropping the flatpak exports dirs. When
+ *    Chrome is installed as a Flatpak, `xdg-open` then cannot resolve
+ *    com.google.Chrome.desktop at all, so shell.openExternal (the sign-in
+ *    button) silently does nothing and the UI spinner never resolves.
+ *
+ * Existing values are preserved; missing pieces are reconstructed and the
+ * flatpak exports dirs are prepended (user dir, then system-wide) so browser
+ * resolution works exactly like in the user's own shell.
+ */
+export function desktopSessionEnv(
+  uid: number,
+  home: string,
+  base: NodeJS.ProcessEnv,
+  exists: (p: string) => boolean = fs.existsSync,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base, HOME: home };
+  const runtimeDir = `/run/user/${uid}`;
+  env.XDG_RUNTIME_DIR = runtimeDir;
+  const bus = path.join(runtimeDir, 'bus');
+  if (exists(bus)) env.DBUS_SESSION_BUS_ADDRESS = `unix:path=${bus}`;
+
+  const dataDirs: string[] = [];
+  const add = (d: string): void => {
+    if (d && !dataDirs.includes(d)) dataDirs.push(d);
+  };
+  for (const d of [
+    path.join(home, '.local', 'share', 'flatpak', 'exports', 'share'),
+    '/var/lib/flatpak/exports/share',
+  ]) {
+    if (exists(d)) add(d);
+  }
+  for (const d of (base.XDG_DATA_DIRS ?? '/usr/local/share:/usr/share').split(':')) add(d);
+  add('/usr/local/share');
+  add('/usr/share');
+  if (exists('/var/lib/snapd/desktop')) add('/var/lib/snapd/desktop');
+  env.XDG_DATA_DIRS = dataDirs.join(':');
+  return env;
+}
+
+/**
  * Launch the desktop app detached from this process.
  * Returns true only when a child was actually spawned.
  */
@@ -227,9 +274,11 @@ export function launchAntigravity(): boolean {
       // Under `sudo antigravity start`, the desktop must NOT run as root:
       // Electron/Chromium refuses to run as root without --no-sandbox, and a
       // root-owned profile would corrupt the user's app state. Drop to the
-      // invoking user (uid/gid options are ignored for non-root callers).
+      // invoking user (uid/gid options are ignored for non-root callers) and
+      // rebuild the session env sudo stripped, or sign-in can never open a
+      // browser (see desktopSessionEnv).
       ...(REAL_UID !== undefined
-        ? { uid: REAL_UID, gid: REAL_GID, env: { ...process.env, HOME: REAL_HOME } }
+        ? { uid: REAL_UID, gid: REAL_GID, env: desktopSessionEnv(REAL_UID, REAL_HOME, process.env) }
         : {}),
     });
     // spawn() reports ENOENT asynchronously; nothing to do but avoid an unhandled error.

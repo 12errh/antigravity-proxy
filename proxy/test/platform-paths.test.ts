@@ -26,6 +26,7 @@ import {
 import { parseHostnameFields, lineMapsAny } from '../src/cli/utils/cert.js';
 import {
   isOwnCliEntry, antigravityCandidates, getConfiguredPath, setConfiguredPath, clearConfiguredPath,
+  desktopSessionEnv,
 } from '../src/cli/utils/antigravity-app.js';
 import { resolvePorts } from '../src/cli/commands/start.js';
 import { sanitizeForwardHeaders } from '../src/forward-headers.js';
@@ -107,8 +108,12 @@ test('sudo-root runs hand files in the user data dir back to the invoking user',
 
 test('sudo-root start launches the desktop as the invoking user (not root)', () => {
   const app = src('cli/utils/antigravity-app.ts');
-  assert.match(app, /REAL_UID !== undefined[\s\S]{0,160}uid: REAL_UID, gid: REAL_GID/, 'desktop spawn must drop to the invoking user');
-  assert.match(app, /HOME: REAL_HOME/, 'dropped desktop process needs the real user HOME');
+  assert.match(app, /REAL_UID !== undefined[\s\S]{0,300}uid: REAL_UID, gid: REAL_GID/, 'desktop spawn must drop to the invoking user');
+  assert.match(
+    app,
+    /desktopSessionEnv\(REAL_UID, REAL_HOME, process\.env\)/,
+    'dropped desktop process needs the real user HOME and a reinstated session env',
+  );
 });
 
 test('stopProxy keeps the PID file and refuses when the process is not permitted (sudo-owned)', () => {
@@ -435,9 +440,13 @@ test('start.ts warns when the proxy is not on 443 (desktop app dials 443)', () =
 
 // ── start.ts: root + hosts interception port correction ──────────────────────
 
-test('start.ts corrects a non-443 PROXY_PORT when root with active hosts routing', () => {
+test('start.ts corrects a non-443 PROXY_PORT on any root proxy-mode start', () => {
   const startTs = src('cli/commands/start.ts');
-  assert.match(startTs, /isRootUser && !opts\.port && proxyPort !== 443 && hostsHasProxyEntries\(\)/);
+  assert.match(
+    startTs,
+    /!opts\.simple && isRootUser && !opts\.port && proxyPort !== 443/,
+    'root proxy starts install hosts routing themselves — waiting for pre-existing entries misses the switch-to-proxy flow',
+  );
   assert.match(startTs, /let proxyPort = ports\.proxyPort/, 'proxyPort must be reassignable for the correction');
   const certTs = src('cli/utils/cert.ts');
   assert.match(certTs, /export function hostsHasProxyEntries/);
@@ -502,5 +511,43 @@ test('bootstrap re-exec works end-to-end when invoked with an old system node', 
     `${res.stdout}${res.stderr}`,
     /\d+\.\d+\.\d+/,
     'the old node must transparently re-exec into the modern CLI',
+  );
+});
+
+// ── Desktop launch under sudo: session env reconstruction ────────────────────
+
+test('desktopSessionEnv restores the user session bus, runtime dir, and flatpak XDG dirs', () => {
+  const always = () => true;
+  const env = desktopSessionEnv(
+    1000,
+    '/home/u',
+    { PATH: '/usr/bin', XDG_DATA_DIRS: '/usr/local/share:/usr/share' },
+    always,
+  );
+  assert.equal(env.HOME, '/home/u');
+  assert.equal(env.XDG_RUNTIME_DIR, '/run/user/1000');
+  assert.equal(env.DBUS_SESSION_BUS_ADDRESS, 'unix:path=/run/user/1000/bus');
+  const dirs = String(env.XDG_DATA_DIRS).split(':');
+  assert.ok(dirs.includes('/var/lib/flatpak/exports/share'), 'flatpak system exports must be present');
+  assert.ok(
+    dirs.indexOf('/var/lib/flatpak/exports/share') < dirs.indexOf('/usr/share'),
+    'flatpak exports must be searched before /usr/share (browser resolution order)',
+  );
+  assert.equal(env.PATH, '/usr/bin', 'unrelated variables are preserved');
+});
+
+test('desktopSessionEnv does not invent paths that do not exist', () => {
+  const never = () => false;
+  const env = desktopSessionEnv(1000, '/home/u', {}, never);
+  assert.equal(env.DBUS_SESSION_BUS_ADDRESS, undefined, 'no bus socket on disk, no bus address');
+  assert.equal(env.XDG_DATA_DIRS, '/usr/local/share:/usr/share', 'no flatpak/snap dirs when absent');
+});
+
+test('launchAntigravity rebuilds the session env when dropping privileges under sudo', () => {
+  const app = src('cli/utils/antigravity-app.ts');
+  assert.match(
+    app,
+    /env: desktopSessionEnv\(REAL_UID, REAL_HOME, process\.env\)/,
+    'the sudo launch path must pass the reconstructed env (sign-in opens no browser otherwise)',
   );
 });

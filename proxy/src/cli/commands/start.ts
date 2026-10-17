@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { platform } from 'os';
-import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile, hostsHasProxyEntries } from '../utils/cert.js';
+import { certExists, generateCerts, trustCert, cleanHostsFile, setupHostsFile } from '../utils/cert.js';
 import { killProcessesOnPorts } from '../utils/port.js';
 import { startProxy, isProxyRunning, waitForHealth } from '../utils/process.js';
 import { openUrl } from '../utils/open.js';
@@ -49,12 +49,12 @@ export async function startCommand(opts: StartOptions): Promise<void> {
 
   // Interception is port-bound: hosts entries redirect the hostname, not the
   // port, so the desktop app always dials 443. A PROXY_PORT=8443 in .env is a
-  // non-root leftover; when running as root (where 443 is bindable) and hosts
-  // routing is already installed, staying on 8443 breaks every sign-in. Only
-  // correct this exact combination — an explicit --port, a hosts-less setup
-  // (e.g. an external 443→8443 redirect) or a non-root run is left alone.
+  // non-root leftover; a root proxy-mode start either already has hosts
+  // routing installed or installs it below, so staying on 8443 breaks every
+  // sign-in. Only an explicit --port is left alone (plus non-root runs and
+  // simple mode, which have no routing at all).
   const isRootUser = typeof process.getuid === 'function' && process.getuid() === 0;
-  if (isRootUser && !opts.port && proxyPort !== 443 && hostsHasProxyEntries()) {
+  if (!opts.simple && isRootUser && !opts.port && proxyPort !== 443) {
     console.log(`  ${info(`PROXY_PORT=${proxyPort} is a non-root setting — using 443 for app interception (pass --port ${proxyPort} to override)`)}`);
     proxyPort = 443;
   }
