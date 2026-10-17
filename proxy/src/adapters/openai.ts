@@ -232,11 +232,21 @@ export class OpenAICompatAdapter implements ModelAdapter {
     return body;
   }
 
+  protected allowsAudioParts(): boolean {
+    return this.provider === 'openrouter';
+  }
+
+  protected allowsVideoParts(): boolean {
+    return this.provider === 'openrouter';
+  }
+
   protected serializeMessages(messages: OpenAIMessage[]): any[] {
     return messages.map(m => {
       const out: any = { role: m.role };
       if (Array.isArray(m.content)) {
         const cleaned = m.content.map((part: any) => {
+          if (part && part.type === 'input_audio' && !this.allowsAudioParts()) return null;
+          if (part && part.type === 'video_url' && !this.allowsVideoParts()) return null;
           if (part && part.type === 'image_url' && part.image_url && part.image_url.url) {
             const u = part.image_url.url;
             if (!/^(https?:|data:|file:)/i.test(u)) return null;

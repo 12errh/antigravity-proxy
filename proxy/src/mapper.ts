@@ -11,7 +11,19 @@ export interface OpenAIImagePart {
   image_url: { url: string; detail?: 'auto' | 'low' | 'high' };
 }
 
-export type OpenAIContentPart = OpenAITextPart | OpenAIImagePart;
+export interface OpenAIInputAudioPart {
+  type: 'input_audio';
+  input_audio: { data: string; format: string };
+}
+
+export interface OpenAIVideoPart {
+  type: 'video_url';
+  video_url: { url: string };
+}
+
+export type OpenAIMediaPart = OpenAIImagePart | OpenAIInputAudioPart | OpenAIVideoPart;
+
+export type OpenAIContentPart = OpenAITextPart | OpenAIMediaPart;
 
 export interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -58,7 +70,44 @@ function callId(name: string, idx: number): string {
   return `call_${safeName}_${idx}`;
 }
 
-function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
+const AUDIO_FORMAT_BY_MIME: Record<string, string> = {
+  'audio/wav': 'wav',
+  'audio/wave': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/vnd.wave': 'wav',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/aiff': 'aiff',
+  'audio/x-aiff': 'aiff',
+  'audio/aac': 'aac',
+  'audio/ogg': 'ogg',
+  'audio/vorbis': 'ogg',
+  'audio/flac': 'flac',
+  'audio/x-flac': 'flac',
+  'audio/mp4': 'm4a',
+  'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/l16': 'pcm16',
+  'audio/pcm16': 'pcm16',
+};
+
+function baseMime(mime: string): string {
+  return mime.split(';')[0].trim().toLowerCase();
+}
+
+function audioFormatFor(mime: string): string | null {
+  return AUDIO_FORMAT_BY_MIME[baseMime(mime)] || null;
+}
+
+function audioDataUrlToPart(uri: string): OpenAIInputAudioPart | null {
+  const m = uri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  const format = audioFormatFor(m[1]);
+  if (!format) return null;
+  return { type: 'input_audio', input_audio: { data: m[2], format } };
+}
+
+function partToOpenAIPart(p: any): string | OpenAIMediaPart | null {
   if (!p) return null;
   if (p.text) return p.text;
   if (p.type === 'text' && p.text) return p.text;
@@ -67,7 +116,20 @@ function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
     if (typeof url === 'string') return { type: 'image_url', image_url: { url } };
   }
   if (p.inlineData?.data && p.inlineData?.mimeType) {
-    const mime = p.inlineData.mimeType || 'image/png';
+    const mime = p.inlineData.mimeType;
+    if (baseMime(mime).startsWith('audio/')) {
+      const format = audioFormatFor(mime);
+      if (!format) {
+        logger.warn(`Dropping audio part with unsupported MIME type: ${mime}`);
+        return null;
+      }
+      // OpenAI-compatible audio parts carry raw base64 plus a bare format
+      // token (OpenRouter: wav/mp3/aiff/aac/ogg/flac/m4a/pcm16/pcm24).
+      return { type: 'input_audio', input_audio: { data: p.inlineData.data, format } };
+    }
+    if (baseMime(mime).startsWith('video/')) {
+      return { type: 'video_url', video_url: { url: `data:${mime};base64,${p.inlineData.data}` } };
+    }
     return { type: 'image_url', image_url: { url: `data:${mime};base64,${p.inlineData.data}` } };
   }
   if (typeof p.image === 'string') {
@@ -75,10 +137,21 @@ function partToOpenAIPart(p: any): string | OpenAIImagePart | null {
   }
   if (p.fileData?.fileUri && p.fileData?.mimeType) {
     const uri = p.fileData.fileUri;
+    const mime = p.fileData.mimeType;
     // Only forward as URL if the provider can actually fetch it (http/https/data/file).
     // Google-style `files/abc123` or `gs://` references are NOT fetchable by OpenAI-compat
     // providers — drop them to avoid 400 errors like "URL must be HTTP, data or file URL".
     if (/^(https?:|data:|file:)/i.test(uri)) {
+      if (baseMime(mime).startsWith('audio/')) {
+        const part = uri.startsWith('data:') ? audioDataUrlToPart(uri) : null;
+        if (!part) {
+          logger.warn(`Dropping audio file reference (only base64 data URLs are supported for audio): ${mime}`);
+        }
+        return part;
+      }
+      if (baseMime(mime).startsWith('video/')) {
+        return { type: 'video_url', video_url: { url: uri } };
+      }
       return { type: 'image_url', image_url: { url: uri } };
     }
     // Drop silently — Gemini/Antigravity-specific file references don't translate
@@ -113,10 +186,10 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
       .map((p: any) => p.text || '')
       .join('');
 
-    const imageParts: OpenAIImagePart[] = [];
+    const mediaParts: OpenAIMediaPart[] = [];
     for (const p of parts) {
       const ip = partToOpenAIPart(p);
-      if (ip && typeof ip === 'object') imageParts.push(ip);
+      if (ip && typeof ip === 'object') mediaParts.push(ip);
     }
 
     const googleToolCalls = parts.filter((p: any) => p.functionCall);
@@ -148,12 +221,12 @@ export function mapContentsToMessages(contents: Content[], systemInstruction?: s
         const id = ids.shift() || callId(name, callIndex++);
         messages.push({ role: 'tool', tool_call_id: id, content: contentStr });
       }
-    } else if (imageParts.length > 0) {
+    } else if (mediaParts.length > 0) {
       const content: OpenAIContentPart[] = [];
       if (textParts) {
         content.push({ type: 'text', text: textParts });
       }
-      content.push(...imageParts);
+      content.push(...mediaParts);
       messages.push({ role, content: content.length === 1 && content[0].type === 'text' ? (content[0] as OpenAITextPart).text : content });
     } else {
       messages.push({ role, content: textParts, reasoning_content: thoughtParts || undefined });

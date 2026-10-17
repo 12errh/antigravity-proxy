@@ -4,6 +4,17 @@ import type { StreamChunk, ModelAdapter } from './types.js';
 import { poolFetch } from '../http-pool.js';
 import { parseToolArgs } from '../utils/parse-tool-args.js';
 
+const AUDIO_MIME_BY_FORMAT: Record<string, string> = {
+  wav: 'audio/wav',
+  mp3: 'audio/mp3',
+  aiff: 'audio/aiff',
+  aac: 'audio/aac',
+  ogg: 'audio/ogg',
+  flac: 'audio/flac',
+  m4a: 'audio/mp4',
+  pcm16: 'audio/L16',
+};
+
 export class GoogleAdapter implements ModelAdapter {
   provider = 'google';
   private baseUrl: string;
@@ -147,6 +158,21 @@ export class GoogleAdapter implements ModelAdapter {
               parts.push({ inlineData: { mimeType: m2[1], data: m2[2] } });
             } else {
               parts.push({ fileData: { fileUri: url, mimeType: 'image/jpeg' } });
+            }
+          } else if (p.type === 'input_audio' && p.input_audio?.data) {
+            parts.push({
+              inlineData: {
+                mimeType: AUDIO_MIME_BY_FORMAT[p.input_audio.format] || 'audio/wav',
+                data: p.input_audio.data,
+              },
+            });
+          } else if (p.type === 'video_url' && p.video_url?.url) {
+            const url = p.video_url.url;
+            const m2 = url.match(/^data:([^;]+);base64,(.+)$/);
+            if (m2) {
+              parts.push({ inlineData: { mimeType: m2[1], data: m2[2] } });
+            } else if (/^https?:/i.test(url)) {
+              parts.push({ fileData: { fileUri: url, mimeType: 'video/mp4' } });
             }
           } else if (p.type === 'text' && p.text) {
             parts.push({ text: p.text });

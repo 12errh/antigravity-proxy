@@ -6,6 +6,14 @@ Dates are UTC. Commit hashes are the actual merge commits on `main`.
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Native audio and video passthrough** — `audio/*` parts now map to OpenAI `input_audio` (raw base64 + format token) and `video/*` to `video_url` (URL or data URL). OpenRouter forwards both natively, the Google provider round-trips them to Gemini `inlineData`/`fileData`, and every other provider (Groq, NVIDIA, Anthropic, gateway) strips them cleanly instead of erroring. Closes #13.
+
+---
+
 ## [1.0.12] — 2026-10-17
 
 ### Added
